@@ -1,0 +1,118 @@
+# ==============================================================================
+# Al-Riaz Associates — Apache Configuration
+# ==============================================================================
+
+Options -Indexes
+Options -MultiViews
+
+# ── Rewrite Engine ─────────────────────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # ── Force HTTPS (uncomment when SSL is configured) ──────────────────────
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+    # ── Force www (uncomment if canonical domain uses www) ──────────────────
+    # RewriteCond %{HTTP_HOST} ^alriazassociates\.pk [NC]
+    # RewriteRule ^(.*)$ https://www.alriazassociates.pk/$1 [R=301,L]
+
+    # ── Block direct access to sensitive directories ─────────────────────────
+    # config/  includes/  database/
+    RewriteRule ^(config|includes|database)(/|$) - [F,L]
+
+    # ── Clean URL rewrites for public pages ─────────────────────────────────
+    # /property/slug → /property.php?slug=slug
+    RewriteRule ^property/([a-z0-9\-]+)/?$   property.php?slug=$1 [L,QSA]
+
+    # /project/slug → /project.php?slug=slug
+    RewriteRule ^project/([a-z0-9\-]+)/?$    project.php?slug=$1  [L,QSA]
+
+    # /residential → /residential.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([a-z\-]+)/?$               $1.php               [L,QSA]
+</IfModule>
+
+# ── Protect Sensitive Files ────────────────────────────────────────────────────
+<FilesMatch "^(config\.php|db\.php|auth\.php|functions\.php)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block direct access to .sql files
+<FilesMatch "\.sql$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block direct access to .env, .log, .bak files
+<FilesMatch "\.(env|log|bak|swp|git)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# ── Protect /config/ directory ────────────────────────────────────────────────
+<IfModule mod_authz_core.c>
+    # Apache 2.4+
+</IfModule>
+
+# ── PHP Error Handling ────────────────────────────────────────────────────────
+<IfModule mod_php.c>
+    # Production settings — change display_errors to On during development
+    php_flag  display_errors         Off
+    php_flag  log_errors             On
+    php_value error_log              /var/log/alriaz_errors.log
+    php_value error_reporting        E_ALL
+    php_value upload_max_filesize    5M
+    php_value post_max_size          6M
+    php_value max_execution_time     30
+    php_value memory_limit           128M
+    php_value session.cookie_httponly 1
+    php_value session.use_strict_mode 1
+    # php_value session.cookie_secure  1  # Uncomment when HTTPS is active
+</IfModule>
+
+# ── Security Headers ──────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options    "nosniff"
+    Header always set X-Frame-Options           "SAMEORIGIN"
+    Header always set X-XSS-Protection         "1; mode=block"
+    Header always set Referrer-Policy           "strict-origin-when-cross-origin"
+    # Adjust CSP as needed when deploying
+    # Header always set Content-Security-Policy  "default-src 'self'; ..."
+</IfModule>
+
+# ── MIME Types ────────────────────────────────────────────────────────────────
+<IfModule mod_mime.c>
+    AddType image/webp          .webp
+    AddType application/json    .json
+    AddType font/woff2          .woff2
+</IfModule>
+
+# ── Browser Caching ───────────────────────────────────────────────────────────
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css                  "access plus 1 month"
+    ExpiresByType application/javascript    "access plus 1 month"
+    ExpiresByType image/jpeg                "access plus 6 months"
+    ExpiresByType image/png                 "access plus 6 months"
+    ExpiresByType image/webp                "access plus 6 months"
+    ExpiresByType image/gif                 "access plus 6 months"
+    ExpiresByType image/svg+xml             "access plus 6 months"
+    ExpiresByType font/woff2                "access plus 1 year"
+    ExpiresByType application/font-woff2    "access plus 1 year"
+</IfModule>
+
+# ── Compression ───────────────────────────────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml font/woff2
+</IfModule>
+
+# ── Custom Error Documents ────────────────────────────────────────────────────
+ErrorDocument 403 /errors/403.php
+ErrorDocument 404 /errors/404.php
+ErrorDocument 500 /errors/500.php

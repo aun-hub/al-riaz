@@ -1,0 +1,569 @@
+/**
+ * Al-Riaz Associates — Detail Page JavaScript
+ * Handles: Gallery, Lightbox, Enquiry Form AJAX, WhatsApp, Views Counter,
+ *          Copy Phone, Map Toggle, Share, Tabs, Area Converter
+ */
+
+(function ($) {
+    'use strict';
+
+    /* =========================================================================
+       1. PHOTO GALLERY — Enhanced Bootstrap Carousel + Lightbox
+       ====================================================================== */
+
+    var Gallery = {
+
+        $carousel  : null,
+        $thumbStrip: null,
+        $lightbox  : null,
+        images     : [],   // [{src, alt}]
+        currentIdx : 0,
+
+        init: function () {
+            this.$carousel   = $('#propertyCarousel');
+            this.$thumbStrip = $('#thumbStrip');
+            this.$lightbox   = $('#galleryLightbox');
+
+            if (!this.$carousel.length) return;
+
+            this.buildImages();
+            this.buildThumbs();
+            this.buildLightbox();
+            this.bindCarouselEvents();
+            this.bindSwipe();
+            this.bindKeyboard();
+            this.updateCounter(0);
+        },
+
+        buildImages: function () {
+            var self = this;
+            this.$carousel.find('.carousel-item img').each(function (i) {
+                self.images.push({
+                    src: $(this).attr('src'),
+                    alt: $(this).attr('alt') || 'Property Image ' + (i + 1)
+                });
+            });
+        },
+
+        buildThumbs: function () {
+            if (!this.$thumbStrip.length || !this.images.length) return;
+            var self = this;
+
+            $.each(this.images, function (i, img) {
+                var $thumb = $('<img>')
+                    .attr({ src: img.src, alt: img.alt, title: img.alt })
+                    .addClass('thumb-item' + (i === 0 ? ' active' : ''))
+                    .css({ width: '70px', height: '52px', objectFit: 'cover',
+                           cursor: 'pointer', borderRadius: '4px',
+                           border: i === 0 ? '2px solid #C9A84C' : '2px solid transparent',
+                           transition: 'border-color .2s' })
+                    .on('click', function () {
+                        self.$carousel.carousel(i);
+                    });
+                self.$thumbStrip.append($thumb);
+            });
+        },
+
+        buildLightbox: function () {
+            if (!this.$lightbox.length) return;
+            var self = this;
+
+            // Open lightbox on image click
+            this.$carousel.find('.carousel-item').on('click', function () {
+                self.currentIdx = self.$carousel.find('.carousel-item.active').index();
+                self.openLightbox(self.currentIdx);
+            }).css('cursor', 'zoom-in');
+
+            // Lightbox prev/next
+            $('#lbPrev').on('click', function () {
+                self.lightboxGo(self.currentIdx - 1);
+            });
+            $('#lbNext').on('click', function () {
+                self.lightboxGo(self.currentIdx + 1);
+            });
+        },
+
+        openLightbox: function (idx) {
+            this.lightboxGo(idx);
+            var modal = new bootstrap.Modal(this.$lightbox[0]);
+            modal.show();
+        },
+
+        lightboxGo: function (idx) {
+            var total = this.images.length;
+            if (total === 0) return;
+            this.currentIdx = ((idx % total) + total) % total;
+
+            var img = this.images[this.currentIdx];
+            $('#lbImage').attr({ src: img.src, alt: img.alt });
+            $('#lbCounter').text((this.currentIdx + 1) + ' / ' + total);
+        },
+
+        bindCarouselEvents: function () {
+            var self = this;
+            this.$carousel.on('slid.bs.carousel', function (e) {
+                var idx = e.to;
+                // Update counter
+                self.updateCounter(idx);
+                // Update thumbnails
+                self.$thumbStrip.find('.thumb-item')
+                    .css('border-color', 'transparent')
+                    .removeClass('active');
+                self.$thumbStrip.find('.thumb-item').eq(idx)
+                    .css('border-color', '#C9A84C')
+                    .addClass('active');
+                // Scroll thumb into view
+                var $activeThumb = self.$thumbStrip.find('.thumb-item').eq(idx);
+                if ($activeThumb.length) {
+                    self.$thumbStrip[0].scrollLeft =
+                        $activeThumb[0].offsetLeft - (self.$thumbStrip.width() / 2) + 35;
+                }
+            });
+        },
+
+        bindSwipe: function () {
+            var el = this.$carousel[0];
+            if (!el) return;
+            var startX = 0;
+
+            el.addEventListener('touchstart', function (e) {
+                startX = e.touches[0].clientX;
+            }, { passive: true });
+
+            el.addEventListener('touchend', function (e) {
+                var dx = e.changedTouches[0].clientX - startX;
+                if (Math.abs(dx) > 50) {
+                    $(el).carousel(dx < 0 ? 'next' : 'prev');
+                }
+            }, { passive: true });
+        },
+
+        bindKeyboard: function () {
+            var self = this;
+            $(document).on('keydown', function (e) {
+                // Only when lightbox is closed — carousel arrows; or lightbox open
+                if (e.key === 'ArrowLeft') {
+                    if ($('#galleryLightbox').hasClass('show')) {
+                        self.lightboxGo(self.currentIdx - 1);
+                    } else {
+                        self.$carousel.carousel('prev');
+                    }
+                }
+                if (e.key === 'ArrowRight') {
+                    if ($('#galleryLightbox').hasClass('show')) {
+                        self.lightboxGo(self.currentIdx + 1);
+                    } else {
+                        self.$carousel.carousel('next');
+                    }
+                }
+            });
+        },
+
+        updateCounter: function (idx) {
+            var total = this.images.length;
+            if (!total) return;
+            $('#photoCounter').text((idx + 1) + ' / ' + total);
+        }
+    };
+
+    /* =========================================================================
+       2. ENQUIRY FORM — AJAX with real-time phone validation
+       ====================================================================== */
+
+    var EnquiryForm = {
+
+        $form    : null,
+        $btn     : null,
+        $spinner : null,
+        $btnText : null,
+        $success : null,
+        pkPhone  : /^(\+92|0)3[0-9]{9}$/,
+
+        init: function () {
+            this.$form    = $('#enquiryForm');
+            this.$btn     = $('#submitEnquiry');
+            this.$spinner = this.$btn.find('.spinner-border');
+            this.$btnText = this.$btn.find('.btn-text');
+            this.$success = $('.enquiry-success');
+
+            if (!this.$form.length) return;
+
+            this.bindPhoneValidation();
+            this.bindSubmit();
+            this.initStickySidebar();
+        },
+
+        bindPhoneValidation: function () {
+            var self = this;
+            this.$form.find('input[name="phone"]').on('input blur', function () {
+                var val = $(this).val().replace(/\s+/g, '');
+                var $fb = $(this).siblings('.invalid-feedback');
+                if (val && !self.pkPhone.test(val)) {
+                    $(this).addClass('is-invalid');
+                    $fb.show();
+                } else {
+                    $(this).removeClass('is-invalid');
+                    $fb.hide();
+                }
+            });
+        },
+
+        bindSubmit: function () {
+            var self = this;
+            this.$form.on('submit', function (e) {
+                e.preventDefault();
+
+                // Honeypot check
+                if ($(this).find('[name="website"]').val()) return;
+
+                // Phone validation
+                var phone = $(this).find('[name="phone"]').val().replace(/\s+/g, '');
+                if (!self.pkPhone.test(phone)) {
+                    $(this).find('[name="phone"]').addClass('is-invalid').trigger('focus');
+                    return;
+                }
+
+                self.setLoading(true);
+
+                $.ajax({
+                    url    : '/api/v1/inquiries.php',
+                    method : 'POST',
+                    data   : $(this).serialize(),
+                    dataType: 'json',
+                    success: function (res) {
+                        self.setLoading(false);
+                        if (res && res.success) {
+                            self.$form.addClass('d-none');
+                            self.$success.removeClass('d-none');
+                        } else {
+                            self.showErrors(res.errors || {});
+                        }
+                    },
+                    error: function () {
+                        self.setLoading(false);
+                        self.showGenericError();
+                    }
+                });
+            });
+        },
+
+        setLoading: function (loading) {
+            this.$btn.prop('disabled', loading);
+            if (loading) {
+                this.$btnText.addClass('d-none');
+                this.$spinner.removeClass('d-none');
+            } else {
+                this.$btnText.removeClass('d-none');
+                this.$spinner.addClass('d-none');
+            }
+        },
+
+        showErrors: function (errors) {
+            // Clear previous
+            this.$form.find('.is-invalid').removeClass('is-invalid');
+            this.$form.find('.server-error').remove();
+
+            $.each(errors, function (field, msg) {
+                var $input = $('[name="' + field + '"]');
+                $input.addClass('is-invalid');
+                $input.after('<div class="invalid-feedback server-error">' +
+                    $('<div>').text(msg).html() + '</div>');
+            });
+
+            if (!Object.keys(errors).length) {
+                this.showGenericError();
+            }
+        },
+
+        showGenericError: function () {
+            this.$form.find('.server-error').remove();
+            var $err = $('<div class="alert alert-danger server-error mt-2 small">' +
+                'Something went wrong. Please try again or call us directly.</div>');
+            this.$form.prepend($err);
+        },
+
+        initStickySidebar: function () {
+            // Activate Bootstrap sticky on desktop
+            var $sidebar = $('.detail-sidebar');
+            if (!$sidebar.length) return;
+
+            if ($(window).width() >= 992) {
+                $sidebar.addClass('sticky-top');
+                $sidebar.css('top', '80px');
+            }
+        }
+    };
+
+    /* =========================================================================
+       3. WHATSAPP INTEGRATION — pre-filled messages (built server-side via PHP,
+          JS just ensures links open correctly; dynamic messages from data attrs)
+       ====================================================================== */
+
+    var WhatsApp = {
+        init: function () {
+            // Dynamic WA buttons with data-wa-message attribute
+            $('[data-wa-message]').each(function () {
+                var msg   = $(this).data('wa-message');
+                var phone = $(this).data('wa-phone') || '923001234567';
+                var url   = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
+                $(this).attr('href', url);
+            });
+        }
+    };
+
+    /* =========================================================================
+       4. VIEWS COUNTER — fire GET to increment views_count
+       ====================================================================== */
+
+    var ViewsCounter = {
+        init: function () {
+            var propertyId = $('body').data('property-id');
+            var projectId  = $('body').data('project-id');
+
+            if (propertyId) {
+                $.get('/api/v1/properties.php', { action: 'view', id: propertyId });
+            }
+            // Projects view tracking (if endpoint supports it)
+            if (projectId) {
+                $.get('/api/v1/projects.php', { action: 'view', id: projectId }).fail(function () {
+                    // Silently fail — endpoint may not exist yet
+                });
+            }
+        }
+    };
+
+    /* =========================================================================
+       5. COPY PHONE — click phone → clipboard + tooltip
+       ====================================================================== */
+
+    var CopyPhone = {
+        init: function () {
+            $(document).on('click', '.copy-phone', function (e) {
+                e.preventDefault();
+                var phone = $(this).data('phone') || $(this).text().trim();
+                var $el   = $(this);
+
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(phone).then(function () {
+                        CopyPhone.showCopied($el);
+                    });
+                } else {
+                    // Fallback
+                    var $tmp = $('<input>').val(phone).appendTo('body').select();
+                    document.execCommand('copy');
+                    $tmp.remove();
+                    CopyPhone.showCopied($el);
+                }
+            });
+        },
+
+        showCopied: function ($el) {
+            var original = $el.html();
+            $el.html('<i class="fas fa-check me-1"></i>Copied!').addClass('text-success');
+            setTimeout(function () {
+                $el.html(original).removeClass('text-success');
+            }, 2000);
+        }
+    };
+
+    /* =========================================================================
+       6. MAP EMBED TOGGLE
+       ====================================================================== */
+
+    var MapToggle = {
+        init: function () {
+            $('#showMapBtn').on('click', function () {
+                var $map = $('#mapEmbed');
+                var $btn = $(this);
+
+                if ($map.hasClass('d-none')) {
+                    $map.removeClass('d-none');
+                    // Load iframe src from data-src (lazy)
+                    $map.find('iframe[data-src]').each(function () {
+                        if (!$(this).attr('src')) {
+                            $(this).attr('src', $(this).data('src'));
+                        }
+                    });
+                    $btn.html('<i class="fas fa-times me-1"></i>Hide Map');
+                    $map[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    $map.addClass('d-none');
+                    $btn.html('<i class="fas fa-map-marked-alt me-1"></i>Show on Map');
+                }
+            });
+        }
+    };
+
+    /* =========================================================================
+       7. SHARE BUTTONS
+       ====================================================================== */
+
+    var Share = {
+        init: function () {
+            $('#shareBtn').on('click', function () {
+                var title = $('h1.property-title').text().trim() ||
+                            document.title;
+                var url   = window.location.href;
+
+                if (navigator.share) {
+                    navigator.share({ title: title, url: url }).catch(function () {});
+                } else {
+                    // Fallback — copy link
+                    var $tmp = $('<input>').val(url).appendTo('body').select();
+                    document.execCommand('copy');
+                    $tmp.remove();
+                    var $btn = $(this);
+                    var orig = $btn.html();
+                    $btn.html('<i class="fas fa-check me-1"></i>Link Copied!');
+                    setTimeout(function () { $btn.html(orig); }, 2500);
+                }
+            });
+
+            // WhatsApp share
+            $('#shareWaBtn').on('click', function () {
+                var title = $('h1.property-title').text().trim() || document.title;
+                var url   = window.location.href;
+                var msg   = title + ' — ' + url;
+                window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+            });
+        }
+    };
+
+    /* =========================================================================
+       8. TABS — URL hash update for project detail
+       ====================================================================== */
+
+    var Tabs = {
+        init: function () {
+            var $tabs = $('#projectTabs .nav-link');
+            if (!$tabs.length) return;
+
+            // Restore tab from URL hash
+            var hash = window.location.hash;
+            if (hash) {
+                var $target = $tabs.filter('[data-bs-target="' + hash + '"], [href="' + hash + '"]');
+                if ($target.length) {
+                    new bootstrap.Tab($target[0]).show();
+                }
+            }
+
+            // Update hash on tab change
+            $tabs.on('shown.bs.tab', function (e) {
+                var id = $(e.target).data('bs-target') || $(e.target).attr('href');
+                if (id && history.replaceState) {
+                    history.replaceState(null, null, id);
+                }
+            });
+        }
+    };
+
+    /* =========================================================================
+       9. AREA UNIT CONVERTER (Marla ↔ Sq Ft)
+          Conversion: 1 Marla = 225 Sq Ft | 1 Kanal = 4500 Sq Ft (5 Marla kanal)
+          Standard Punjab: 1 Marla = 272.25 Sq Ft (used here)
+       ====================================================================== */
+
+    var AreaConverter = {
+
+        RATES: {
+            marla   : 272.25,
+            kanal   : 5445,
+            sq_yard : 9,
+            acre    : 43560,
+            sq_ft   : 1
+        },
+
+        init: function () {
+            var self = this;
+
+            $(document).on('click', '.area-convert-toggle', function (e) {
+                e.preventDefault();
+                var $el   = $(this);
+                var value = parseFloat($el.data('area-value'));
+                var unit  = ($el.data('area-unit') || '').toLowerCase();
+                var $hint = $el.siblings('.area-sqft-hint');
+
+                if ($hint.length && $hint.is(':visible')) {
+                    $hint.slideUp(200);
+                    $el.text('(show in Sq Ft)');
+                    return;
+                }
+
+                var sqFt = self.toSqFt(value, unit);
+                if (sqFt === null) return;
+
+                if (!$hint.length) {
+                    $hint = $('<span class="area-sqft-hint text-muted small ms-1"></span>')
+                        .hide()
+                        .insertAfter($el);
+                }
+                $hint.text('≈ ' + Number(sqFt.toFixed(0)).toLocaleString() + ' Sq Ft').slideDown(200);
+                $el.text('(hide)');
+            });
+        },
+
+        toSqFt: function (value, unit) {
+            var rate = this.RATES[unit];
+            return rate ? value * rate : null;
+        }
+    };
+
+    /* =========================================================================
+       10. FLOOR PLAN TAB
+       ====================================================================== */
+
+    var FloorPlan = {
+        init: function () {
+            // Clicking floor plan thumbnail shows floor plan in main carousel
+            $('#floorPlanThumb').on('click', function () {
+                var src = $(this).data('src');
+                if (!src) return;
+                var $fp = $('#floorPlanSlide');
+                if ($fp.length) {
+                    var idx = $fp.closest('.carousel-item').index();
+                    $('#propertyCarousel').carousel(idx);
+                }
+            });
+        }
+    };
+
+    /* =========================================================================
+       11. LISTING FILTER (project listings tab)
+       ====================================================================== */
+
+    var ListingFilter = {
+        init: function () {
+            $(document).on('click', '.listing-filter-pill', function () {
+                var filter = $(this).data('filter');
+                $('.listing-filter-pill').removeClass('active');
+                $(this).addClass('active');
+
+                if (filter === 'all') {
+                    $('.project-listing-card').show();
+                } else {
+                    $('.project-listing-card').hide();
+                    $('.project-listing-card[data-purpose="' + filter + '"]').show();
+                }
+            });
+        }
+    };
+
+    /* =========================================================================
+       DOCUMENT READY — initialise all modules
+       ====================================================================== */
+
+    $(function () {
+        Gallery.init();
+        EnquiryForm.init();
+        WhatsApp.init();
+        ViewsCounter.init();
+        CopyPhone.init();
+        MapToggle.init();
+        Share.init();
+        Tabs.init();
+        AreaConverter.init();
+        FloorPlan.init();
+        ListingFilter.init();
+    });
+
+}(jQuery));
