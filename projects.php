@@ -136,9 +136,10 @@ require_once __DIR__ . '/includes/header.php';
     <?php if (!empty($projects)): ?>
     <div class="row g-4">
         <?php foreach ($projects as $proj):
-            $projImg = ($proj['cover_image'] ?? null)
+            $projImgRaw = ($proj['cover_image'] ?? null)
                        ?: (($proj['hero_image_url'] ?? null)
                        ?: 'https://picsum.photos/id/'.(30 + ((int)($proj['id'] ?? 0) % 20)).'/600/400');
+            $projImg = mediaUrl($projImgRaw);
         ?>
         <div class="col-12 col-md-6 col-xl-4">
             <div class="project-card">
@@ -148,10 +149,22 @@ require_once __DIR__ . '/includes/header.php';
                              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 10'%3E%3Crect fill='%23F0F4FF' width='16' height='10'/%3E%3C/svg%3E"
                              alt="<?= htmlspecialchars($proj['name']) ?>" class="lazy" loading="lazy">
                     </a>
+                    <?php
+                        $statusClassMap = [
+                            'ready'             => 'prop-badge-status-ready',
+                            'possession'        => 'prop-badge-status-ready',
+                            'under_development' => 'prop-badge-status-uc',
+                            'upcoming'          => 'prop-badge-status-upcoming',
+                            'sold_out'          => 'prop-badge-status-sold',
+                        ];
+                        $statusClass = $statusClassMap[$proj['status'] ?? ''] ?? 'prop-badge-status-upcoming';
+                    ?>
                     <div class="prop-badges">
-                        <span class="prop-badge project-status"><?= htmlspecialchars(getStatusLabel($proj['status'])) ?></span>
+                        <span class="prop-badge <?= $statusClass ?>"><?= htmlspecialchars(getStatusLabel($proj['status'])) ?></span>
                         <?php if (!empty($proj['is_featured'])): ?>
-                        <span class="prop-badge prop-badge-new">Featured</span>
+                        <span class="prop-badge prop-badge-featured">
+                            <i class="fa-solid fa-star" aria-hidden="true"></i> Featured
+                        </span>
                         <?php endif; ?>
                     </div>
                 </div>

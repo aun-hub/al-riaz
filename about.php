@@ -17,7 +17,7 @@ $happyClients  = 200;
 $yearsActive   = 5;
 
 try {
-    $r = $db->query('SELECT COUNT(*) FROM properties WHERE is_published = 1');
+    $r = $db->query('SELECT COUNT(*) FROM properties WHERE is_published = 1 AND is_sold = 0');
     $c = (int) $r->fetchColumn();
     if ($c > 0) $totalListings = $c;
 } catch (Exception $e) { /* use seed */ }
@@ -32,6 +32,17 @@ try {
 try {
     $agents = $db->query("SELECT id, name, phone, email, avatar_url FROM users WHERE role IN ('agent','admin') AND is_active = 1 ORDER BY role DESC, name ASC LIMIT 8")->fetchAll();
 } catch (Exception $e) { $agents = []; }
+
+// Authorized Dealers
+$authorizedDealers = [];
+try {
+    $authorizedDealers = $db->query(
+        'SELECT id, name, logo_url, website_url
+         FROM authorized_dealers
+         WHERE is_published = 1
+         ORDER BY sort_order ASC, name ASC'
+    )->fetchAll();
+} catch (Exception $e) { $authorizedDealers = []; }
 
 $pageTitle       = 'About Us - Al-Riaz Associates';
 $pageDescription = 'Learn about Al-Riaz Associates — Pakistan\'s trusted real estate agency based in Islamabad. Authorised dealer for top developments with 5+ years of experience.';
@@ -76,11 +87,7 @@ require_once 'includes/header.php';
                 </p>
                 <div class="d-flex flex-wrap gap-3 mt-4">
                     <a href="<?= $b ?>/contact.php" class="btn-gold">
-                        <i class="fas fa-phone-alt me-2"></i>Get in Touch
-                    </a>
-                    <a href="<?= 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode("Hello! I'd like to know more about Al-Riaz Associates.") ?>"
-                       target="_blank" rel="noopener" class="btn-whatsapp">
-                        <i class="fab fa-whatsapp me-2"></i>WhatsApp Us
+                        <i class="fa-solid fa-phone me-2"></i>Get in Touch
                     </a>
                 </div>
             </div>
@@ -144,43 +151,79 @@ require_once 'includes/header.php';
 <!-- ============================================================
      MISSION & VISION
      ============================================================ -->
-<section style="background:var(--navy-50); padding:5rem 0;">
+<section class="mv-section">
+    <div class="mv-decor mv-decor-1" aria-hidden="true"></div>
+    <div class="mv-decor mv-decor-2" aria-hidden="true"></div>
+
     <div class="container">
-        <h2 class="content-heading text-center mb-5">Our Mission &amp; Vision</h2>
-        <div class="row g-4">
-            <div class="col-md-6">
-                <div class="mission-card reveal reveal-left">
-                    <div class="mission-icon"><i class="fa-solid fa-bullseye"></i></div>
-                    <h3>Our Mission</h3>
-                    <p>To provide transparent, trustworthy real estate services that empower Pakistanis to make the best property decisions.</p>
-                </div>
+        <div class="section-header center reveal">
+            <div class="section-label">Purpose</div>
+            <h2 class="section-title">Our Mission &amp; Vision</h2>
+            <p class="section-subtitle">Why we do what we do — and where we're headed next.</p>
+        </div>
+
+        <div class="row g-4 mv-grid">
+            <!-- Mission -->
+            <div class="col-12 col-lg-6">
+                <article class="mv-card reveal reveal-left">
+                    <div class="mv-card-head">
+                        <div class="mv-icon">
+                            <i class="fa-solid fa-bullseye"></i>
+                        </div>
+                        <div class="mv-tag">01 — Mission</div>
+                    </div>
+                    <h3 class="mv-title">Empowering Pakistanis to make the best property decisions.</h3>
+                    <p class="mv-text">
+                        Transparent pricing, verified listings, and honest advice — the way real estate should have always been.
+                        We turn paperwork, site visits, and payment plans into a process you can actually understand.
+                    </p>
+                    <ul class="mv-bullets">
+                        <li><i class="fa-solid fa-check"></i> Verified ownership &amp; NOC on every listing</li>
+                        <li><i class="fa-solid fa-check"></i> Clear, up-front brokerage disclosure</li>
+                        <li><i class="fa-solid fa-check"></i> End-to-end support, from search to possession</li>
+                    </ul>
+                </article>
             </div>
-            <div class="col-md-6">
-                <div class="mission-card reveal reveal-right">
-                    <div class="mission-icon"><i class="fa-solid fa-eye"></i></div>
-                    <h3>Our Vision</h3>
-                    <p>To become Pakistan's most respected real estate agency — known for integrity, expertise, and client-first service.</p>
-                </div>
+
+            <!-- Vision -->
+            <div class="col-12 col-lg-6">
+                <article class="mv-card mv-card-alt reveal reveal-right">
+                    <div class="mv-card-head">
+                        <div class="mv-icon mv-icon-gold">
+                            <i class="fa-solid fa-eye"></i>
+                        </div>
+                        <div class="mv-tag">02 — Vision</div>
+                    </div>
+                    <h3 class="mv-title">Becoming Pakistan's most trusted real estate partner.</h3>
+                    <p class="mv-text">
+                        We want "Al-Riaz" to mean the same thing in Islamabad as it does in Karachi — integrity, expertise,
+                        and client-first service at every step. Built on relationships that outlast a single transaction.
+                    </p>
+                    <ul class="mv-bullets">
+                        <li><i class="fa-solid fa-check"></i> Authorised dealer for Pakistan's top developments</li>
+                        <li><i class="fa-solid fa-check"></i> Data-driven investment guidance</li>
+                        <li><i class="fa-solid fa-check"></i> A team that picks up the phone</li>
+                    </ul>
+                </article>
             </div>
         </div>
 
         <!-- Core Values -->
-        <div class="row g-3 mt-3 justify-content-center">
+        <div class="mv-values reveal-stagger">
             <?php
             $values = [
-                ['fas fa-handshake',    'Integrity',    'We never compromise on honesty in our dealings.'],
-                ['fas fa-check-circle', 'Transparency', 'Clear pricing, no hidden costs or surprises.'],
-                ['fas fa-user-tie',     'Expertise',    'Seasoned consultants with deep market knowledge.'],
-                ['fas fa-headset',      'Client First', 'Your satisfaction is our top priority, always.'],
+                ['fa-handshake',    'Integrity',    'We never compromise on honesty in our dealings.'],
+                ['fa-check-circle', 'Transparency', 'Clear pricing, no hidden costs or surprises.'],
+                ['fa-user-tie',     'Expertise',    'Seasoned consultants with deep market knowledge.'],
+                ['fa-headset',      'Client First', 'Your satisfaction is our top priority, always.'],
             ];
-            foreach ($values as $val) :
+            foreach ($values as $i => [$icon, $title, $desc]):
             ?>
-            <div class="col-6 col-md-3">
-                <div class="text-center p-3 rounded-3" style="background:white; border:1px solid var(--navy-100);">
-                    <i class="<?= $val[0] ?> fa-lg mb-2 d-block" style="color:var(--gold);"></i>
-                    <div class="fw-bold small" style="color:var(--navy-700);"><?= $val[1] ?></div>
-                    <div class="text-muted" style="font-size:.78rem;"><?= $val[2] ?></div>
-                </div>
+            <div class="mv-value">
+                <div class="mv-value-num"><?= str_pad((string)($i + 1), 2, '0', STR_PAD_LEFT) ?></div>
+                <div class="mv-value-icon"><i class="fa-solid <?= $icon ?>"></i></div>
+                <div class="mv-value-title"><?= $title ?></div>
+                <p class="mv-value-desc"><?= $desc ?></p>
             </div>
             <?php endforeach; ?>
         </div>
@@ -230,39 +273,50 @@ require_once 'includes/header.php';
 </section>
 
 <!-- ============================================================
-     AUTHORISED PROJECTS
+     AUTHORIZED DEALERS
      ============================================================ -->
 <section style="background:var(--navy-50); padding:5rem 0;">
     <div class="container">
-        <h2 class="content-heading text-center mb-5">Authorised Projects</h2>
-        <p class="text-center text-muted mb-4">We are the official authorised dealers for these prestigious developments</p>
-        <div class="row g-3 justify-content-center">
-            <?php
-            $projects = [
-                ['fas fa-city',       'Bahria Town',         'Bahria Town Pvt Ltd',       'Islamabad / Rawalpindi'],
-                ['fas fa-shield-alt', 'DHA',                 'Defence Housing Authority',  'Islamabad / Lahore'],
-                ['fas fa-rocket',     'Capital Smart City',  'FDHL',                       'Islamabad'],
-                ['fas fa-leaf',       'Gulberg Greens',      'Gulberg Inc.',               'Islamabad'],
-                ['fas fa-globe',      'Blue World City',     'Blue Group of Companies',    'Rawalpindi'],
-                ['fas fa-star',       'Park View City',      'Vision Group',               'Islamabad'],
-            ];
-            foreach ($projects as $proj) :
-            ?>
-            <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-                <div class="auth-logo-item text-center">
-                    <div style="font-size:2rem; margin-bottom:.5rem; color:var(--navy-700);">
-                        <i class="<?= $proj[0] ?>"></i>
+        <h2 class="content-heading text-center mb-2">Authorized Dealers</h2>
+        <p class="text-center text-muted mb-5">We are the official authorized dealers for these prestigious developments</p>
+    </div>
+
+    <?php if (!empty($authorizedDealers)): ?>
+    <?php $aboutDealerDuration = max(20, count($authorizedDealers) * 5); ?>
+    <div class="about-dealer-marquee">
+        <div class="about-dealer-marquee-track" style="animation-duration: <?= (int)$aboutDealerDuration ?>s;">
+            <?php for ($loop = 0; $loop < 2; $loop++): ?>
+                <?php foreach ($authorizedDealers as $dealer):
+                    $dName = htmlspecialchars($dealer['name'], ENT_QUOTES, 'UTF-8');
+                    $dLogo = !empty($dealer['logo_url']) ? htmlspecialchars(mediaUrl($dealer['logo_url']), ENT_QUOTES, 'UTF-8') : '';
+                    $dUrl  = !empty($dealer['website_url']) ? htmlspecialchars($dealer['website_url'], ENT_QUOTES, 'UTF-8') : '';
+                    $ariaHidden = $loop === 1 ? 'aria-hidden="true" tabindex="-1"' : '';
+                ?>
+                <?php if ($dUrl): ?>
+                <a href="<?= $dUrl ?>" target="_blank" rel="noopener" class="about-dealer-card" title="<?= $dName ?>" <?= $ariaHidden ?>>
+                <?php else: ?>
+                <div class="about-dealer-card" <?= $ariaHidden ?>>
+                <?php endif; ?>
+                    <div class="about-dealer-logo">
+                        <?php if ($dLogo): ?>
+                            <img src="<?= $dLogo ?>" alt="<?= $dName ?>" loading="lazy">
+                        <?php else: ?>
+                            <i class="fas fa-handshake"></i>
+                        <?php endif; ?>
                     </div>
-                    <div class="fw-semibold" style="font-size:.85rem; color:var(--navy-800);"><?= $proj[1] ?></div>
-                    <div class="text-muted" style="font-size:.75rem;"><?= $proj[2] ?></div>
-                    <div class="text-muted mt-1" style="font-size:.72rem;">
-                        <i class="fas fa-map-marker-alt" style="color:var(--gold);font-size:.65rem;"></i>
-                        <?= $proj[3] ?>
-                    </div>
-                </div>
-            </div>
-            <?php endforeach; ?>
+                    <div class="about-dealer-name"><?= $dName ?></div>
+                <?php if ($dUrl): ?></a><?php else: ?></div><?php endif; ?>
+                <?php endforeach; ?>
+            <?php endfor; ?>
         </div>
+    </div>
+    <?php else: ?>
+    <div class="container">
+        <p class="text-center text-muted fst-italic py-4">Authorized dealer list will appear here once added by an administrator.</p>
+    </div>
+    <?php endif; ?>
+
+    <div class="container">
         <div class="text-center mt-4">
             <a href="<?= $b ?>/projects.php" class="btn-gold">
                 <i class="fas fa-building me-2"></i>View All Projects
@@ -270,99 +324,198 @@ require_once 'includes/header.php';
         </div>
     </div>
 </section>
+<style>
+.about-dealer-marquee {
+    overflow:hidden;
+    padding:1rem 0;
+    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+            mask-image:linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+}
+.about-dealer-marquee-track {
+    display:flex;
+    gap:1.25rem;
+    width:max-content;
+    animation:about-dealer-scroll linear infinite;
+    will-change:transform;
+}
+.about-dealer-marquee:hover .about-dealer-marquee-track,
+.about-dealer-marquee:focus-within .about-dealer-marquee-track {
+    animation-play-state:paused;
+}
+@keyframes about-dealer-scroll {
+    from { transform:translateX(0); }
+    to   { transform:translateX(-50%); }
+}
+.about-dealer-card {
+    flex:0 0 180px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:0.75rem;
+    padding:1.25rem 0.75rem;
+    background:#fff;
+    border:1px solid rgba(10,22,40,0.08);
+    border-radius:12px;
+    text-decoration:none;
+    color:var(--navy-800);
+    min-height:140px;
+    transition:transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.about-dealer-card:hover {
+    transform:translateY(-3px);
+    border-color:var(--gold);
+    box-shadow:0 8px 20px rgba(10,22,40,0.08);
+    color:var(--navy-800);
+    text-decoration:none;
+}
+.about-dealer-logo {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:60px;
+    width:100%;
+}
+.about-dealer-logo img {
+    max-height:60px;
+    max-width:100%;
+    width:auto;
+    height:auto;
+    object-fit:contain;
+}
+.about-dealer-logo i {
+    font-size:2rem;
+    color:var(--navy-700);
+}
+.about-dealer-name {
+    font-size:.85rem;
+    font-weight:600;
+    text-align:center;
+    line-height:1.3;
+}
+@media (prefers-reduced-motion: reduce) {
+    .about-dealer-marquee-track { animation:none; }
+    .about-dealer-marquee { overflow-x:auto; }
+}
+</style>
 
 <!-- ============================================================
      OFFICE LOCATIONS
      ============================================================ -->
+<?php
+// Data source: admin → Settings → Agency Profile + Branches (HQ flag)
+$aboutSettings = getSettings();
+$aboutHq       = getHqOffice();
+$aboutBranches = getBranches();
+$aboutEmail    = $aboutSettings['email']    ?: (defined('SITE_EMAIL')    ? SITE_EMAIL    : '');
+$aboutWa       = $aboutSettings['whatsapp'] ?: (defined('SITE_WHATSAPP') ? SITE_WHATSAPP : '');
+$aboutMainAddr = $aboutSettings['address']  ?: '';
+$aboutMainPhone= $aboutSettings['phone']    ?: '';
+$aboutMainHrs  = formatBusinessHours(getBusinessHoursSchedule());
+
+// Build ordered office list: HQ first, then main (if a branch is HQ), then remaining branches.
+$aboutOffices = [];
+$aboutOffices[] = [
+    'is_hq'   => true,
+    'icon'    => 'fas fa-building',
+    'name'    => $aboutHq['name'] ?: 'Main Office',
+    'address' => $aboutHq['address'],
+    'phone'   => $aboutHq['phone'],
+    'hours'   => $aboutHq['hours'],
+];
+if ($aboutHq['source'] === 'branch') {
+    $aboutOffices[] = [
+        'is_hq'   => false,
+        'icon'    => 'fas fa-building',
+        'name'    => 'Main Office',
+        'address' => $aboutMainAddr,
+        'phone'   => $aboutMainPhone,
+        'hours'   => $aboutMainHrs,
+    ];
+}
+foreach ($aboutBranches as $br) {
+    if (!empty($br['is_hq'])) continue;
+    $bName    = trim((string)($br['name']    ?? ''));
+    $bAddress = trim((string)($br['address'] ?? ''));
+    $bPhone   = trim((string)($br['phone']   ?? ''));
+    $bHours   = trim((string)($br['hours']   ?? ''));
+    if ($bName === '' && $bAddress === '' && $bPhone === '' && $bHours === '') continue;
+    $aboutOffices[] = [
+        'is_hq'   => false,
+        'icon'    => 'fas fa-store',
+        'name'    => $bName ?: 'Branch Office',
+        'address' => $bAddress,
+        'phone'   => $bPhone,
+        'hours'   => $bHours,
+    ];
+}
+?>
 <section style="background:#fff; padding:5rem 0;">
     <div class="container">
-        <h2 class="content-heading text-center mb-5">Our Offices</h2>
-        <p class="text-center text-muted mb-4">Visit us in Islamabad or Rawalpindi</p>
+        <h2 class="content-heading text-center mb-2">Our Offices</h2>
+        <p class="text-center text-muted mb-5">Visit us at any of our locations</p>
         <div class="row g-4">
-            <!-- Main Office -->
+            <?php foreach ($aboutOffices as $off):
+                $addrLines   = preg_split('/\r\n|\r|\n/', (string)$off['address']);
+                $firstToken  = trim(preg_split('/[,\n]/', (string)$off['address'])[0] ?? '');
+                $mapQuery    = rawurlencode((string)$off['address'] ?: $firstToken);
+            ?>
             <div class="col-12 col-md-6">
                 <div class="office-card h-100">
                     <div class="office-card-title">
-                        <i class="fas fa-building"></i>
-                        Main Office — Islamabad
+                        <i class="<?= htmlspecialchars($off['icon']) ?>"></i>
+                        <?= htmlspecialchars($off['name']) ?>
+                        <?php if ($off['is_hq']): ?>
                         <span class="badge bg-success ms-auto" style="font-size:.7rem;">Headquarters</span>
+                        <?php endif; ?>
                     </div>
+                    <?php if ($off['address']): ?>
                     <div class="office-info-row">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <div>Office #5, Amin Center, Blue Area,<br>Islamabad 44000, Pakistan</div>
+                        <i class="fas fa-location-dot"></i>
+                        <div><?= nl2br(htmlspecialchars($off['address'])) ?></div>
                     </div>
+                    <?php endif; ?>
+                    <?php if ($off['phone']): ?>
                     <div class="office-info-row">
-                        <i class="fas fa-phone-alt"></i>
-                        <a href="tel:+923001234567"><?= SITE_PHONE ?></a>
+                        <i class="fas fa-phone"></i>
+                        <a href="tel:<?= htmlspecialchars($off['phone']) ?>"><?= htmlspecialchars($off['phone']) ?></a>
                     </div>
+                    <?php endif; ?>
+                    <?php if ($aboutWa): ?>
                     <div class="office-info-row">
                         <i class="fab fa-whatsapp"></i>
-                        <a href="<?= 'https://wa.me/' . SITE_WHATSAPP ?>" target="_blank" rel="noopener">
+                        <a href="<?= 'https://wa.me/' . htmlspecialchars($aboutWa) ?>" target="_blank" rel="noopener">
                             Chat on WhatsApp
                         </a>
                     </div>
+                    <?php endif; ?>
+                    <?php if ($aboutEmail): ?>
                     <div class="office-info-row">
                         <i class="fas fa-envelope"></i>
-                        <a href="mailto:<?= SITE_EMAIL ?>"><?= SITE_EMAIL ?></a>
+                        <a href="mailto:<?= htmlspecialchars($aboutEmail) ?>"><?= htmlspecialchars($aboutEmail) ?></a>
                     </div>
+                    <?php endif; ?>
+                    <?php if (trim((string)$off['hours']) !== ''): ?>
                     <div class="office-info-row">
                         <i class="fas fa-clock"></i>
-                        <div>Mon–Sat: 9:00 AM – 7:00 PM<br>Sunday: 11:00 AM – 4:00 PM</div>
+                        <div><?= nl2br(htmlspecialchars($off['hours'])) ?></div>
                     </div>
+                    <?php endif; ?>
+                    <?php if ($mapQuery !== ''): ?>
                     <div class="map-wrap mt-3">
                         <div class="map-placeholder">
-                            <i class="fas fa-map-marked-alt"></i>
-                            <span>Blue Area, Islamabad</span>
-                            <a href="https://maps.google.com/?q=Blue+Area+Islamabad"
+                            <i class="fas fa-map-location-dot"></i>
+                            <span><?= htmlspecialchars($firstToken ?: $off['address']) ?></span>
+                            <a href="https://maps.google.com/?q=<?= $mapQuery ?>"
                                target="_blank" rel="noopener" class="btn-outline-navy" style="font-size:.82rem; margin-top:.5rem;">
-                                <i class="fas fa-directions me-1"></i>Get Directions
+                                <i class="fas fa-diamond-turn-right me-1"></i>Get Directions
                             </a>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
-
-            <!-- Branch Office -->
-            <div class="col-12 col-md-6">
-                <div class="office-card h-100">
-                    <div class="office-card-title">
-                        <i class="fas fa-store"></i>
-                        Branch Office — Rawalpindi
-                    </div>
-                    <div class="office-info-row">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <div>Shop #12, Haider Center, Saddar,<br>Rawalpindi, Pakistan</div>
-                    </div>
-                    <div class="office-info-row">
-                        <i class="fas fa-phone-alt"></i>
-                        <a href="tel:+923001234567"><?= SITE_PHONE ?></a>
-                    </div>
-                    <div class="office-info-row">
-                        <i class="fab fa-whatsapp"></i>
-                        <a href="<?= 'https://wa.me/' . SITE_WHATSAPP ?>" target="_blank" rel="noopener">
-                            Chat on WhatsApp
-                        </a>
-                    </div>
-                    <div class="office-info-row">
-                        <i class="fas fa-envelope"></i>
-                        <a href="mailto:<?= SITE_EMAIL ?>"><?= SITE_EMAIL ?></a>
-                    </div>
-                    <div class="office-info-row">
-                        <i class="fas fa-clock"></i>
-                        <div>Mon–Sat: 9:00 AM – 7:00 PM<br>Sunday: 11:00 AM – 4:00 PM</div>
-                    </div>
-                    <div class="map-wrap mt-3">
-                        <div class="map-placeholder">
-                            <i class="fas fa-map-marked-alt"></i>
-                            <span>Saddar, Rawalpindi</span>
-                            <a href="https://maps.google.com/?q=Saddar+Rawalpindi"
-                               target="_blank" rel="noopener" class="btn-outline-navy" style="font-size:.82rem; margin-top:.5rem;">
-                                <i class="fas fa-directions me-1"></i>Get Directions
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <?php endforeach; ?>
         </div>
     </div>
 </section>
@@ -399,18 +552,40 @@ require_once 'includes/header.php';
 <!-- ============================================================
      CTA
      ============================================================ -->
-<section class="cta-banner">
-    <div class="container" style="position:relative; z-index:2;">
-        <h2>Start Your Property Journey Today</h2>
-        <p>Speak to our expert consultants — no obligation, completely free advice.</p>
-        <div class="d-flex flex-wrap gap-3 justify-content-center">
-            <a href="<?= 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode("Hello! I visited your website and would like to discuss a property.") ?>"
-               target="_blank" rel="noopener" class="btn-whatsapp">
-                <i class="fab fa-whatsapp fa-lg me-2"></i> Chat on WhatsApp
-            </a>
-            <a href="<?= $b ?>/contact.php" class="btn btn-outline-light btn-lg px-4 fw-semibold">
-                <i class="fas fa-envelope me-2"></i>Send a Message
-            </a>
+<section class="final-cta-section">
+    <div class="container">
+        <div class="final-cta-card reveal">
+            <div class="final-cta-backdrop" aria-hidden="true"></div>
+            <div class="final-cta-inner">
+                <div class="final-cta-left">
+                    <div class="section-label on-dark" style="justify-content:flex-start;">Let's Talk</div>
+                    <h2 class="final-cta-heading">Start your property journey today.</h2>
+                    <p class="final-cta-sub">
+                        Speak to an expert consultant — no obligation, completely free advice. A real person
+                        will reply within minutes during business hours.
+                    </p>
+                    <div class="final-cta-actions">
+                        <a href="<?= waLink(SITE_WHATSAPP, "Hello! I visited your website and would like to discuss a property.") ?>"
+                           target="_blank" rel="noopener noreferrer" class="btn-gold">
+                            <i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp
+                        </a>
+                        <a href="<?= $b ?>/contact.php" class="btn-outline-white">
+                            <i class="fa-solid fa-envelope"></i> Send a Message
+                        </a>
+                    </div>
+                    <div class="final-cta-hours">
+                        <i class="fa-solid fa-clock"></i>
+                        Mon–Sat 9am–7pm · Sun 11am–4pm
+                    </div>
+                </div>
+                <div class="final-cta-right" aria-hidden="true">
+                    <div class="final-cta-orb"></div>
+                    <div class="final-cta-badge">
+                        <div class="final-cta-badge-num"><?= $yearsActive ?>+</div>
+                        <div class="final-cta-badge-lbl">Years<br>Trusted</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </section>

@@ -8,6 +8,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/mail.php';
 
 requireLogin();
 requireRole('admin');
@@ -41,7 +42,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          VALUES (?,?,?,?, ?, 0, ?, NOW())'
                     )->execute([$name, $email, $phone, $role, password_hash($token, PASSWORD_BCRYPT), $token]);
                     auditLog('invite','users',0,'Invited: '.$email.' as '.$role);
-                    setFlash('success', "Invitation sent to $email. They can set their password via the invite link.");
+
+                    // Build invite link (absolute URL for the email).
+                    // SITE_URL already includes BASE_PATH (e.g. "http://localhost/al-riaz"), so don't add it again.
+                    $inviteUrl = rtrim(SITE_URL, '/') . '/admin/invite-accept.php?token=' . $token;
+                    $inviterName = $_SESSION['admin_name'] ?? 'an administrator';
+                    $agencyName  = (function_exists('getSettings') ? (getSettings()['agency_name'] ?? SITE_NAME) : SITE_NAME);
+                    $subject     = "You've been invited to $agencyName Admin Panel";
+                    $safeName    = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+                    $safeInviter = htmlspecialchars($inviterName, ENT_QUOTES, 'UTF-8');
+                    $safeAgency  = htmlspecialchars($agencyName, ENT_QUOTES, 'UTF-8');
+                    $safeRole    = htmlspecialchars(ucwords(str_replace('_',' ',$role)), ENT_QUOTES, 'UTF-8');
+                    $safeUrl     = htmlspecialchars($inviteUrl, ENT_QUOTES, 'UTF-8');
+                    $html = <<<HTML
+<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0A1628;">
+  <h2 style="color:#0A1628;margin:0 0 1rem;">Welcome, $safeName</h2>
+  <p>$safeInviter has invited you to join the <strong>$safeAgency</strong> admin panel as a <strong>$safeRole</strong>.</p>
+  <p>Click the button below to set your password and activate your account:</p>
+  <p style="margin:1.5rem 0;">
+    <a href="$safeUrl" style="background:#F5B301;color:#0A1628;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;">
+      Accept Invitation
+    </a>
+  </p>
+  <p style="color:#64748B;font-size:0.85rem;">Or copy this link into your browser:<br><span style="word-break:break-all;">$safeUrl</span></p>
+</div>
+HTML;
+                    $alt = "Hi $name,\n\n$inviterName has invited you to join the $agencyName admin panel as $safeRole.\n\nAccept the invitation here:\n$inviteUrl\n";
+
+                    $mail = sendMail($email, $subject, $html, ['html' => true, 'alt_body' => $alt, 'to_name' => $name]);
+
+                    if ($mail['ok']) {
+                        setFlash('success', "Invitation email sent to $email.");
+                    } else {
+                        // User row is created either way — surface both the failure and the manual link in plain text.
+                        setFlash('danger',
+                            "User created, but the invitation email failed (" . $mail['error'] . "). "
+                            . "Share this link manually: " . $inviteUrl
+                        );
+                    }
                 }
             } catch(Exception $e) {
                 setFlash('danger', 'Error: ' . $e->getMessage());
@@ -49,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             setFlash('danger', 'Valid name and email are required.');
         }
-        header('Location: /admin/users.php');
+        header('Location: ' . BASE_PATH . '/admin/users.php');
         exit;
     }
 
@@ -68,7 +106,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlash('danger', 'Error: ' . $e->getMessage());
             }
         }
-        header('Location: /admin/users.php');
+        header('Location: ' . BASE_PATH . '/admin/users.php');
+        exit;
+    }
+
+    if ($action === 'delete_user') {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if (!hasRole('super_admin')) {
+            setFlash('danger', 'Only a Super Admin can delete users.');
+        } elseif ($userId === (int)$_SESSION['admin_id']) {
+            setFlash('danger', 'You cannot delete your own account.');
+        } else {
+            try {
+                // Look up for audit log before deleting
+                $u = $db->prepare('SELECT name, email, role FROM users WHERE id=?');
+                $u->execute([$userId]);
+                $target = $u->fetch();
+
+                if (!$target) {
+                    setFlash('danger', 'User not found.');
+                } else {
+                    // Prevent deleting the last super_admin
+                    if ($target['role'] === 'super_admin') {
+                        $c = (int)$db->query("SELECT COUNT(*) FROM users WHERE role='super_admin' AND is_active=1")->fetchColumn();
+                        if ($c <= 1) {
+                            setFlash('danger', 'Cannot delete the last active Super Admin.');
+                            header('Location: ' . BASE_PATH . '/admin/users.php');
+                            exit;
+                        }
+                    }
+                    $db->prepare('DELETE FROM users WHERE id=?')->execute([$userId]);
+                    auditLog('delete_user', 'users', $userId, 'Deleted: ' . $target['email'] . ' (' . $target['role'] . ')');
+                    setFlash('success', 'User "' . $target['name'] . '" deleted.');
+                }
+            } catch(Exception $e) {
+                setFlash('danger', 'Delete failed: ' . $e->getMessage());
+            }
+        }
+        header('Location: ' . BASE_PATH . '/admin/users.php');
         exit;
     }
 
@@ -91,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlash('danger', 'Error: ' . $e->getMessage());
             }
         }
-        header('Location: /admin/users.php');
+        header('Location: ' . BASE_PATH . '/admin/users.php');
         exit;
     }
 }
@@ -173,7 +248,10 @@ include __DIR__ . '/includes/admin-sidebar.php';
               <input type="hidden" name="action" value="change_role">
               <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
               <select name="role" class="form-select form-select-sm" style="width:auto;display:inline-block;"
-                      onchange="if(confirm('Change role to '+this.value+'?')) this.form.submit();">
+                      data-confirm-change="Change this user's role to {value}?"
+                      data-confirm-title="Change role"
+                      data-confirm-ok="Change role"
+                      data-confirm-variant="primary">
                 <?php foreach (['agent'=>'Agent','admin'=>'Admin','super_admin'=>'Super Admin'] as $rv=>$rl): ?>
                   <option value="<?= $rv ?>" <?= $u['role']===$rv?'selected':'' ?>><?= $rl ?></option>
                 <?php endforeach; ?>
@@ -200,17 +278,36 @@ include __DIR__ . '/includes/admin-sidebar.php';
           </td>
           <td class="text-end">
             <?php if ((int)$u['id'] !== (int)$_SESSION['admin_id']): ?>
-            <form method="POST" class="d-inline">
-              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-              <input type="hidden" name="action" value="toggle_status">
-              <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
-              <button type="submit" class="btn btn-sm <?= $u['is_active'] ? 'btn-outline-warning' : 'btn-outline-success' ?>"
-                      onclick="return confirm('<?= $u['is_active'] ? 'Deactivate' : 'Activate' ?> this user?')"
-                      title="<?= $u['is_active'] ? 'Deactivate' : 'Activate' ?>">
-                <i class="fa-solid <?= $u['is_active'] ? 'fa-ban' : 'fa-circle-check' ?>"></i>
-                <?= $u['is_active'] ? 'Deactivate' : 'Activate' ?>
-              </button>
-            </form>
+            <div class="d-inline-flex gap-1">
+              <form method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="toggle_status">
+                <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+                <button type="submit" class="btn btn-sm <?= $u['is_active'] ? 'btn-outline-warning' : 'btn-outline-success' ?>"
+                        data-confirm="<?= $u['is_active'] ? 'Deactivate' : 'Activate' ?> <?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>?"
+                        data-confirm-title="<?= $u['is_active'] ? 'Deactivate user' : 'Activate user' ?>"
+                        data-confirm-ok="<?= $u['is_active'] ? 'Deactivate' : 'Activate' ?>"
+                        data-confirm-variant="<?= $u['is_active'] ? 'warning' : 'success' ?>"
+                        title="<?= $u['is_active'] ? 'Deactivate' : 'Activate' ?>">
+                  <i class="fa-solid <?= $u['is_active'] ? 'fa-ban' : 'fa-circle-check' ?>"></i>
+                </button>
+              </form>
+              <?php if (hasRole('super_admin')): ?>
+              <form method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="delete_user">
+                <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-outline-danger"
+                        data-confirm="Permanently delete <?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>? This cannot be undone."
+                        data-confirm-title="Delete user"
+                        data-confirm-ok="Delete"
+                        data-confirm-variant="danger"
+                        title="Delete user">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </form>
+              <?php endif; ?>
+            </div>
             <?php else: ?>
               <span class="text-muted fs-12">—</span>
             <?php endif; ?>

@@ -9,6 +9,7 @@
  */
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/functions.php';
 
 $pageTitle = isset($pageTitle) ? htmlspecialchars(trim($pageTitle)) : '';
 $metaDesc  = isset($metaDesc)  ? htmlspecialchars(trim($metaDesc))  : 'Al-Riaz Associates — Trusted Real Estate Agency in Pakistan. Find houses, plots, apartments and commercial properties for sale and rent in Islamabad, Rawalpindi and across Pakistan.';
@@ -20,19 +21,25 @@ $currentUri  = BASE_PATH !== '' && str_starts_with($requestUri, BASE_PATH)
                ? substr($requestUri, strlen(BASE_PATH)) ?: '/'
                : $requestUri;
 
-$navLinks = [
-    ['href' => '/',               'label' => 'Home'],
-    ['href' => '/projects.php',   'label' => 'Projects'],
-    ['href' => '/residential.php','label' => 'Residential'],
-    ['href' => '/commercial.php', 'label' => 'Commercial'],
-    ['href' => '/rent.php',       'label' => 'Rent'],
-    ['href' => '/about.php',      'label' => 'About'],
-    ['href' => '/contact.php',    'label' => 'Contact'],
-];
+// Admin-editable nav items (Settings → Navigation tab). Shape: ['label', 'url'].
+$navLinks = [];
+foreach (getNavItems('header') as $item) {
+    $navLinks[] = ['href' => $item['url'], 'label' => $item['label']];
+}
+
+// Legacy single-category entry points should still light up the Properties nav.
+$propertiesAliases = ['/listings.php', '/residential.php', '/commercial.php', '/rent.php'];
 
 function isActiveNav(string $href, string $currentUri): bool
 {
+    global $propertiesAliases;
     if ($href === '/' && $currentUri === '/') return true;
+    if ($href === '/listings.php') {
+        foreach ($propertiesAliases as $alias) {
+            if (str_starts_with($currentUri, $alias)) return true;
+        }
+        return false;
+    }
     if ($href !== '/' && str_starts_with($currentUri, $href)) return true;
     return false;
 }
@@ -64,14 +71,21 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
     <!-- Font Awesome 6.5 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-    <!-- Main stylesheet -->
-    <link rel="stylesheet" href="<?= $b ?>/assets/css/style.css">
+    <!-- Main stylesheet (auto-busts on file change) -->
+    <?php
+        $cssPath = __DIR__ . '/../assets/css/style.css';
+        $cssVer  = file_exists($cssPath) ? filemtime($cssPath) : time();
+    ?>
+    <link rel="stylesheet" href="<?= $b ?>/assets/css/style.css?v=<?= $cssVer ?>">
 
     <!-- Open Graph -->
     <meta property="og:title"       content="<?= $pageTitle ? $pageTitle . ' | ' . SITE_NAME : SITE_NAME ?>">
     <meta property="og:description" content="<?= $metaDesc ?>">
     <meta property="og:type"        content="website">
     <meta property="og:site_name"   content="<?= htmlspecialchars(SITE_NAME) ?>">
+
+    <!-- Base path for JS AJAX calls -->
+    <script>window.APP_BASE = <?= json_encode(BASE_PATH) ?>;</script>
 </head>
 <body>
 
@@ -83,10 +97,17 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
         <div class="navbar-inner">
 
             <!-- Brand -->
-            <a class="brand-logo" href="<?= $b ?>/" aria-label="<?= htmlspecialchars(SITE_NAME) ?> — Home">
-                <div class="brand-icon" aria-hidden="true">AR</div>
+            <?php $brandSettings = getSettings(); $brandLogo = $brandSettings['logo_path'] ?? ''; $brandName = $brandSettings['agency_name'] ?: SITE_NAME; ?>
+            <a class="brand-logo" href="<?= $b ?>/" aria-label="<?= htmlspecialchars($brandName) ?> — Home">
+                <?php if ($brandLogo): ?>
+                    <img class="brand-icon" src="<?= htmlspecialchars($b . $brandLogo) ?>?v=<?= @filemtime(__DIR__ . '/..' . $brandLogo) ?: '' ?>"
+                         alt="<?= htmlspecialchars($brandName) ?>"
+                         style="object-fit:contain; background:transparent; box-shadow:none;">
+                <?php else: ?>
+                    <div class="brand-icon" aria-hidden="true">AR</div>
+                <?php endif; ?>
                 <div>
-                    <div class="brand-name"><?= htmlspecialchars(SITE_NAME) ?></div>
+                    <div class="brand-name"><?= htmlspecialchars($brandName) ?></div>
                     <div class="brand-tagline">Real Estate</div>
                 </div>
             </a>
@@ -96,7 +117,7 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
                 <?php foreach ($navLinks as $link): ?>
                     <?php $active = isActiveNav($link['href'], $currentUri); ?>
                     <li>
-                        <a href="<?= $b . $link['href'] ?>"
+                        <a href="<?= htmlspecialchars(navLinkUrl($link['href'])) ?>"
                            class="nav-link-item<?= $active ? ' active' : '' ?>"
                            <?= $active ? 'aria-current="page"' : '' ?>>
                             <?= htmlspecialchars($link['label']) ?>
@@ -132,7 +153,7 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
     <nav>
         <?php foreach ($navLinks as $link): ?>
             <?php $active = isActiveNav($link['href'], $currentUri); ?>
-            <a href="<?= $b . $link['href'] ?>"
+            <a href="<?= htmlspecialchars(navLinkUrl($link['href'])) ?>"
                class="mobile-nav-link<?= $active ? ' active' : '' ?>"
                <?= $active ? 'aria-current="page"' : '' ?>>
                 <?= htmlspecialchars($link['label']) ?>
@@ -159,3 +180,10 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
    title="Chat on WhatsApp">
     <i class="fa-brands fa-whatsapp"></i>
 </a>
+
+<!-- ══════════════════════════════════════════════════════════
+     BACK TO TOP
+     ══════════════════════════════════════════════════════════ -->
+<button type="button" class="back-to-top" aria-label="Back to top" title="Back to top">
+    <i class="fa-solid fa-arrow-up"></i>
+</button>

@@ -1,0 +1,71 @@
+{
+    "agency_name": "Al-Riaz Associates",
+    "agency_tagline": "Your Trusted Real Estate Partner in Pakistan",
+    "phone": "+92 300 123 4567",
+    "whatsapp": "923001234567",
+    "email": "info@alriazassociates.pk",
+    "address": "Islamabad, Pakistan",
+    "business_hours": "Mon–Sat: 9:00 AM – 7:00 PM\nSunday: 11:00 AM – 4:00 PM",
+    "website": "https:\/\/alriazassociates.pk",
+    "facebook_url": "",
+    "instagram_url": "",
+    "youtube_url": "",
+    "smtp_host": "sandbox.smtp.mailtrap.io",
+    "smtp_port": "587",
+    "smtp_user": "e209a868c7f3fb",
+    "smtp_pass": "6ae5a756b952a3",
+    "smtp_from_name": "Al-Riaz Associates",
+    "smtp_from_email": "noreply@alriazassociates.pk",
+    "smtp_reply_to": "",
+    "notify_email_recipients": "",
+    "notify_on_inquiry": "1",
+    "notify_on_listing": "0",
+    "default_city": "islamabad",
+    "watermark": "0",
+    "currency_format": "pakistan",
+    "logo_path": "\/assets\/images\/logo.jpeg",
+    "business_hours_schedule": [
+        {
+            "day": "Mon",
+            "open": true,
+            "from": "09:00",
+            "to": "19:00"
+        },
+        {
+            "day": "Tue",
+            "open": true,
+            "from": "09:00",
+            "to": "19:00"
+        },
+        {
+            "day": "Wed",
+            "open": true,
+            "from": "09:00",
+            "to": "19:00"
+        },
+        {
+            "day": "Thu",
+            "open": true,
+            "from": "09:00",
+            "to": "19:00"
+        },
+        {
+            "day": "Fri",
+            "open": true,
+            "from": "09:00",
+            "to": "19:00"
+        },
+        {
+            "day": "Sat",
+            "open": true,
+            "from": "09:00",
+            "to": "19:00"
+        },
+        {
+            "day": "Sun",
+            "open": true,
+            "from": "11:00",
+            "to": "16:00"
+        }
+    ]
+}

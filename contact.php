@@ -13,6 +13,18 @@ $db = Database::getInstance();
 $pageTitle       = 'Contact Us - Al-Riaz Associates';
 $pageDescription = 'Contact Al-Riaz Associates for real estate inquiries in Islamabad, Rawalpindi, Lahore & Karachi. Call, WhatsApp, or fill in our online contact form.';
 
+$settings      = getSettings();
+$agencyPhone   = $settings['phone']        ?: (defined('SITE_PHONE') ? SITE_PHONE : '');
+$agencyWa      = $settings['whatsapp']     ?: (defined('SITE_WHATSAPP') ? SITE_WHATSAPP : '');
+$agencyEmail   = $settings['email']        ?: (defined('SITE_EMAIL') ? SITE_EMAIL : '');
+$agencyAddress = $settings['address']      ?: 'Islamabad, Pakistan';
+$agencyHours   = formatBusinessHours(getBusinessHoursSchedule());
+$hqOffice      = getHqOffice();
+$facebookUrl   = $settings['facebook_url'] ?? '';
+$instagramUrl  = $settings['instagram_url'] ?? '';
+$youtubeUrl    = $settings['youtube_url']  ?? '';
+$branches      = getBranches();
+
 require_once 'includes/header.php';
 ?>
 
@@ -53,7 +65,7 @@ require_once 'includes/header.php';
                                 Thank you for reaching out. Our team will contact you within
                                 <strong>2–4 working hours</strong>.
                             </p>
-                            <a href="<?= 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode("Hello! I just submitted a contact form on your website.") ?>"
+                            <a href="<?= 'https://wa.me/' . htmlspecialchars($agencyWa) . '?text=' . rawurlencode("Hello! I just submitted a contact form on your website.") ?>"
                                target="_blank" rel="noopener"
                                class="btn-whatsapp d-inline-flex" style="max-width:260px;">
                                 <i class="fab fa-whatsapp"></i> Faster? WhatsApp Us
@@ -99,7 +111,7 @@ require_once 'includes/header.php';
                                     </label>
                                     <div class="input-group">
                                         <span class="input-group-text" style="background:var(--navy-50); border-color:var(--navy-100);">
-                                            <i class="fas fa-phone-alt text-muted small"></i>
+                                            <i class="fas fa-phone text-muted small"></i>
                                         </span>
                                         <input type="tel"
                                                id="contact-phone"
@@ -150,12 +162,12 @@ require_once 'includes/header.php';
                                     <label for="contact-time" class="form-label fw-semibold small">
                                         Preferred Contact Time
                                     </label>
-                                    <select id="contact-time" name="preferred_time" class="form-select">
+                                    <select id="contact-time" name="preferred_contact_time" class="form-select">
                                         <option value="">Any time</option>
-                                        <option value="morning">Morning — 9:00 AM to 12:00 PM</option>
-                                        <option value="afternoon">Afternoon — 12:00 PM to 5:00 PM</option>
-                                        <option value="evening">Evening — 5:00 PM to 8:00 PM</option>
-                                        <option value="weekend">Weekend (Sat/Sun)</option>
+                                        <option value="Morning (9am - 12pm)">Morning — 9:00 AM to 12:00 PM</option>
+                                        <option value="Afternoon (12pm - 4pm)">Afternoon — 12:00 PM to 4:00 PM</option>
+                                        <option value="Evening (5pm - 8pm)">Evening — 5:00 PM to 8:00 PM</option>
+                                        <option value="Business Hours">Business Hours</option>
                                     </select>
                                 </div>
 
@@ -210,14 +222,15 @@ require_once 'includes/header.php';
                     <!-- Address -->
                     <div class="d-flex align-items-start gap-3 mb-3">
                         <div style="width:2.5rem;height:2.5rem;background:var(--navy-700);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <i class="fas fa-map-marker-alt" style="color:var(--gold);"></i>
+                            <i class="fas fa-location-dot" style="color:var(--gold);"></i>
                         </div>
                         <div>
                             <div style="font-weight:600;font-size:.85rem;color:rgba(255,255,255,.6);">Office Address</div>
-                            <div style="color:#fff;">Office #5, Amin Center, Blue Area,<br>Islamabad 44000, Pakistan</div>
+                            <div style="color:#fff;"><?= nl2br(htmlspecialchars($agencyAddress)) ?></div>
                         </div>
                     </div>
 
+                    <?php if ($agencyPhone): ?>
                     <!-- Phone -->
                     <div class="d-flex align-items-start gap-3 mb-3">
                         <div style="width:2.5rem;height:2.5rem;background:var(--navy-700);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -225,10 +238,12 @@ require_once 'includes/header.php';
                         </div>
                         <div>
                             <div style="font-weight:600;font-size:.85rem;color:rgba(255,255,255,.6);">Phone</div>
-                            <a href="tel:<?= SITE_PHONE ?>" style="color:#fff;font-weight:600;"><?= htmlspecialchars(SITE_PHONE) ?></a>
+                            <a href="tel:<?= htmlspecialchars($agencyPhone) ?>" style="color:#fff;font-weight:600;"><?= htmlspecialchars($agencyPhone) ?></a>
                         </div>
                     </div>
+                    <?php endif; ?>
 
+                    <?php if ($agencyWa): ?>
                     <!-- WhatsApp -->
                     <div class="d-flex align-items-start gap-3 mb-3">
                         <div style="width:2.5rem;height:2.5rem;background:rgba(37,211,102,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -236,13 +251,15 @@ require_once 'includes/header.php';
                         </div>
                         <div>
                             <div style="font-weight:600;font-size:.85rem;color:rgba(255,255,255,.6);">WhatsApp</div>
-                            <a href="<?= 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode("Hello! I found your contact page.") ?>"
+                            <a href="<?= 'https://wa.me/' . htmlspecialchars($agencyWa) . '?text=' . rawurlencode("Hello! I found your contact page.") ?>"
                                target="_blank" rel="noopener" style="color:#fff;font-weight:600;">
-                                <?= htmlspecialchars(SITE_PHONE) ?>
+                                <?= htmlspecialchars($agencyPhone ?: $agencyWa) ?>
                             </a>
                         </div>
                     </div>
+                    <?php endif; ?>
 
+                    <?php if ($agencyEmail): ?>
                     <!-- Email -->
                     <div class="d-flex align-items-start gap-3 mb-3">
                         <div style="width:2.5rem;height:2.5rem;background:var(--navy-700);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -250,10 +267,12 @@ require_once 'includes/header.php';
                         </div>
                         <div>
                             <div style="font-weight:600;font-size:.85rem;color:rgba(255,255,255,.6);">Email</div>
-                            <a href="mailto:<?= SITE_EMAIL ?>" style="color:#fff;font-weight:600;"><?= htmlspecialchars(SITE_EMAIL) ?></a>
+                            <a href="mailto:<?= htmlspecialchars($agencyEmail) ?>" style="color:#fff;font-weight:600;"><?= htmlspecialchars($agencyEmail) ?></a>
                         </div>
                     </div>
+                    <?php endif; ?>
 
+                    <?php if (trim($agencyHours) !== ''): ?>
                     <!-- Business Hours -->
                     <div class="d-flex align-items-start gap-3 mb-4">
                         <div style="width:2.5rem;height:2.5rem;background:var(--navy-700);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -261,33 +280,32 @@ require_once 'includes/header.php';
                         </div>
                         <div>
                             <div style="font-weight:600;font-size:.85rem;color:rgba(255,255,255,.6);">Business Hours</div>
-                            <div style="color:#fff;">Mon–Sat: 9:00 AM – 7:00 PM<br>Sunday: 11:00 AM – 4:00 PM</div>
+                            <div style="color:#fff;"><?= nl2br(htmlspecialchars($agencyHours)) ?></div>
                         </div>
                     </div>
-
-                    <!-- WhatsApp CTA -->
-                    <a href="<?= 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode("Hello! I'd like to inquire about a property.") ?>"
-                       target="_blank" rel="noopener"
-                       class="btn-whatsapp d-flex justify-content-center gap-2">
-                        <i class="fab fa-whatsapp"></i> Chat on WhatsApp
-                    </a>
+                    <?php endif; ?>
 
                     <!-- Social Links -->
+                    <?php if ($facebookUrl || $instagramUrl || $youtubeUrl): ?>
                     <hr style="border-color:rgba(255,255,255,.15); margin:1.25rem 0;">
                     <div class="footer-social justify-content-start">
-                        <a href="#" target="_blank" rel="noopener" aria-label="Facebook">
+                        <?php if ($facebookUrl): ?>
+                        <a href="<?= htmlspecialchars($facebookUrl) ?>" target="_blank" rel="noopener" aria-label="Facebook">
                             <i class="fab fa-facebook-f"></i>
                         </a>
-                        <a href="#" target="_blank" rel="noopener" aria-label="Instagram">
+                        <?php endif; ?>
+                        <?php if ($instagramUrl): ?>
+                        <a href="<?= htmlspecialchars($instagramUrl) ?>" target="_blank" rel="noopener" aria-label="Instagram">
                             <i class="fab fa-instagram"></i>
                         </a>
-                        <a href="#" target="_blank" rel="noopener" aria-label="YouTube">
+                        <?php endif; ?>
+                        <?php if ($youtubeUrl): ?>
+                        <a href="<?= htmlspecialchars($youtubeUrl) ?>" target="_blank" rel="noopener" aria-label="YouTube">
                             <i class="fab fa-youtube"></i>
                         </a>
-                        <a href="<?= 'https://wa.me/' . SITE_WHATSAPP ?>" target="_blank" rel="noopener" aria-label="WhatsApp">
-                            <i class="fab fa-whatsapp"></i>
-                        </a>
+                        <?php endif; ?>
                     </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Map -->
@@ -305,13 +323,12 @@ require_once 'includes/header.php';
                     </iframe>
                     -->
                     <div class="map-placeholder">
-                        <i class="fas fa-map-marked-alt"></i>
-                        <strong style="color:var(--navy-700); font-size:.95rem;">Blue Area, Islamabad</strong>
-                        <span style="font-size:.82rem;">Office #5, Amin Center</span>
-                        <a href="https://maps.google.com/?q=Blue+Area+Islamabad+Pakistan"
+                        <i class="fas fa-map-location-dot"></i>
+                        <strong style="color:var(--navy-700); font-size:.95rem;"><?= htmlspecialchars($agencyAddress) ?></strong>
+                        <a href="https://maps.google.com/?q=<?= rawurlencode($agencyAddress) ?>"
                            target="_blank" rel="noopener"
                            class="btn-gold mt-1" style="font-size:.82rem;">
-                            <i class="fas fa-directions me-1"></i> Open in Google Maps
+                            <i class="fas fa-diamond-turn-right me-1"></i> Open in Google Maps
                         </a>
                     </div>
                 </div>
@@ -328,47 +345,77 @@ require_once 'includes/header.php';
     <div class="container">
         <h3 class="content-heading text-center mb-4">Our Office Locations</h3>
         <div class="row g-4 justify-content-center">
+            <?php
+            // Build the ordered office list: HQ first, then the main office
+            // (if a branch is HQ), then remaining branches.
+            $offices = [];
+            $offices[] = [
+                'is_hq'   => true,
+                'icon'    => 'fas fa-building',
+                'name'    => $hqOffice['name'] ?: 'Main Office',
+                'address' => $hqOffice['address'],
+                'phone'   => $hqOffice['phone'],
+                'hours'   => $hqOffice['hours'],
+            ];
+            if ($hqOffice['source'] === 'branch') {
+                // A branch is HQ — main office still shown as a regular card.
+                $offices[] = [
+                    'is_hq'   => false,
+                    'icon'    => 'fas fa-building',
+                    'name'    => 'Main Office',
+                    'address' => $agencyAddress,
+                    'phone'   => $agencyPhone,
+                    'hours'   => $agencyHours,
+                ];
+            }
+            foreach ($branches as $br) {
+                if (!empty($br['is_hq'])) continue; // already the HQ card
+                $bName    = trim((string)($br['name']    ?? ''));
+                $bAddress = trim((string)($br['address'] ?? ''));
+                $bPhone   = trim((string)($br['phone']   ?? ''));
+                $bHours   = trim((string)($br['hours']   ?? ''));
+                if ($bName === '' && $bAddress === '' && $bPhone === '' && $bHours === '') continue;
+                $offices[] = [
+                    'is_hq'   => false,
+                    'icon'    => 'fas fa-store',
+                    'name'    => $bName ?: 'Branch Office',
+                    'address' => $bAddress,
+                    'phone'   => $bPhone,
+                    'hours'   => $bHours,
+                ];
+            }
+            foreach ($offices as $off):
+            ?>
             <div class="col-12 col-md-5">
                 <div class="office-card h-100">
                     <div class="office-card-title">
-                        <i class="fas fa-building"></i>
-                        Main Office — Islamabad
+                        <i class="<?= htmlspecialchars($off['icon']) ?>"></i>
+                        <?= htmlspecialchars($off['name']) ?>
+                        <?php if ($off['is_hq']): ?>
                         <span class="badge bg-success ms-auto" style="font-size:.68rem;">HQ</span>
+                        <?php endif; ?>
                     </div>
+                    <?php if ($off['address']): ?>
                     <div class="office-info-row">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <span>Office #5, Amin Center, Blue Area, Islamabad 44000</span>
+                        <i class="fas fa-location-dot"></i>
+                        <span><?= htmlspecialchars($off['address']) ?></span>
                     </div>
+                    <?php endif; ?>
+                    <?php if ($off['phone']): ?>
                     <div class="office-info-row">
-                        <i class="fas fa-phone-alt"></i>
-                        <a href="tel:+923001234567"><?= SITE_PHONE ?></a>
+                        <i class="fas fa-phone"></i>
+                        <a href="tel:<?= htmlspecialchars($off['phone']) ?>"><?= htmlspecialchars($off['phone']) ?></a>
                     </div>
-                    <div class="office-info-row">
-                        <i class="fas fa-clock"></i>
-                        <span>Mon–Sat: 9AM–7PM | Sun: 11AM–4PM</span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-5">
-                <div class="office-card h-100">
-                    <div class="office-card-title">
-                        <i class="fas fa-store"></i>
-                        Branch — Rawalpindi
-                    </div>
-                    <div class="office-info-row">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <span>Shop #12, Haider Center, Saddar, Rawalpindi</span>
-                    </div>
-                    <div class="office-info-row">
-                        <i class="fas fa-phone-alt"></i>
-                        <a href="tel:+923001234567"><?= SITE_PHONE ?></a>
-                    </div>
+                    <?php endif; ?>
+                    <?php if (trim((string)$off['hours']) !== ''): ?>
                     <div class="office-info-row">
                         <i class="fas fa-clock"></i>
-                        <span>Mon–Sat: 9AM–7PM | Sun: 11AM–4PM</span>
+                        <span><?= nl2br(htmlspecialchars($off['hours'])) ?></span>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
+            <?php endforeach; ?>
         </div>
     </div>
 </section>

@@ -158,7 +158,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
     </div>
     <div class="col-12 col-md-1 d-flex gap-1">
       <button type="submit" class="btn btn-sm btn-dark w-100"><i class="fa-solid fa-magnifying-glass"></i></button>
-      <a href="/admin/audit.php" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-rotate"></i></a>
+      <a href="<?= BASE_PATH ?>/admin/audit.php" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-rotate"></i></a>
     </div>
   </form>
 </div>

@@ -31,5 +31,5 @@ session_unset();
 session_destroy();
 
 // Redirect to login
-header('Location: /admin/login.php');
+header('Location: ' . BASE_PATH . '/admin/login.php');
 exit;

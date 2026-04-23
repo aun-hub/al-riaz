@@ -166,7 +166,7 @@ function initSearchWidget() {
     });
 
     // Populate city dropdown via AJAX
-    $.get('/api/v1/meta.php', { resource: 'cities' })
+    $.get((window.APP_BASE || '') + '/api/v1/meta.php', { resource: 'cities' })
         .done(function (res) {
             var $citySelect = $widget.find('select[name="city"]');
             $citySelect.find('option:not(:first)').remove();
@@ -184,7 +184,8 @@ function initSearchWidget() {
     if ($form.length) {
         $form.on('submit', function (e) {
             e.preventDefault();
-            window.location.href = '/search.php?' + $form.serialize();
+            var action = $form.attr('action') || '/listings.php';
+            window.location.href = action + '?' + $form.serialize();
         });
     }
 }
@@ -219,7 +220,7 @@ function initAutoComplete() {
             }
 
             debounceTimer = setTimeout(function () {
-                $.get('/api/v1/search.php', { q: q })
+                $.get((window.APP_BASE || '') + '/api/v1/search.php', { q: q })
                     .done(function (res) {
                         $dropdown.empty();
                         if (res && res.data && res.data.length) {
@@ -305,7 +306,7 @@ function initEnquiryForm() {
         );
 
         $.ajax({
-            url:      '/api/v1/inquiries.php',
+            url:      $form.attr('action') || '/api/v1/inquiries.php',
             method:   'POST',
             data:     $form.serialize(),
             dataType: 'json'
@@ -401,7 +402,7 @@ function initWhatsAppTracking() {
             });
         }
 
-        $.post('/api/v1/track.php', {
+        $.post((window.APP_BASE || '') + '/api/v1/track.php', {
             event:       'whatsapp_click',
             property_id: context,
             page:        page
@@ -413,17 +414,29 @@ function initWhatsAppTracking() {
    10. LAZY LOADING — IntersectionObserver for images with data-src
    ========================================================================== */
 function initLazyImages() {
+    function swap(img) {
+        if (!img.dataset.src) return;
+        var tmp = new Image();
+        tmp.onload = function () {
+            img.src = img.dataset.src;
+            img.removeAttribute('data-src');
+            img.classList.add('loaded');
+            setTimeout(function () { img.classList.remove('lazy'); }, 20);
+        };
+        tmp.onerror = function () {
+            img.src = img.dataset.src;
+            img.removeAttribute('data-src');
+            img.classList.remove('lazy');
+        };
+        tmp.src = img.dataset.src;
+    }
+
     if ('IntersectionObserver' in window) {
         var observer = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
-                    var img = entry.target;
-                    if (img.dataset.src) {
-                        img.src = img.dataset.src;
-                        img.removeAttribute('data-src');
-                        img.classList.remove('lazy');
-                    }
-                    observer.unobserve(img);
+                    swap(entry.target);
+                    observer.unobserve(entry.target);
                 }
             });
         }, { rootMargin: '0px 0px 200px 0px', threshold: 0.01 });
@@ -432,10 +445,7 @@ function initLazyImages() {
             observer.observe(img);
         });
     } else {
-        document.querySelectorAll('img[data-src]').forEach(function (img) {
-            img.src = img.dataset.src;
-            img.removeAttribute('data-src');
-        });
+        document.querySelectorAll('img[data-src]').forEach(swap);
     }
 }
 

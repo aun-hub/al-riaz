@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/db.php';
 
 // If already logged in, go to dashboard
 if (!empty($_SESSION['admin_id'])) {
-    header('Location: /admin/index.php');
+    header('Location: ' . BASE_PATH . '/admin/index.php');
     exit;
 }
 
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         )->execute([$user['id'], $user['name'], 'login', 'users', $user['id'], 'Logged in', $_SERVER['REMOTE_ADDR'] ?? '']);
                     } catch(Exception $e) {}
 
-                    header('Location: /admin/index.php');
+                    header('Location: ' . BASE_PATH . '/admin/index.php');
                     exit;
                 } else {
                     $error = 'Invalid email or password.';
@@ -97,7 +97,7 @@ $csrfToken = $_SESSION['csrf_token'];
   <title>Admin Login — Al-Riaz Associates</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="/assets/css/admin.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/admin.css?v=<?= @filemtime(__DIR__ . '/../assets/css/admin.css') ?>">
   <meta name="robots" content="noindex, nofollow">
 </head>
 <body>
@@ -115,7 +115,7 @@ $csrfToken = $_SESSION['csrf_token'];
 
     <!-- Body -->
     <div class="login-card-body">
-      <h5 class="mb-1 fw-700" style="color:#1B4332;">Welcome back</h5>
+      <h5 class="mb-1 fw-700" style="color:#0A1628;">Welcome back</h5>
       <p class="text-muted mb-4" style="font-size:0.85rem;">Sign in to your admin account to continue.</p>
 
       <?php if ($error): ?>
@@ -126,7 +126,7 @@ $csrfToken = $_SESSION['csrf_token'];
         </div>
       <?php endif; ?>
 
-      <form method="POST" action="/admin/login.php" novalidate>
+      <form method="POST" action="<?= BASE_PATH ?>/admin/login.php" novalidate>
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
         <div class="mb-3">

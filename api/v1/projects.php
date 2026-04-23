@@ -98,6 +98,7 @@ function handleDetailRequest(string $slug): never
         LEFT JOIN users u ON u.id = pr.agent_id
         WHERE pr.project_id = :project_id
           AND pr.is_published = 1
+          AND pr.is_sold = 0
         ORDER BY pr.is_featured DESC, pr.created_at DESC
     ");
     $propStmt->execute([':project_id' => $project['id']]);
@@ -147,7 +148,7 @@ function handleListRequest(): never
             p.status, p.noc_status, p.hero_image_url, p.gallery,
             p.lat, p.lng, p.is_featured, p.created_at,
             (SELECT COUNT(*) FROM properties pr
-             WHERE pr.project_id = p.id AND pr.is_published = 1) AS property_count
+             WHERE pr.project_id = p.id AND pr.is_published = 1 AND pr.is_sold = 0) AS property_count
         FROM projects p
         $whereSQL
         ORDER BY p.is_featured DESC, p.created_at DESC

@@ -46,21 +46,12 @@
         },
 
         buildThumbs: function () {
-            if (!this.$thumbStrip.length || !this.images.length) return;
+            // Thumbnails are emitted server-side as .gallery-thumb-item.
+            // Just wire click handlers — don't re-append (would duplicate).
+            if (!this.$thumbStrip.length) return;
             var self = this;
-
-            $.each(this.images, function (i, img) {
-                var $thumb = $('<img>')
-                    .attr({ src: img.src, alt: img.alt, title: img.alt })
-                    .addClass('thumb-item' + (i === 0 ? ' active' : ''))
-                    .css({ width: '70px', height: '52px', objectFit: 'cover',
-                           cursor: 'pointer', borderRadius: '4px',
-                           border: i === 0 ? '2px solid #C9A84C' : '2px solid transparent',
-                           transition: 'border-color .2s' })
-                    .on('click', function () {
-                        self.$carousel.carousel(i);
-                    });
-                self.$thumbStrip.append($thumb);
+            this.$thumbStrip.find('.gallery-thumb-item').each(function (i) {
+                $(this).on('click', function () { self.$carousel.carousel(i); });
             });
         },
 
@@ -103,20 +94,13 @@
             var self = this;
             this.$carousel.on('slid.bs.carousel', function (e) {
                 var idx = e.to;
-                // Update counter
                 self.updateCounter(idx);
-                // Update thumbnails
-                self.$thumbStrip.find('.thumb-item')
-                    .css('border-color', 'transparent')
-                    .removeClass('active');
-                self.$thumbStrip.find('.thumb-item').eq(idx)
-                    .css('border-color', '#C9A84C')
-                    .addClass('active');
-                // Scroll thumb into view
-                var $activeThumb = self.$thumbStrip.find('.thumb-item').eq(idx);
-                if ($activeThumb.length) {
+                var $thumbs = self.$thumbStrip.find('.gallery-thumb-item');
+                $thumbs.removeClass('active');
+                var $active = $thumbs.eq(idx).addClass('active');
+                if ($active.length && self.$thumbStrip[0]) {
                     self.$thumbStrip[0].scrollLeft =
-                        $activeThumb[0].offsetLeft - (self.$thumbStrip.width() / 2) + 35;
+                        $active[0].offsetLeft - (self.$thumbStrip.width() / 2) + ($active.width() / 2);
                 }
             });
         },
@@ -226,7 +210,7 @@
                 self.setLoading(true);
 
                 $.ajax({
-                    url    : '/api/v1/inquiries.php',
+                    url    : $(this).attr('action') || ((window.APP_BASE || '') + '/api/v1/inquiries.php'),
                     method : 'POST',
                     data   : $(this).serialize(),
                     dataType: 'json',
@@ -320,12 +304,13 @@
             var propertyId = $('body').data('property-id');
             var projectId  = $('body').data('project-id');
 
+            var base = window.APP_BASE || '';
             if (propertyId) {
-                $.get('/api/v1/properties.php', { action: 'view', id: propertyId });
+                $.get(base + '/api/v1/properties.php', { action: 'view', id: propertyId });
             }
             // Projects view tracking (if endpoint supports it)
             if (projectId) {
-                $.get('/api/v1/projects.php', { action: 'view', id: projectId }).fail(function () {
+                $.get(base + '/api/v1/projects.php', { action: 'view', id: projectId }).fail(function () {
                     // Silently fail — endpoint may not exist yet
                 });
             }

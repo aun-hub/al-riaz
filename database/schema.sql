@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS properties (
     views_count       INT UNSIGNED NOT NULL DEFAULT 0,
     is_featured       TINYINT(1) NOT NULL DEFAULT 0,
     is_published      TINYINT(1) NOT NULL DEFAULT 0,
+    is_sold           TINYINT(1) NOT NULL DEFAULT 0,
     created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
@@ -108,6 +109,7 @@ CREATE TABLE IF NOT EXISTS properties (
     INDEX idx_purpose    (purpose),
     INDEX idx_published  (is_published),
     INDEX idx_featured   (is_featured),
+    INDEX idx_sold       (is_sold),
     INDEX idx_agent      (agent_id),
     INDEX idx_views      (views_count DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -186,6 +188,36 @@ CREATE TABLE IF NOT EXISTS settings (
     `value`     TEXT,
     updated_at  DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_key (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── Authorized Dealers ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS authorized_dealers (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name          VARCHAR(200) NOT NULL,
+    logo_url      VARCHAR(500) NOT NULL DEFAULT '',
+    website_url   VARCHAR(500) NOT NULL DEFAULT '',
+    sort_order    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    is_published  TINYINT(1) NOT NULL DEFAULT 1,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_published (is_published),
+    INDEX idx_sort      (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── Branch Offices ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS branches (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(180) NOT NULL DEFAULT '',
+    address     VARCHAR(300) NOT NULL DEFAULT '',
+    phone       VARCHAR(40)  NOT NULL DEFAULT '',
+    hours          VARCHAR(120) NOT NULL DEFAULT '',
+    hours_schedule LONGTEXT DEFAULT NULL,
+    is_hq       TINYINT(1) NOT NULL DEFAULT 0,
+    sort_order  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_sort (sort_order),
+    INDEX idx_hq   (is_hq)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── Sample Data (remove in production) ───────────────────────

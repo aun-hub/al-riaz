@@ -103,7 +103,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       &nbsp;·&nbsp; <?= date('l, d F Y') ?>
     </p>
   </div>
-  <a href="/admin/listing-form.php" class="btn btn-gold">
+  <a href="<?= BASE_PATH ?>/admin/listing-form.php" class="btn btn-gold">
     <i class="fa-solid fa-plus me-1"></i> New Listing
   </a>
 </div>
@@ -171,7 +171,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
     <div class="admin-table-wrapper">
       <div class="admin-table-header">
         <h5><i class="fa-solid fa-inbox me-2" style="color:var(--gold)"></i>Recent Inquiries</h5>
-        <a href="/admin/inquiries.php" class="btn btn-sm btn-outline-secondary">View All</a>
+        <a href="<?= BASE_PATH ?>/admin/inquiries.php" class="btn btn-sm btn-outline-secondary">View All</a>
       </div>
       <div class="table-responsive">
         <table class="table table-admin table-hover mb-0">
@@ -220,7 +220,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
                 <?= htmlspecialchars(date('d M Y', strtotime($inq['created_at'])), ENT_QUOTES, 'UTF-8') ?>
               </td>
               <td>
-                <a href="/admin/inquiries.php?view=<?= (int)$inq['id'] ?>"
+                <a href="<?= BASE_PATH ?>/admin/inquiries.php?view=<?= (int)$inq['id'] ?>"
                    class="btn btn-outline-success btn-action btn-view">
                   <i class="fa-solid fa-eye"></i>
                 </a>
@@ -275,7 +275,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <p class="text-muted mb-2" style="font-size:0.8rem;">
         <i class="fa-solid fa-eye me-1"></i><?= number_format((int)$topProperty['views_count']) ?> views
       </p>
-      <a href="/admin/listing-form.php?id=<?= (int)$topProperty['id'] ?>"
+      <a href="<?= BASE_PATH ?>/admin/listing-form.php?id=<?= (int)$topProperty['id'] ?>"
          class="btn btn-sm btn-outline-secondary">Edit Listing</a>
     </div>
     <?php endif; ?>

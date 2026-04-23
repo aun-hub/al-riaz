@@ -212,7 +212,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
         <i class="fa-solid fa-table-columns"></i> Kanban
       </a>
     </div>
-    <a href="/admin/inquiries.php?export=csv" class="btn btn-sm btn-outline-success">
+    <a href="<?= BASE_PATH ?>/admin/inquiries.php?export=csv" class="btn btn-sm btn-outline-success">
       <i class="fa-solid fa-file-csv me-1"></i> Export CSV
     </a>
   </div>
@@ -249,7 +249,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
     </div>
     <div class="col-12 col-md-2 d-flex gap-1">
       <button type="submit" class="btn btn-sm btn-dark w-100"><i class="fa-solid fa-magnifying-glass"></i></button>
-      <a href="/admin/inquiries.php" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-rotate"></i></a>
+      <a href="<?= BASE_PATH ?>/admin/inquiries.php" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-rotate"></i></a>
     </div>
   </form>
 </div>
@@ -419,9 +419,17 @@ function openInquiryPanel(id) {
       return '<option value="'+s+'"'+(inq.status===s?' selected':'')+'>'+statusLabels[s]+'</option>';
     }).join('');
 
+    function resolveUploadUrl(u) {
+      if (!u) return '';
+      if (/^(https?:)?\/\//i.test(u)) return u;               // absolute or protocol-relative
+      var base = window.BASE_PATH || '';
+      if (u.charAt(0) === '/') return base + u;               // already rooted (e.g. /assets/uploads/...)
+      return base + '/assets/uploads/' + u;                   // bare filename
+    }
+
     var propHtml = inq.property_title
-      ? '<a href="/admin/listing-form.php?id='+inq.property_id+'" target="_blank" class="text-decoration-none d-flex align-items-center gap-2">' +
-        (inq.prop_thumb ? '<img src="/assets/uploads/'+escH(inq.prop_thumb)+'" style="width:50px;height:50px;object-fit:cover;border-radius:6px;">' : '') +
+      ? '<a href="<?= BASE_PATH ?>/admin/listing-form.php?id='+inq.property_id+'" target="_blank" class="text-decoration-none d-flex align-items-center gap-2">' +
+        (inq.prop_thumb ? '<img src="'+escH(resolveUploadUrl(inq.prop_thumb))+'" style="width:50px;height:50px;object-fit:cover;border-radius:6px;">' : '') +
         '<span class="fw-600" style="font-size:0.85rem;">'+escH(inq.property_title)+'</span></a>'
       : '<span class="text-muted fs-12">General Inquiry</span>';
 

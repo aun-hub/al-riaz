@@ -43,7 +43,7 @@ $db = Database::getInstance();
 
 $knownCities = ['Islamabad', 'Rawalpindi', 'Lahore', 'Karachi'];
 try {
-    $citiesStmt = $db->query("SELECT DISTINCT city FROM properties WHERE is_published = 1 ORDER BY city");
+    $citiesStmt = $db->query("SELECT DISTINCT city FROM properties WHERE is_published = 1 AND is_sold = 0 ORDER BY city");
     $dbCities   = $citiesStmt->fetchAll(PDO::FETCH_COLUMN);
     $allCities  = array_unique(array_merge($knownCities, $dbCities));
     sort($allCities);
@@ -52,7 +52,7 @@ try {
 }
 
 // ─── Build property WHERE ─────────────────────────────────────────────────
-$propWhere  = ["p.is_published = 1"];
+$propWhere  = ["p.is_published = 1", "p.is_sold = 0"];
 $propParams = [];
 
 if ($q !== '') {
@@ -190,7 +190,7 @@ if (!$hasFilters || ($totalProps === 0 && empty($projects))) {
                    ON pm.property_id = p.id
                   AND pm.kind = 'image'
                   AND pm.sort_order = 0
-            WHERE p.is_published = 1 AND p.is_featured = 1
+            WHERE p.is_published = 1 AND p.is_featured = 1 AND p.is_sold = 0
             ORDER BY p.published_at DESC
             LIMIT 4
         ");
@@ -367,7 +367,7 @@ require_once 'includes/header.php';
                     </button>
                     <a href="<?= $b ?>/search.php<?= $q !== '' ? '?q=' . urlencode($q) : '' ?>"
                        class="btn btn-outline-secondary btn-sm" id="resetFiltersBtn">
-                        <i class="fas fa-redo"></i>
+                        <i class="fas fa-rotate-right"></i>
                     </a>
                 </div>
             </form>
@@ -423,7 +423,7 @@ require_once 'includes/header.php';
             </p>
             <div class="mt-3 d-flex gap-2 justify-content-center flex-wrap">
                 <a href="<?= $b ?>/search.php" class="btn-gold">
-                    <i class="fas fa-redo me-1"></i>Clear Search
+                    <i class="fas fa-rotate-right me-1"></i>Clear Search
                 </a>
                 <a href="<?= $b ?>/residential.php" class="btn btn-outline-secondary">
                     Browse All Properties
@@ -458,7 +458,7 @@ require_once 'includes/header.php';
                 <div class="col-12 col-md-6 col-lg-4 mb-3">
                     <div class="card h-100" style="border:1px solid var(--navy-100); border-radius:10px; overflow:hidden; transition:box-shadow .25s, transform .25s;">
                         <div class="position-relative" style="aspect-ratio:16/9; overflow:hidden; background:#f5f5f5;">
-                            <?php $thumb = !empty($proj['thumbnail']) ? htmlspecialchars($proj['thumbnail']) : 'https://picsum.photos/id/' . (100 + $i) . '/400/225'; ?>
+                            <?php $thumb = !empty($proj['thumbnail']) ? htmlspecialchars(mediaUrl($proj['thumbnail'])) : 'https://picsum.photos/id/' . (100 + $i) . '/400/225'; ?>
                             <img data-src="<?= $thumb ?>"
                                  src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 225'%3E%3Crect width='400' height='225' fill='%23e8e8e8'/%3E%3C/svg%3E"
                                  class="w-100 h-100 lazy" style="object-fit:cover;" alt="<?= htmlspecialchars($proj['title']) ?>">
@@ -476,7 +476,7 @@ require_once 'includes/header.php';
                             </p>
                             <?php if (!empty($proj['developer'])): ?>
                             <p class="small text-muted mb-0">
-                                <i class="fas fa-hard-hat me-1"></i><?= htmlspecialchars($proj['developer']) ?>
+                                <i class="fas fa-helmet-safety me-1"></i><?= htmlspecialchars($proj['developer']) ?>
                             </p>
                             <?php endif; ?>
                         </div>

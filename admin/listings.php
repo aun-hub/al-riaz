@@ -39,6 +39,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
                     $db->prepare("UPDATE properties SET is_featured=0 WHERE id IN ($placeholders)")->execute($ids);
                     setFlash('success', count($ids) . ' listing(s) removed from featured.');
                     break;
+                case 'mark_sold':
+                    $db->prepare("UPDATE properties SET is_sold=1 WHERE id IN ($placeholders)")->execute($ids);
+                    auditLog('mark_sold', 'properties', 0, 'IDs: ' . implode(',', $ids));
+                    setFlash('success', count($ids) . ' listing(s) marked as sold and hidden from the site.');
+                    break;
+                case 'unmark_sold':
+                    $db->prepare("UPDATE properties SET is_sold=0 WHERE id IN ($placeholders)")->execute($ids);
+                    auditLog('unmark_sold', 'properties', 0, 'IDs: ' . implode(',', $ids));
+                    setFlash('success', count($ids) . ' listing(s) marked as available.');
+                    break;
                 case 'delete':
                     $db->prepare("DELETE FROM properties WHERE id IN ($placeholders)")->execute($ids);
                     auditLog('bulk_delete', 'properties', 0, 'Deleted IDs: ' . implode(',', $ids));
@@ -49,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
             setFlash('danger', 'Bulk action failed: ' . $e->getMessage());
         }
     }
-    header('Location: /admin/listings.php');
+    header('Location: ' . BASE_PATH . '/admin/listings.php');
     exit;
 }
 
@@ -64,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     } catch(Exception $e) {
         setFlash('danger', 'Delete failed: ' . $e->getMessage());
     }
-    header('Location: /admin/listings.php');
+    header('Location: ' . BASE_PATH . '/admin/listings.php');
     exit;
 }
 
@@ -83,8 +93,13 @@ $where  = [];
 $params = [];
 
 if ($filterStatus !== '') {
-    $where[]  = 'p.is_published = ?';
-    $params[] = ($filterStatus === 'published') ? 1 : 0;
+    if ($filterStatus === 'sold') {
+        $where[] = 'p.is_sold = 1';
+    } elseif ($filterStatus === 'published') {
+        $where[] = 'p.is_published = 1 AND p.is_sold = 0';
+    } elseif ($filterStatus === 'draft') {
+        $where[] = 'p.is_published = 0';
+    }
 }
 if ($filterCategory !== '') {
     $where[]  = 'p.category = ?';
@@ -122,7 +137,7 @@ try {
     $listStmt = $db->prepare(
         "SELECT p.id, p.title, p.category, p.purpose, p.listing_type, p.city,
                 p.price, p.price_on_demand, p.area_value, p.area_unit,
-                p.is_published, p.is_featured, p.created_at,
+                p.is_published, p.is_featured, p.is_sold, p.created_at,
                 u.name AS agent_name,
                 (SELECT pm.url FROM property_media pm WHERE pm.property_id=p.id AND pm.kind='image' ORDER BY pm.sort_order ASC LIMIT 1) AS thumb
          FROM properties p
@@ -153,10 +168,10 @@ try {
 }
 
 // Status badge
-function listingStatus(int $isPublished): string {
-    return $isPublished
-        ? '<span class="badge bg-success">Published</span>'
-        : '<span class="badge bg-secondary">Draft</span>';
+function listingStatus(int $isPublished, int $isSold = 0): string {
+    if ($isSold)      return '<span class="badge bg-danger">Sold</span>';
+    if ($isPublished) return '<span class="badge bg-success">Published</span>';
+    return '<span class="badge bg-secondary">Draft</span>';
 }
 
 function paginateUrl(int $p): string {
@@ -174,14 +189,14 @@ include __DIR__ . '/includes/admin-sidebar.php';
     <h1><i class="fa-solid fa-house me-2" style="color:var(--gold)"></i>Listings</h1>
     <p class="text-muted mb-0 fs-13"><?= number_format($totalRows) ?> total listings</p>
   </div>
-  <a href="/admin/listing-form.php" class="btn btn-gold">
+  <a href="<?= BASE_PATH ?>/admin/listing-form.php" class="btn btn-gold">
     <i class="fa-solid fa-plus me-1"></i> New Listing
   </a>
 </div>
 
 <!-- Filter Card -->
 <div class="filter-card">
-  <form method="GET" action="/admin/listings.php" class="row g-2 align-items-end">
+  <form method="GET" action="<?= BASE_PATH ?>/admin/listings.php" class="row g-2 align-items-end">
     <div class="col-12 col-md-3">
       <label class="form-label fw-600 fs-12">Search</label>
       <input type="text" name="q" class="form-control form-control-sm"
@@ -192,7 +207,8 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <select name="status" class="form-select form-select-sm">
         <option value="">All Status</option>
         <option value="published" <?= $filterStatus==='published'?'selected':'' ?>>Published</option>
-        <option value="draft" <?= $filterStatus==='draft'?'selected':'' ?>>Draft</option>
+        <option value="draft"     <?= $filterStatus==='draft'?'selected':'' ?>>Draft</option>
+        <option value="sold"      <?= $filterStatus==='sold'?'selected':'' ?>>Sold</option>
       </select>
     </div>
     <div class="col-6 col-md-2">
@@ -228,7 +244,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <button type="submit" class="btn btn-sm btn-dark w-100">
         <i class="fa-solid fa-magnifying-glass"></i>
       </button>
-      <a href="/admin/listings.php" class="btn btn-sm btn-outline-secondary w-100" title="Reset">
+      <a href="<?= BASE_PATH ?>/admin/listings.php" class="btn btn-sm btn-outline-secondary w-100" title="Reset">
         <i class="fa-solid fa-rotate"></i>
       </a>
     </div>
@@ -237,7 +253,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
 
 <!-- Bulk Action + Table -->
 <div class="admin-table-wrapper">
-  <form method="POST" action="/admin/listings.php" id="bulkForm">
+  <form method="POST" action="<?= BASE_PATH ?>/admin/listings.php" id="bulkForm">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="admin-table-header">
@@ -252,10 +268,15 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <option value="unpublish">Unpublish</option>
           <option value="feature">Set Featured</option>
           <option value="unfeature">Remove Featured</option>
+          <option value="mark_sold">Mark as Sold (hide from site)</option>
+          <option value="unmark_sold">Mark as Available</option>
           <option value="delete">Delete Selected</option>
         </select>
         <button type="submit" class="btn btn-sm btn-secondary"
-                onclick="return confirm('Apply bulk action to selected listings?')">
+                data-confirm="Apply this bulk action to the selected listings?"
+                data-confirm-title="Apply bulk action"
+                data-confirm-ok="Apply"
+                data-confirm-variant="warning">
           Apply
         </button>
       </div>
@@ -283,7 +304,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <tr>
             <td colspan="11" class="text-center py-5 text-muted">
               <i class="fa-solid fa-house-circle-xmark fa-2x mb-2 d-block"></i>
-              No listings found. <a href="/admin/listing-form.php" class="text-decoration-none">Create the first one</a>.
+              No listings found. <a href="<?= BASE_PATH ?>/admin/listing-form.php" class="text-decoration-none">Create the first one</a>.
             </td>
           </tr>
           <?php else: ?>
@@ -295,7 +316,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
             </td>
             <td>
               <?php if ($lst['thumb']): ?>
-                <img src="<?= htmlspecialchars($lst['thumb'], ENT_QUOTES, 'UTF-8') ?>"
+                <img src="<?= htmlspecialchars(mediaUrl($lst['thumb']), ENT_QUOTES, 'UTF-8') ?>"
                      alt="" class="thumb" loading="lazy">
               <?php else: ?>
                 <div class="thumb-placeholder"><i class="fa-solid fa-image"></i></div>
@@ -326,7 +347,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
             <td style="white-space:nowrap;">
               <?= htmlspecialchars(getAreaFormatted((float)($lst['area_value'] ?? 0), $lst['area_unit'] ?? 'marla'), ENT_QUOTES, 'UTF-8') ?>
             </td>
-            <td><?= listingStatus((int)$lst['is_published']) ?></td>
+            <td><?= listingStatus((int)$lst['is_published'], (int)$lst['is_sold']) ?></td>
             <td style="white-space:nowrap;font-size:0.82rem;">
               <?= htmlspecialchars($lst['agent_name'] ?? '—', ENT_QUOTES, 'UTF-8') ?>
             </td>
@@ -334,11 +355,11 @@ include __DIR__ . '/includes/admin-sidebar.php';
               <?= htmlspecialchars(date('d M Y', strtotime($lst['created_at'])), ENT_QUOTES, 'UTF-8') ?>
             </td>
             <td class="text-end" style="white-space:nowrap;">
-              <a href="/admin/listing-form.php?id=<?= (int)$lst['id'] ?>"
+              <a href="<?= BASE_PATH ?>/admin/listing-form.php?id=<?= (int)$lst['id'] ?>"
                  class="btn btn-outline-primary btn-action btn-edit me-1" title="Edit">
                 <i class="fa-solid fa-pen"></i>
               </a>
-              <a href="/property/<?= (int)$lst['id'] ?>" target="_blank"
+              <a href="<?= BASE_PATH ?>/property/<?= (int)$lst['id'] ?>" target="_blank"
                  class="btn btn-outline-success btn-action btn-view me-1" title="View on site">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i>
               </a>
@@ -407,7 +428,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       </div>
       <div class="modal-footer border-0">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <form method="POST" action="/admin/listings.php">
+        <form method="POST" action="<?= BASE_PATH ?>/admin/listings.php">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="delete_id" id="deleteListingId">
           <button type="submit" class="btn btn-danger">

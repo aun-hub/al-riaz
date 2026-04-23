@@ -3,32 +3,39 @@
    Bootstrap 5.3.2 companion styles
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&display=swap');
+
 /* ── CSS Variables ─────────────────────────────────────────── */
 :root {
-  --sidebar-bg:    #1B4332;
+  --sidebar-bg:    #0A1628;
   --sidebar-width: 260px;
   --header-h:      60px;
-  --gold:          #C9A84C;
-  --dark-gold:     #A07830;
-  --cream:         #FBF5E6;
+  --gold:          #F5B301;
+  --dark-gold:     #D98E00;
+  --cream:         #FEF3C7;
   --sidebar-text:  rgba(255,255,255,0.85);
-  --sidebar-hover: rgba(201,168,76,0.15);
+  --sidebar-hover: rgba(245,179,1,0.15);
   --transition:    0.25s ease;
+  --font-admin:    'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 /* ── Reset & Base ──────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
-body.admin-body {
+html, body, input, select, textarea, button {
+  font-family: var(--font-admin);
+}
+
+body, body.admin-body {
   background: #f0f2f5;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-admin);
   overflow-x: hidden;
 }
 
 /* ── Admin Header ──────────────────────────────────────────── */
 #adminHeader {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0; left: var(--sidebar-width); right: 0;
   height: var(--header-h);
   background: #fff;
   box-shadow: 0 1px 4px rgba(0,0,0,0.12);
@@ -37,6 +44,7 @@ body.admin-body {
   align-items: center;
   padding: 0 1.25rem;
   gap: 1rem;
+  transition: left var(--transition);
 }
 
 #adminHeader .header-brand {
@@ -151,11 +159,11 @@ body.admin-body {
 .sidebar-link:hover {
   background: var(--sidebar-hover);
   color: var(--gold);
-  border-left-color: rgba(201,168,76,0.5);
+  border-left-color: rgba(245,179,1,0.5);
 }
 
 .sidebar-link.active {
-  background: rgba(201,168,76,0.2);
+  background: rgba(245,179,1,0.2);
   color: var(--gold);
   border-left: 3px solid var(--gold);
 }
@@ -259,8 +267,8 @@ body.admin-body {
   flex-shrink: 0;
 }
 
-.kpi-icon.gold   { background: rgba(201,168,76,0.15); color: var(--gold); }
-.kpi-icon.green  { background: rgba(27,67,50,0.12);  color: var(--sidebar-bg); }
+.kpi-icon.gold   { background: rgba(245,179,1,0.15); color: var(--gold); }
+.kpi-icon.green  { background: rgba(10,22,40,0.12);  color: var(--sidebar-bg); }
 .kpi-icon.blue   { background: rgba(13,110,253,0.12); color: #0d6efd; }
 .kpi-icon.red    { background: rgba(220,53,69,0.12);  color: #dc3545; }
 .kpi-icon.teal   { background: rgba(20,184,166,0.12); color: #14b8a6; }
@@ -625,7 +633,7 @@ body.admin-body {
 .drop-zone:hover,
 .drop-zone.dragover {
   border-color: var(--gold);
-  background: rgba(201,168,76,0.05);
+  background: rgba(245,179,1,0.05);
 }
 
 .drop-zone i { font-size: 2.5rem; color: #adb5bd; margin-bottom: 0.75rem; }
@@ -720,20 +728,20 @@ body.admin-body {
 }
 
 .pagination .page-link:hover {
-  background: rgba(201,168,76,0.1);
+  background: rgba(245,179,1,0.1);
   color: var(--gold);
 }
 
 /* ── Role Badges ───────────────────────────────────────────── */
 .role-badge { font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
-.role-super_admin { background: rgba(201,168,76,0.2); color: #7a5c1e; }
-.role-admin       { background: rgba(27,67,50,0.15);  color: #1B4332; }
+.role-super_admin { background: rgba(245,179,1,0.2); color: #8A5F00; }
+.role-admin       { background: rgba(10,22,40,0.15);  color: #0A1628; }
 .role-agent       { background: rgba(13,110,253,0.12); color: #0d6efd; }
 
 /* ── Login Page ────────────────────────────────────────────── */
 .login-wrapper {
   min-height: 100vh;
-  background: linear-gradient(135deg, #1B4332 0%, #2d6a4f 60%, #1B4332 100%);
+  background: linear-gradient(135deg, #0A1628 0%, #152B5E 55%, #2346A0 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -759,7 +767,7 @@ body.admin-body {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: rgba(201,168,76,0.2);
+  background: rgba(245,179,1,0.2);
   border: 2px solid var(--gold);
   display: flex;
   align-items: center;
@@ -778,7 +786,7 @@ body.admin-body {
 
 .login-card-body .form-control:focus {
   border-color: var(--gold);
-  box-shadow: 0 0 0 0.2rem rgba(201,168,76,0.2);
+  box-shadow: 0 0 0 0.2rem rgba(245,179,1,0.2);
 }
 
 .btn-login {
@@ -877,7 +885,7 @@ body.admin-body {
   font-size: 0.83rem;
 }
 
-.feature-check-item:hover { border-color: var(--gold); background: rgba(201,168,76,0.05); }
+.feature-check-item:hover { border-color: var(--gold); background: rgba(245,179,1,0.05); }
 .feature-check-item input[type="checkbox"]:checked + span { color: var(--sidebar-bg); font-weight: 600; }
 
 /* ── Responsive ────────────────────────────────────────────── */
@@ -893,6 +901,10 @@ body.admin-body {
   #sidebarOverlay.visible { display: block; }
 
   #hamburgerBtn { display: flex; }
+
+  #adminHeader {
+    left: 0;
+  }
 
   #mainContent {
     margin-left: 0;

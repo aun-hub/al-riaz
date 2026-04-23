@@ -86,7 +86,7 @@ function handleAjaxListRequest(): never
     $limit    = min(50, max(1, intParam('limit', 12)));
     $offset   = ($page - 1) * $limit;
 
-    $conditions = ['p.is_published = 1'];
+    $conditions = ['p.is_published = 1', 'p.is_sold = 0'];
     $params     = [];
 
     if ($category && in_array($category, ['residential', 'commercial', 'plot'], true)) {
@@ -224,6 +224,7 @@ function handleDetailRequest(string $slug): never
         LEFT JOIN users u ON u.id = p.agent_id
         WHERE p.slug = :slug
           AND p.is_published = 1
+          AND p.is_sold = 0
         LIMIT 1
     ");
     $stmt->execute([':slug' => $slug]);
@@ -278,6 +279,7 @@ function handleDetailRequest(string $slug): never
              LIMIT 1) AS thumbnail
         FROM properties p
         WHERE p.is_published = 1
+          AND p.is_sold = 0
           AND p.city     = :city
           AND p.category = :category
           AND p.id      != :id
@@ -319,7 +321,7 @@ function handleListRequest(): never
     $offset    = ($page - 1) * $limit;
 
     // ── Build WHERE clause ───────────────────────────────────────────────────
-    $conditions = ['p.is_published = 1'];
+    $conditions = ['p.is_published = 1', 'p.is_sold = 0'];
     $params     = [];
 
     if ($category && in_array($category, ['residential', 'commercial', 'plot'], true)) {

@@ -39,7 +39,7 @@ $pdo = db();
 // Merge cities from both properties and projects tables
 $cityStmt = $pdo->prepare("
     SELECT DISTINCT city FROM (
-        SELECT city FROM properties WHERE is_published = 1 AND city != ''
+        SELECT city FROM properties WHERE is_published = 1 AND is_sold = 0 AND city != ''
         UNION
         SELECT city FROM projects  WHERE is_published = 1 AND city != ''
     ) AS combined

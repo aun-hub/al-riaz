@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     } catch(Exception $e) {
         setFlash('danger', 'Delete failed: ' . $e->getMessage());
     }
-    header('Location: /admin/projects.php');
+    header('Location: ' . BASE_PATH . '/admin/projects.php');
     exit;
 }
 
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
             }
         } catch(Exception $e) { setFlash('danger', 'Bulk action failed: ' . $e->getMessage()); }
     }
-    header('Location: /admin/projects.php');
+    header('Location: ' . BASE_PATH . '/admin/projects.php');
     exit;
 }
 
@@ -95,7 +95,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
     <h1><i class="fa-solid fa-building me-2" style="color:var(--gold)"></i>Projects</h1>
     <p class="text-muted mb-0 fs-13"><?= number_format($totalRows) ?> total projects</p>
   </div>
-  <a href="/admin/project-form.php" class="btn btn-gold">
+  <a href="<?= BASE_PATH ?>/admin/project-form.php" class="btn btn-gold">
     <i class="fa-solid fa-plus me-1"></i> New Project
   </a>
 </div>
@@ -127,7 +127,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
     </div>
     <div class="col-12 col-md-2 d-flex gap-1">
       <button type="submit" class="btn btn-sm btn-dark w-100"><i class="fa-solid fa-magnifying-glass"></i></button>
-      <a href="/admin/projects.php" class="btn btn-sm btn-outline-secondary w-100" title="Reset"><i class="fa-solid fa-rotate"></i></a>
+      <a href="<?= BASE_PATH ?>/admin/projects.php" class="btn btn-sm btn-outline-secondary w-100" title="Reset"><i class="fa-solid fa-rotate"></i></a>
     </div>
   </form>
 </div>
@@ -145,7 +145,11 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <option value="feature">Set Featured</option>
           <option value="delete">Delete</option>
         </select>
-        <button type="submit" class="btn btn-sm btn-secondary" onclick="return confirm('Apply to selected?')">Apply</button>
+        <button type="submit" class="btn btn-sm btn-secondary"
+                data-confirm="Apply this bulk action to the selected projects?"
+                data-confirm-title="Apply bulk action"
+                data-confirm-ok="Apply"
+                data-confirm-variant="warning">Apply</button>
       </div>
     </div>
     <div class="table-responsive">
@@ -169,7 +173,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <tr>
             <td colspan="10" class="text-center py-5 text-muted">
               <i class="fa-solid fa-building-circle-xmark fa-2x mb-2 d-block"></i>
-              No projects found. <a href="/admin/project-form.php">Create one</a>.
+              No projects found. <a href="<?= BASE_PATH ?>/admin/project-form.php">Create one</a>.
             </td>
           </tr>
           <?php else: ?>
@@ -179,8 +183,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
             <td>
               <?php $heroImg = $proj['hero_image_url'] ?? $proj['hero_image'] ?? ''; ?>
               <?php if ($heroImg): ?>
-                <?php $heroSrc = (strpos($heroImg, 'http') === 0) ? $heroImg : '/assets/uploads/' . $heroImg; ?>
-                <img src="<?= htmlspecialchars($heroSrc, ENT_QUOTES, 'UTF-8') ?>" alt="" class="thumb">
+                <img src="<?= htmlspecialchars(mediaUrl($heroImg), ENT_QUOTES, 'UTF-8') ?>" alt="" class="thumb">
               <?php else: ?>
                 <div class="thumb-placeholder"><i class="fa-solid fa-building"></i></div>
               <?php endif; ?>
@@ -214,7 +217,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
                 : '<span class="badge bg-secondary">Draft</span>' ?>
             </td>
             <td class="text-end" style="white-space:nowrap;">
-              <a href="/admin/project-form.php?id=<?= (int)$proj['id'] ?>" class="btn btn-outline-primary btn-action btn-edit me-1" title="Edit">
+              <a href="<?= BASE_PATH ?>/admin/project-form.php?id=<?= (int)$proj['id'] ?>" class="btn btn-outline-primary btn-action btn-edit me-1" title="Edit">
                 <i class="fa-solid fa-pen"></i>
               </a>
               <button type="button" class="btn btn-outline-danger btn-action btn-delete"

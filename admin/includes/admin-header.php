@@ -24,7 +24,7 @@ if ($flash) unset($_SESSION['flash']);
   <!-- Font Awesome 6.5 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <!-- Admin CSS -->
-  <link rel="stylesheet" href="/assets/css/admin.css">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/admin.css?v=<?= @filemtime(__DIR__ . '/../../assets/css/admin.css') ?>">
 
   <meta name="robots" content="noindex, nofollow">
 </head>
@@ -39,7 +39,7 @@ if ($flash) unset($_SESSION['flash']);
     <i class="fa-solid fa-bars"></i>
   </button>
 
-  <a class="header-brand d-none d-md-flex align-items-center gap-2" href="/admin/index.php">
+  <a class="header-brand d-flex d-lg-none align-items-center gap-2" href="<?= BASE_PATH ?>/admin/index.php">
     <i class="fa-solid fa-shield-halved text-gold" style="color:var(--gold)"></i>
     Al-Riaz Admin
   </a>
@@ -52,7 +52,7 @@ if ($flash) unset($_SESSION['flash']);
   <!-- Right side -->
   <div class="d-flex align-items-center gap-3 ms-auto">
     <!-- Inquiries Bell -->
-    <a href="/admin/inquiries.php" class="btn btn-light btn-sm position-relative" title="Inquiries">
+    <a href="<?= BASE_PATH ?>/admin/inquiries.php" class="btn btn-light btn-sm position-relative" title="Inquiries">
       <i class="fa-solid fa-bell"></i>
       <?php
       try {
@@ -69,7 +69,7 @@ if ($flash) unset($_SESSION['flash']);
     </a>
 
     <!-- View Site -->
-    <a href="/" target="_blank" class="btn btn-outline-secondary btn-sm d-none d-md-inline-flex align-items-center gap-1">
+    <a href="<?= BASE_PATH ?>/" target="_blank" class="btn btn-outline-secondary btn-sm d-none d-md-inline-flex align-items-center gap-1">
       <i class="fa-solid fa-arrow-up-right-from-square"></i>
       View Site
     </a>
@@ -100,13 +100,13 @@ if ($flash) unset($_SESSION['flash']);
           </div>
         </li>
         <li>
-          <a class="dropdown-item d-flex align-items-center gap-2" href="/admin/settings.php">
+          <a class="dropdown-item d-flex align-items-center gap-2" href="<?= BASE_PATH ?>/admin/settings.php">
             <i class="fa-solid fa-user-cog fa-fw text-muted"></i> Profile & Settings
           </a>
         </li>
         <li><hr class="dropdown-divider"></li>
         <li>
-          <a class="dropdown-item d-flex align-items-center gap-2 text-danger" href="/admin/logout.php">
+          <a class="dropdown-item d-flex align-items-center gap-2 text-danger" href="<?= BASE_PATH ?>/admin/logout.php">
             <i class="fa-solid fa-right-from-bracket fa-fw"></i> Logout
           </a>
         </li>

@@ -12,7 +12,7 @@ if (!function_exists('requireLogin')) {
     function requireLogin(): void
     {
         if (!isset($_SESSION['admin_id']) || empty($_SESSION['admin_id'])) {
-            header('Location: /admin/login.php');
+            header('Location: ' . BASE_PATH . '/admin/login.php');
             exit;
         }
     }
@@ -40,7 +40,7 @@ if (!function_exists('requireRole')) {
         requireLogin();
         if (!hasRole($required)) {
             $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Access denied. Insufficient permissions.'];
-            header('Location: /admin/index.php');
+            header('Location: ' . BASE_PATH . '/admin/index.php');
             exit;
         }
     }

@@ -141,7 +141,7 @@ try {
 
 // ── Validate that referenced property/project exist ───────────────────────────
 if ($propertyId !== null) {
-    $chk = $pdo->prepare("SELECT id FROM properties WHERE id = ? AND is_published = 1 LIMIT 1");
+    $chk = $pdo->prepare("SELECT id FROM properties WHERE id = ? AND is_published = 1 AND is_sold = 0 LIMIT 1");
     $chk->execute([$propertyId]);
     if (!$chk->fetch()) {
         $propertyId = null; // Orphan reference — store anyway without FK

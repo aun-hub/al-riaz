@@ -210,7 +210,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <p class="text-muted mb-0 fs-13">Editing: <strong><?= htmlspecialchars($data['title'], ENT_QUOTES, 'UTF-8') ?></strong></p>
     <?php endif; ?>
   </div>
-  <a href="/admin/listings.php" class="btn btn-outline-secondary">
+  <a href="<?= BASE_PATH ?>/admin/listings.php" class="btn btn-outline-secondary">
     <i class="fa-solid fa-arrow-left me-1"></i> Back to Listings
   </a>
 </div>
@@ -257,7 +257,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
   </div>
 </div>
 
-<form method="POST" enctype="multipart/form-data" id="listingForm" action="/admin/listing-form.php<?= $isEdit?"?id=$id":'' ?>">
+<form method="POST" enctype="multipart/form-data" id="listingForm" action="<?= BASE_PATH ?>/admin/listing-form.php<?= $isEdit?"?id=$id":'' ?>">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 
   <!-- ── Step 1: Basics ────────────────────────────────────── -->
@@ -529,7 +529,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <div class="photo-preview-grid" id="existingPhotoGrid">
             <?php foreach ($existingPhotos as $photo): ?>
             <div class="photo-preview-item" id="existing_<?= (int)$photo['id'] ?>">
-              <img src="<?= htmlspecialchars($photo['url'] ?? $photo['file_path'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+              <img src="<?= htmlspecialchars(mediaUrl($photo['url'] ?? $photo['file_path'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                    alt="<?= htmlspecialchars($photo['alt_text'] ?? '', ENT_QUOTES, 'UTF-8') ?>" loading="lazy">
               <button type="button" class="btn-remove-photo"
                       onclick="removeExistingPhoto(<?= (int)$photo['id'] ?>, this)">

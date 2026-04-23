@@ -21,12 +21,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_media_id'])) {
 
     try {
         if ($mediaType === 'project') {
-            $stmt = $db->prepare('SELECT file_path FROM project_media WHERE id=?');
+            $stmt = $db->prepare('SELECT url FROM project_media WHERE id=?');
             $stmt->execute([$mediaId]);
             $row = $stmt->fetch();
             if ($row) {
-                $fp = __DIR__ . '/../assets/uploads/' . $row['file_path'];
-                if (file_exists($fp)) @unlink($fp);
+                $url = $row['url'] ?? '';
+                if (strpos($url, '/assets/uploads/') === 0) {
+                    $fp = __DIR__ . '/..' . $url;
+                    if (file_exists($fp)) @unlink($fp);
+                }
                 $db->prepare('DELETE FROM project_media WHERE id=?')->execute([$mediaId]);
             }
         } else {
@@ -48,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_media_id'])) {
     } catch(Exception $e) {
         setFlash('danger', 'Delete failed: ' . $e->getMessage());
     }
-    header('Location: /admin/media.php');
+    header('Location: ' . BASE_PATH . '/admin/media.php');
     exit;
 }
 
@@ -88,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['media_file'])) {
     } else {
         setFlash('danger', 'Upload error or file too large (max 5MB).');
     }
-    header('Location: /admin/media.php');
+    header('Location: ' . BASE_PATH . '/admin/media.php');
     exit;
 }
 
@@ -109,19 +112,19 @@ try {
     // Property media
     $pStmt = $db->prepare(
         "SELECT pm.id, pm.url AS file_path, pm.alt_text AS original_name, pm.kind AS media_type, pm.sort_order,
-                NOW() AS uploaded_at,
+                pm.uploaded_at,
                 p.id AS source_id, p.title AS source_title, 'property' AS source_type
          FROM property_media pm
          LEFT JOIN properties p ON pm.property_id=p.id
          $propWhereSQL
-         ORDER BY pm.sort_order ASC"
+         ORDER BY pm.uploaded_at DESC"
     );
     $pStmt->execute($propParams);
     $propertyMedia = $pStmt->fetchAll();
 
     // Project media (no type filter for simplicity)
     $projStmt = $db->query(
-        "SELECT gm.id, gm.file_path AS file_path, gm.file_path AS original_name, gm.media_type, gm.sort_order,
+        "SELECT gm.id, gm.url AS file_path, gm.url AS original_name, gm.kind AS media_type, gm.sort_order,
                 gm.uploaded_at,
                 pr.id AS source_id, pr.name AS source_title, 'project' AS source_type
          FROM project_media gm
@@ -188,7 +191,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
     </div>
     <div class="col-12 col-md-2 d-flex gap-1">
       <button type="submit" class="btn btn-sm btn-dark w-100"><i class="fa-solid fa-magnifying-glass"></i></button>
-      <a href="/admin/media.php" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-rotate"></i></a>
+      <a href="<?= BASE_PATH ?>/admin/media.php" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-rotate"></i></a>
     </div>
   </form>
 </div>
@@ -212,11 +215,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
     $isPdf   = $ext === 'pdf';
     $isImage = !$isPdf && !empty($fileUrl);
     $mediaType = $item['media_type'] ?? 'image';
-    $displayUrl = $fileUrl; // Could be absolute URL or relative path
-    // Ensure relative paths are served correctly
-    if ($displayUrl && strpos($displayUrl, 'http') === false && strpos($displayUrl, '/') !== 0) {
-        $displayUrl = '/assets/uploads/' . $displayUrl;
-    }
+    $displayUrl = mediaUrl($fileUrl);
   ?>
   <div class="media-item">
     <?php if ($isImage): ?>

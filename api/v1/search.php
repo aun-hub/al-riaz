@@ -101,6 +101,7 @@ $propStmt = $pdo->prepare("
          LIMIT 1) AS thumbnail
     FROM properties p
     WHERE p.is_published = 1
+      AND p.is_sold = 0
       AND (
           p.title         LIKE :q1 OR
           p.city          LIKE :q2 OR

@@ -25,7 +25,7 @@ function sideLink(string $href, string $icon, string $label, string $current, st
         : '';
     return sprintf(
         '<li><a href="%s" class="sidebar-link%s"><span class="nav-icon"><i class="fa-solid %s"></i></span><span>%s</span>%s</a></li>',
-        htmlspecialchars($href),
+        htmlspecialchars(BASE_PATH . $href),
         $isActive,
         htmlspecialchars($icon),
         htmlspecialchars($label),
@@ -39,7 +39,7 @@ function sideLink(string $href, string $icon, string $label, string $current, st
 
   <!-- Logo -->
   <div class="sidebar-logo">
-    <a href="/admin/index.php" class="text-decoration-none">
+    <a href="<?= BASE_PATH ?>/admin/index.php" class="text-decoration-none">
       <div class="sidebar-logo-text">
         <span class="sidebar-logo-main">Al-Riaz Associates</span>
         <span class="sidebar-logo-sub">Admin Panel</span>
@@ -63,6 +63,7 @@ function sideLink(string $href, string $icon, string $label, string $current, st
     <li class="sidebar-section-label">Administration</li>
 
     <?php if (isset($_SESSION['admin_role']) && in_array($_SESSION['admin_role'], ['admin', 'super_admin'])): ?>
+      <?= sideLink('/admin/dealers.php',  'fa-handshake',      'Authorized Dealers', $currentPage) ?>
       <?= sideLink('/admin/users.php',    'fa-users',          'Users & Roles', $currentPage) ?>
       <?= sideLink('/admin/settings.php', 'fa-gear',           'Settings',      $currentPage) ?>
     <?php endif; ?>
@@ -77,7 +78,7 @@ function sideLink(string $href, string $icon, string $label, string $current, st
   <div class="sidebar-bottom">
     <ul class="sidebar-nav" style="padding:0;">
       <li>
-        <a href="/admin/logout.php" class="sidebar-link">
+        <a href="<?= BASE_PATH ?>/admin/logout.php" class="sidebar-link">
           <span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span>
           <span>Logout</span>
         </a>

@@ -53,6 +53,7 @@ try {
         FROM   properties p
         WHERE  p.project_id = ?
           AND  p.is_published = 1
+          AND  p.is_sold = 0
         ORDER  BY p.is_featured DESC, p.created_at DESC
     ');
     $stmtProps->execute([$project['id']]);
@@ -79,7 +80,7 @@ if (!function_exists('getStatusLabel')) {
 }
 
 /* ─── SEO / Meta ────────────────────────────────────────────────────────── */
-$heroImage = $project['hero_image_url'] ?: 'https://picsum.photos/id/1070/1200/630';
+$heroImage = $project['hero_image_url'] ? mediaUrl($project['hero_image_url']) : 'https://picsum.photos/id/1070/1200/630';
 $descClean = strip_tags($project['description'] ?? '');
 $metaDesc  = mb_substr($descClean ?: 'Al-Riaz Associates is an Authorised Dealer for ' . $project['name'] . ' in ' . $project['city'] . ', Pakistan.', 0, 160);
 $pageTitle = htmlspecialchars($project['name']) . ' - Al-Riaz Associates';
@@ -128,7 +129,7 @@ require_once __DIR__ . '/includes/header.php';
         <?= generateBreadcrumb([['label'=>'Home','url'=>'/'],['label'=>'Projects','url'=>'/projects.php'],['label'=>htmlspecialchars($project['name'])]]) ?>
         <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
             <h1 class="page-header-title mb-0"><?= htmlspecialchars($project['name']) ?></h1>
-            <span class="prop-badge project-status" style="font-size:.8rem;"><?= htmlspecialchars(getStatusLabel($project['status'])) ?></span>
+            <span class="prop-badge prop-badge-status-<?= htmlspecialchars($project['status'] ?? 'upcoming') ?>" style="font-size:.8rem;"><?= htmlspecialchars(getStatusLabel($project['status'])) ?></span>
             <span class="badge <?= $project['noc_status'] === 'approved' ? 'bg-success' : 'bg-warning text-dark' ?>" style="font-size:.75rem;">
                 <i class="fa-solid fa-<?= $project['noc_status'] === 'approved' ? 'check-circle' : 'clock' ?> me-1"></i>
                 NOC <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $project['noc_status']))) ?>
@@ -218,7 +219,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <tr>
                                     <td style="width:180px; color:#666; font-size:.85rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; vertical-align:top; padding-top:.6rem;">Status</td>
                                     <td style="color:#222; font-weight:500;">
-                                        <span class="prop-badge project-status" style="font-size:.75rem;">
+                                        <span class="prop-badge prop-badge-status-<?= htmlspecialchars($project['status'] ?? 'upcoming') ?>" style="font-size:.75rem;">
                                             <?= htmlspecialchars(getStatusLabel($project['status'])) ?>
                                         </span>
                                     </td>
@@ -364,10 +365,11 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="mb-2">
                                 <select name="preferred_contact_time" class="form-select form-select-sm">
                                     <option value="">Preferred Contact Time</option>
-                                    <option value="morning">Morning (9am–12pm)</option>
-                                    <option value="afternoon">Afternoon (12pm–5pm)</option>
-                                    <option value="evening">Evening (5pm–8pm)</option>
-                                    <option value="weekend">Weekend</option>
+                                    <option value="Morning (9am - 12pm)">Morning (9am–12pm)</option>
+                                    <option value="Afternoon (12pm - 4pm)">Afternoon (12pm–4pm)</option>
+                                    <option value="Evening (5pm - 8pm)">Evening (5pm–8pm)</option>
+                                    <option value="Anytime">Anytime</option>
+                                    <option value="Business Hours">Business Hours</option>
                                 </select>
                             </div>
                             <div class="mb-3">
@@ -396,47 +398,95 @@ require_once __DIR__ . '/includes/header.php';
                     <p>Gallery images coming soon. <a href="<?= $b ?>/contact.php">Contact us</a> for the full project brochure.</p>
                 </div>
 
-                <?php else: ?>
-                <div class="gallery-grid">
-
-                    <!-- Master Plan first if available -->
-                    <?php if (!empty($project['master_plan_url'])): ?>
-                    <div class="gallery-item gallery-master-plan"
-                         data-lb-src="<?= htmlspecialchars($project['master_plan_url']) ?>"
-                         data-lb-caption="Master Plan — <?= htmlspecialchars($project['name']) ?>"
-                         role="button" tabindex="0" aria-label="View master plan">
-                        <div class="position-relative" style="height:240px;">
-                            <img src="<?= htmlspecialchars($project['master_plan_url']) ?>"
-                                 alt="Master Plan — <?= htmlspecialchars($project['name']) ?>"
-                                 style="width:100%; height:240px; object-fit:contain; background:#f5f5f5;"
-                                 loading="lazy">
-                            <span class="position-absolute bottom-0 start-0 badge bg-dark m-2" style="font-size:.75rem;">
-                                <i class="fa-solid fa-map me-1"></i>Master Plan
-                            </span>
+                <?php else:
+                    // Normalise gallery entries + optional master plan into a single slide list
+                    $slides = [];
+                    if (!empty($project['master_plan_url'])) {
+                        $slides[] = [
+                            'src'     => $project['master_plan_url'],
+                            'alt'     => 'Master Plan — ' . $project['name'],
+                            'contain' => true,
+                            'label'   => 'Master Plan',
+                        ];
+                    }
+                    foreach ($gallery as $gi => $galleryItem) {
+                        $galSrc = is_string($galleryItem) ? $galleryItem : ($galleryItem['url'] ?? '');
+                        if (!$galSrc) continue;
+                        $slides[] = [
+                            'src'     => $galSrc,
+                            'alt'     => is_array($galleryItem) ? ($galleryItem['alt'] ?? $project['name'] . ' photo ' . ($gi + 1)) : $project['name'] . ' photo ' . ($gi + 1),
+                            'contain' => false,
+                            'label'   => null,
+                        ];
+                    }
+                ?>
+                <div class="gallery-wrap" style="margin:0; padding:0; max-width:none;">
+                    <div id="projectCarousel" class="carousel slide" data-bs-ride="false" aria-label="Project gallery">
+                        <div class="carousel-inner">
+                            <?php foreach ($slides as $si => $slide): ?>
+                            <div class="carousel-item <?= $si === 0 ? 'active' : '' ?>">
+                                <img src="<?= htmlspecialchars($slide['src']) ?>"
+                                     class="gallery-carousel-img d-block w-100"
+                                     alt="<?= htmlspecialchars($slide['alt']) ?>"
+                                     loading="<?= $si === 0 ? 'eager' : 'lazy' ?>"
+                                     onerror="this.src='https://picsum.photos/id/<?= 120 + $si * 5 ?>/1200/800'"
+                                     <?= $slide['contain'] ? 'style="object-fit:contain;background:#f5f5f5;"' : '' ?>>
+                                <?php if (!empty($slide['label'])): ?>
+                                <span class="carousel-slide-label">
+                                    <i class="fa-solid fa-map me-1"></i><?= htmlspecialchars($slide['label']) ?>
+                                </span>
+                                <?php endif; ?>
+                            </div>
+                            <?php endforeach; ?>
                         </div>
+
+                        <?php if (count($slides) > 1): ?>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#projectCarousel" data-bs-slide="prev" aria-label="Previous photo">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#projectCarousel" data-bs-slide="next" aria-label="Next photo">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                        <div class="photo-counter" id="projectPhotoCounter" aria-live="polite">1 / <?= count($slides) ?></div>
+                        <?php endif; ?>
+                    </div>
+
+                    <?php if (count($slides) > 1): ?>
+                    <div class="gallery-thumb-strip" id="projectThumbStrip" role="list" aria-label="Photo thumbnails">
+                        <?php foreach ($slides as $si => $slide): ?>
+                        <img src="<?= htmlspecialchars($slide['src']) ?>"
+                             alt="<?= htmlspecialchars($slide['alt']) ?>"
+                             class="gallery-thumb-item <?= $si === 0 ? 'active' : '' ?>"
+                             data-bs-target="#projectCarousel"
+                             data-bs-slide-to="<?= $si ?>"
+                             onerror="this.src='https://picsum.photos/id/<?= 120 + $si * 5 ?>/180/120'">
+                        <?php endforeach; ?>
                     </div>
                     <?php endif; ?>
+                </div>
 
-                    <!-- Gallery images -->
-                    <?php foreach ($gallery as $gi => $galleryItem):
-                        $galSrc = is_string($galleryItem) ? $galleryItem : ($galleryItem['url'] ?? '');
-                        $galAlt = is_array($galleryItem) ? ($galleryItem['alt'] ?? $project['name'] . ' photo ' . ($gi + 1)) : ($project['name'] . ' photo ' . ($gi + 1));
-                        if (!$galSrc) continue;
-                    ?>
-                    <div class="gallery-item"
-                         data-lb-src="<?= htmlspecialchars($galSrc) ?>"
-                         data-lb-caption="<?= htmlspecialchars($galAlt) ?>"
-                         role="button" tabindex="0"
-                         aria-label="View gallery photo <?= $gi + 1 ?>">
-                        <img src="<?= htmlspecialchars($galSrc) ?>"
-                             alt="<?= htmlspecialchars($galAlt) ?>"
-                             loading="lazy"
-                             onerror="this.src='https://picsum.photos/id/<?= 120 + $gi * 5 ?>/400/300'">
-                    </div>
-                    <?php endforeach; ?>
+                <script>
+                (function () {
+                    var c = document.getElementById('projectCarousel');
+                    if (!c) return;
+                    var thumbs  = c.parentNode.querySelectorAll('.gallery-thumb-item');
+                    var counter = document.getElementById('projectPhotoCounter');
+                    var total   = c.querySelectorAll('.carousel-item').length;
 
-                </div><!-- /.gallery-grid -->
-                <?php endif; ?>
+                    c.addEventListener('slid.bs.carousel', function (e) {
+                        thumbs.forEach(function (t, i) { t.classList.toggle('active', i === e.to); });
+                        if (counter) counter.textContent = (e.to + 1) + ' / ' + total;
+                        var active = thumbs[e.to];
+                        if (active && active.parentNode.scrollTo) {
+                            active.parentNode.scrollTo({
+                                left: active.offsetLeft - (active.parentNode.clientWidth / 2) + (active.clientWidth / 2),
+                                behavior: 'smooth'
+                            });
+                        }
+                    });
+                })();
+                </script>
+                <?php endif; /* end outer if(empty)/else */ ?>
 
             </section><!-- /#gallery -->
 
@@ -578,7 +628,7 @@ require_once __DIR__ . '/includes/header.php';
                         <li class="d-flex justify-content-between align-items-start px-3 py-2 border-bottom" style="font-size:.88rem;">
                             <span class="text-muted" style="min-width:110px;">Status</span>
                             <span class="fw-600 text-end">
-                                <span class="prop-badge project-status" style="font-size:.7rem;">
+                                <span class="prop-badge prop-badge-status-<?= htmlspecialchars($project['status'] ?? 'upcoming') ?>" style="font-size:.7rem;">
                                     <?= htmlspecialchars(getStatusLabel($project['status'])) ?>
                                 </span>
                             </span>
@@ -667,10 +717,11 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="mb-2">
                             <select name="preferred_contact_time" class="form-select form-select-sm">
                                 <option value="">Preferred Contact Time</option>
-                                <option value="morning">Morning (9am–12pm)</option>
-                                <option value="afternoon">Afternoon (12pm–5pm)</option>
-                                <option value="evening">Evening (5pm–8pm)</option>
-                                <option value="weekend">Weekend</option>
+                                <option value="Morning (9am - 12pm)">Morning (9am–12pm)</option>
+                                <option value="Afternoon (12pm - 4pm)">Afternoon (12pm–4pm)</option>
+                                <option value="Evening (5pm - 8pm)">Evening (5pm–8pm)</option>
+                                <option value="Anytime">Anytime</option>
+                                <option value="Business Hours">Business Hours</option>
                             </select>
                         </div>
 
@@ -723,14 +774,14 @@ require_once __DIR__ . '/includes/header.php';
                         data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0 bg-light" style="text-align:center;">
-                <img src="<?= htmlspecialchars($project['master_plan_url']) ?>"
+                <img src="<?= htmlspecialchars(mediaUrl($project['master_plan_url'])) ?>"
                      alt="Master Plan of <?= htmlspecialchars($project['name']) ?>"
                      class="img-fluid"
                      style="max-height:80vh; object-fit:contain;"
                      loading="lazy">
             </div>
             <div class="modal-footer py-2">
-                <a href="<?= htmlspecialchars($project['master_plan_url']) ?>"
+                <a href="<?= htmlspecialchars(mediaUrl($project['master_plan_url'])) ?>"
                    download target="_blank" rel="noopener noreferrer"
                    class="btn-gold">
                     <i class="fa-solid fa-download me-1"></i>Download Master Plan

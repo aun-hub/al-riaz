@@ -31,7 +31,7 @@ try {
         FROM   properties p
         LEFT JOIN users    u    ON u.id    = p.agent_id
         LEFT JOIN projects proj ON proj.id = p.project_id
-        WHERE  p.slug = ? AND p.is_published = 1
+        WHERE  p.slug = ? AND p.is_published = 1 AND p.is_sold = 0
         LIMIT  1
     ');
     $stmt->execute([$slug]);
@@ -80,6 +80,7 @@ try {
           AND  p.category = ?
           AND  p.id != ?
           AND  p.is_published = 1
+          AND  p.is_sold = 0
         ORDER  BY p.is_featured DESC, p.created_at DESC
         LIMIT  4
     ');
@@ -131,25 +132,37 @@ $breadcrumbItems = [
 
 /* ─── Feature icon map ──────────────────────────────────────────────────── */
 $featureIcons = [
-    'parking'        => ['fa-car',          'Parking'],
-    'gas'            => ['fa-fire',          'Gas'],
-    'electricity'    => ['fa-bolt',          'Electricity'],
-    'water'          => ['fa-tint',          'Water Supply'],
-    'security'       => ['fa-shield-alt',    'Security'],
-    'furnished'      => ['fa-couch',         'Furnished'],
-    'corner'         => ['fa-border-all',    'Corner Plot'],
-    'garden'         => ['fa-leaf',          'Garden'],
-    'servant_quarter'=> ['fa-user',          'Servant Quarter'],
-    'boundary_wall'  => ['fa-border-style',  'Boundary Wall'],
-    'drawing_room'   => ['fa-door-open',     'Drawing Room'],
-    'lift'           => ['fa-grip-lines',    'Lift / Elevator'],
-    'generator'      => ['fa-plug',          'Generator'],
-    'internet'       => ['fa-wifi',          'Internet'],
-    'cctv'           => ['fa-video',         'CCTV'],
-    'solar'          => ['fa-sun',           'Solar Energy'],
-    'gym'            => ['fa-dumbbell',      'Gym'],
-    'pool'           => ['fa-swimming-pool', 'Swimming Pool'],
-    'store_room'     => ['fa-box',           'Store Room'],
+    'parking'          => ['fa-square-parking',     'Parking'],
+    'gas'              => ['fa-fire-flame-curved',  'Gas'],
+    'electricity'      => ['fa-bolt-lightning',     'Electricity'],
+    'water'            => ['fa-droplet',            'Water Supply'],
+    'security'         => ['fa-shield-halved',      'Security'],
+    'furnished'        => ['fa-couch',              'Furnished'],
+    'corner'           => ['fa-arrows-turn-to-dots','Corner Plot'],
+    'garden'           => ['fa-tree',               'Garden'],
+    'servant_quarter'  => ['fa-user-tie',           'Servant Quarter'],
+    'servant_quarters' => ['fa-user-tie',           'Servant Quarters'],
+    'boundary_wall'    => ['fa-border-all',         'Boundary Wall'],
+    'drawing_room'     => ['fa-couch',              'Drawing Room'],
+    'lift'             => ['fa-elevator',           'Lift / Elevator'],
+    'elevator'         => ['fa-elevator',           'Elevator'],
+    'generator'        => ['fa-plug-circle-bolt',   'Generator'],
+    'internet'         => ['fa-wifi',               'Internet'],
+    'cctv'             => ['fa-video',              'CCTV'],
+    'solar'            => ['fa-solar-panel',        'Solar Energy'],
+    'solar_panels'     => ['fa-solar-panel',        'Solar Panels'],
+    'gym'              => ['fa-dumbbell',           'Gym'],
+    'pool'             => ['fa-water-ladder',       'Swimming Pool'],
+    'swimming_pool'    => ['fa-water-ladder',       'Swimming Pool'],
+    'store_room'       => ['fa-box-archive',        'Store Room'],
+    'basement'         => ['fa-layer-group',        'Basement'],
+    'ac'               => ['fa-snowflake',          'Air Conditioning'],
+    'air_conditioning' => ['fa-snowflake',          'Air Conditioning'],
+    'heating'          => ['fa-temperature-high',   'Heating'],
+    'laundry'          => ['fa-shirt',              'Laundry'],
+    'kitchen'          => ['fa-utensils',           'Kitchen'],
+    'balcony'          => ['fa-door-open',          'Balcony'],
+    'terrace'          => ['fa-mountain-sun',       'Terrace'],
 ];
 
 /* ─── Extra <head> injections (OG + JSON-LD + canonical) ───────────────── */
@@ -193,7 +206,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <?php foreach ($images as $i => $img): ?>
                 <div class="carousel-item <?= $i === 0 ? 'active' : '' ?>">
-                    <img src="<?= htmlspecialchars($img['url']) ?>"
+                    <img src="<?= htmlspecialchars(mediaUrl($img['url'])) ?>"
                          class="gallery-carousel-img d-block w-100"
                          alt="<?= htmlspecialchars($img['alt_text'] ?: $property['title'] . ' photo ' . ($i + 1)) ?>"
                          loading="<?= $i === 0 ? 'eager' : 'lazy' ?>">
@@ -202,7 +215,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <?php foreach ($floorPlans as $i => $fp): ?>
                 <div class="carousel-item" id="floorPlanSlide">
-                    <img src="<?= htmlspecialchars($fp['url']) ?>"
+                    <img src="<?= htmlspecialchars(mediaUrl($fp['url'])) ?>"
                          alt="Floor Plan <?= $i + 1 ?>"
                          class="gallery-carousel-img d-block w-100"
                          loading="lazy"
@@ -229,7 +242,7 @@ require_once __DIR__ . '/includes/header.php';
         <!-- Thumbnail strip -->
         <div class="gallery-thumb-strip" id="thumbStrip" role="list" aria-label="Photo thumbnails">
             <?php foreach ($images as $i => $img): ?>
-            <img src="<?= htmlspecialchars($img['url']) ?>"
+            <img src="<?= htmlspecialchars(mediaUrl($img['url'])) ?>"
                  class="gallery-thumb-item <?= $i === 0 ? 'active' : '' ?>"
                  data-index="<?= $i ?>"
                  alt="<?= htmlspecialchars($img['alt_text'] ?: $property['title'] . ' thumbnail ' . ($i + 1)) ?>">
@@ -252,8 +265,8 @@ require_once __DIR__ . '/includes/header.php';
             <?php foreach ($videos as $vid): ?>
             <div class="ratio ratio-16x9 mb-3" style="max-width:700px; margin:0 auto;">
                 <video controls preload="metadata"
-                       src="<?= htmlspecialchars($vid['url']) ?>"
-                       poster="<?= htmlspecialchars($images[0]['url'] ?? '') ?>">
+                       src="<?= htmlspecialchars(mediaUrl($vid['url'])) ?>"
+                       poster="<?= htmlspecialchars(mediaUrl($images[0]['url'] ?? '')) ?>">
                     Your browser does not support video playback.
                 </video>
             </div>
@@ -305,8 +318,16 @@ require_once __DIR__ . '/includes/header.php';
                 <span class="badge badge-purpose-<?= htmlspecialchars($property['purpose']) ?> text-uppercase">
                     <?= getPurposeLabel($property['purpose']) ?>
                 </span>
-                <span class="badge bg-secondary text-uppercase"><?= getCategoryLabel($property['category']) ?></span>
-                <span class="badge bg-light text-dark border"><?= htmlspecialchars(getListingTypeLabel($property['listing_type'])) ?></span>
+                <?php
+                    $catLabel  = getCategoryLabel($property['category']);
+                    $typeLabel = getListingTypeLabel($property['listing_type']);
+                    // Skip the category pill when it duplicates the listing type
+                    // (e.g. category=plot + listing_type=plot both render "Plot").
+                    if (strcasecmp($catLabel, $typeLabel) !== 0):
+                ?>
+                <span class="badge bg-secondary text-uppercase"><?= htmlspecialchars($catLabel) ?></span>
+                <?php endif; ?>
+                <span class="badge bg-light text-dark border"><?= htmlspecialchars($typeLabel) ?></span>
                 <?php if ($property['possession_status'] === 'ready'): ?>
                     <span class="badge bg-success">Ready</span>
                 <?php elseif ($property['possession_status'] === 'under_construction'): ?>
@@ -353,7 +374,7 @@ require_once __DIR__ . '/includes/header.php';
             <!-- Share + Action buttons -->
             <div class="d-flex flex-wrap gap-2">
                 <button id="shareBtn" class="btn btn-outline-secondary btn-sm">
-                    <i class="fas fa-share-alt me-1"></i>Share
+                    <i class="fas fa-share-nodes me-1"></i>Share
                 </button>
                 <button id="shareWaBtn" class="btn btn-outline-success btn-sm">
                     <i class="fa-brands fa-whatsapp me-1"></i>Share on WhatsApp
@@ -469,16 +490,29 @@ require_once __DIR__ . '/includes/header.php';
         <section class="mb-4" aria-label="Features and amenities">
             <h2 class="content-heading">Features &amp; Amenities</h2>
             <div class="feature-chips">
-                <?php foreach ($features as $key => $val):
-                    // Support both boolean flags (true) and string values
-                    if ($val === false || $val === null || $val === '' || $val === 0) continue;
-                    $iconDef = $featureIcons[$key] ?? ['fa-check-circle', ucfirst(str_replace('_', ' ', $key))];
+                <?php
+                // Features are stored as either a flat list (["gas","parking"]) or
+                // an assoc map (["gas"=>true,"parking"=>"2 cars"]). Normalise both.
+                foreach ($features as $key => $val):
+                    if (is_int($key)) {
+                        // Flat list: value itself is the feature slug.
+                        $slug = (string)$val;
+                        $extra = null;
+                    } else {
+                        if ($val === false || $val === null || $val === '' || $val === 0) continue;
+                        $slug  = $key;
+                        $extra = ($val === true || $val === 1 || $val === '1') ? null : (string)$val;
+                    }
+                    $slug = trim($slug);
+                    if ($slug === '') continue;
+
+                    $iconDef = $featureIcons[$slug] ?? ['fa-check-circle', ucwords(str_replace('_', ' ', $slug))];
                     $icon    = $iconDef[0];
                     $label   = $iconDef[1];
-                    $display = ($val === true || $val === 1 || $val === '1') ? $label : $label . ': ' . htmlspecialchars($val);
+                    $display = $extra !== null ? $label . ': ' . $extra : $label;
                 ?>
                 <span class="feature-chip">
-                    <i class="fas <?= htmlspecialchars($icon) ?>"></i>
+                    <i class="fa-solid <?= htmlspecialchars($icon) ?>"></i>
                     <?= htmlspecialchars($display) ?>
                 </span>
                 <?php endforeach; ?>
@@ -502,7 +536,7 @@ require_once __DIR__ . '/includes/header.php';
             </p>
 
             <button id="showMapBtn" class="btn btn-outline-secondary btn-sm mb-3">
-                <i class="fas fa-map-marked-alt me-1"></i>Show on Map
+                <i class="fas fa-map-location-dot me-1"></i>Show on Map
             </button>
 
             <div id="mapEmbed" class="d-none">
@@ -632,10 +666,11 @@ require_once __DIR__ . '/includes/header.php';
                             <label for="inqTime" class="form-label small fw-semibold">Preferred Contact Time</label>
                             <select id="inqTime" name="preferred_contact_time" class="form-select form-select-sm">
                                 <option value="">Any Time</option>
-                                <option value="morning">Morning (9am–12pm)</option>
-                                <option value="afternoon">Afternoon (12pm–5pm)</option>
-                                <option value="evening">Evening (5pm–8pm)</option>
-                                <option value="weekend">Weekend</option>
+                                <option value="Morning (9am - 12pm)">Morning (9am–12pm)</option>
+                                <option value="Afternoon (12pm - 4pm)">Afternoon (12pm–4pm)</option>
+                                <option value="Evening (5pm - 8pm)">Evening (5pm–8pm)</option>
+                                <option value="Anytime">Anytime</option>
+                                <option value="Business Hours">Business Hours</option>
                             </select>
                         </div>
 
@@ -686,4 +721,4 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-<script src="<?= $b ?>/assets/js/detail.js"></script>
+<script src="<?= $b ?>/assets/js/detail.js?v=<?= file_exists(__DIR__ . '/assets/js/detail.js') ? filemtime(__DIR__ . '/assets/js/detail.js') : time() ?>"></script>

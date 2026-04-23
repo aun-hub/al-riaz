@@ -14,7 +14,7 @@
  */
 
 $thumb   = !empty($prop['thumbnail'])
-           ? htmlspecialchars($prop['thumbnail'])
+           ? htmlspecialchars(mediaUrl($prop['thumbnail']))
            : 'https://picsum.photos/id/' . (80 + ($i % 40)) . '/480/360';
 $slug    = htmlspecialchars($prop['slug'] ?? '#');
 $price   = formatPKR((float)($prop['price'] ?? 0));
@@ -39,11 +39,10 @@ $b = defined('BASE_PATH') ? BASE_PATH : '';
 <div class="prop-card">
     <div class="prop-card-img">
         <a href="<?= $b ?>/listing.php?slug=<?= urlencode($prop['slug'] ?? '') ?>" aria-label="<?= $title ?>">
-            <img data-src="<?= $thumb ?>"
-                 src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 10'%3E%3Crect fill='%23F0F4FF' width='16' height='10'/%3E%3C/svg%3E"
+            <img src="<?= $thumb ?>"
                  alt="<?= $title ?>"
-                 class="lazy"
-                 loading="lazy">
+                 loading="lazy"
+                 onerror="this.onerror=null;this.src='https://picsum.photos/id/<?= 80 + ($i % 40) ?>/480/360';">
         </a>
         <div class="prop-card-overlay" aria-hidden="true"></div>
 
@@ -52,7 +51,7 @@ $b = defined('BASE_PATH') ? BASE_PATH : '';
                 <?= $purpose === 'rent' ? 'Rent' : 'Sale' ?>
             </span>
             <?php if ($isFeatured): ?>
-                <span class="prop-badge prop-badge-new">Featured</span>
+                <span class="prop-badge prop-badge-featured"><i class="fa-solid fa-star" aria-hidden="true"></i> Featured</span>
             <?php endif; ?>
             <?php if ($posStatus === 'ready'): ?>
                 <span class="prop-badge" style="background:#10B981; color:#fff;">Ready</span>

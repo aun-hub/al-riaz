@@ -20,7 +20,7 @@ $data = [
     'authorised_since'=>'', 'authorisation_ref'=>'', 'description'=>'',
     'lat'=>'', 'lng'=>'',
     'is_featured'=>0, 'is_published'=>0,
-    'hero_image_url'=>'', 'brochure_pdf'=>'', 'master_plan'=>'',
+    'hero_image_url'=>'', 'brochure_url'=>'', 'master_plan_url'=>'',
     'gallery'=>'',
 ];
 $existingGallery = [];
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $file = $_FILES[$fieldName];
             if ($file['error'] !== UPLOAD_ERR_OK) return null;
             if ($file['size'] > MAX_FILE_SIZE) { $formErrors[] = "$fieldName exceeds 5MB limit."; return null; }
-            $allowedTypes = $fieldName === 'brochure_pdf' ? ['application/pdf'] : ALLOWED_IMAGE_TYPES;
+            $allowedTypes = $fieldName === 'brochure_url' ? ['application/pdf'] : ALLOWED_IMAGE_TYPES;
             $mime = mime_content_type($file['tmp_name']);
             if (!in_array($mime, $allowedTypes)) { $formErrors[] = "Invalid file type for $fieldName."; return null; }
             $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
@@ -98,17 +98,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         };
 
         $heroUrl     = $handleUploadUrl('hero_image');
-        $brochureUrl = $handleUploadUrl('brochure_pdf');
-        $masterUrl   = $handleUploadUrl('master_plan');
+        $brochureUrl = $handleUploadUrl('brochure_url');
+        $masterUrl   = $handleUploadUrl('master_plan_url');
 
         if ($heroUrl)     $fields['hero_image_url'] = $heroUrl;
         elseif ($isEdit)  $fields['hero_image_url'] = $data['hero_image_url'];
 
-        if ($brochureUrl) $fields['brochure_pdf']   = $brochureUrl;
-        elseif ($isEdit)  $fields['brochure_pdf']   = $data['brochure_pdf'];
+        if ($brochureUrl) $fields['brochure_url']   = $brochureUrl;
+        elseif ($isEdit)  $fields['brochure_url']   = $data['brochure_url'];
 
-        if ($masterUrl)   $fields['master_plan']    = $masterUrl;
-        elseif ($isEdit)  $fields['master_plan']    = $data['master_plan'];
+        if ($masterUrl)   $fields['master_plan_url']    = $masterUrl;
+        elseif ($isEdit)  $fields['master_plan_url']    = $data['master_plan_url'];
 
         // Build/update gallery JSON
         $existingGalleryUrls = [];
@@ -186,7 +186,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <?= $isEdit ? 'Edit Project' : 'New Project' ?>
     </h1>
   </div>
-  <a href="/admin/projects.php" class="btn btn-outline-secondary">
+  <a href="<?= BASE_PATH ?>/admin/projects.php" class="btn btn-outline-secondary">
     <i class="fa-solid fa-arrow-left me-1"></i> Back to Projects
   </a>
 </div>
@@ -200,7 +200,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
 </div>
 <?php endif; ?>
 
-<form method="POST" enctype="multipart/form-data" action="/admin/project-form.php<?= $isEdit?"?id=$id":'' ?>">
+<form method="POST" enctype="multipart/form-data" action="<?= BASE_PATH ?>/admin/project-form.php<?= $isEdit?"?id=$id":'' ?>">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 
   <!-- 1. Basics -->
@@ -305,8 +305,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <?php $heroUrl = $data['hero_image_url'] ?? $data['hero_image'] ?? ''; ?>
           <?php if ($heroUrl): ?>
             <div class="mb-2">
-              <?php $heroSrc = (strpos($heroUrl,'http')===0) ? $heroUrl : '/assets/uploads/'.ltrim($heroUrl,'/'); ?>
-              <img src="<?= htmlspecialchars($heroSrc, ENT_QUOTES, 'UTF-8') ?>"
+              <img src="<?= htmlspecialchars(mediaUrl($heroUrl), ENT_QUOTES, 'UTF-8') ?>"
                    alt="Hero" style="max-height:120px;border-radius:6px;">
             </div>
           <?php endif; ?>
@@ -320,7 +319,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <?php if (!empty($existingGallery)): ?>
           <div class="d-flex flex-wrap gap-2 mt-2" id="galleryGrid">
             <?php foreach ($existingGallery as $gi): ?>
-            <?php $giSrc = $gi['url'] ?? $gi['file_path'] ?? ''; $giSrc = (strpos($giSrc,'http')===0) ? $giSrc : '/assets/uploads/'.ltrim($giSrc,'/'); ?>
+            <?php $giSrc = mediaUrl($gi['url'] ?? $gi['file_path'] ?? ''); ?>
             <div class="position-relative" id="gi_<?= (int)$gi['id'] ?>">
               <img src="<?= htmlspecialchars($giSrc, ENT_QUOTES, 'UTF-8') ?>"
                    alt="" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #dee2e6;">
@@ -345,27 +344,25 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <div class="row g-3">
         <div class="col-12 col-md-6">
           <label class="form-label fw-600">Brochure (PDF)</label>
-          <?php if ($data['brochure_pdf']): ?>
-            <?php $brochureSrc = (strpos($data['brochure_pdf'],'http')===0) ? $data['brochure_pdf'] : '/assets/uploads/'.ltrim($data['brochure_pdf'],'/'); ?>
+          <?php if ($data['brochure_url']): ?>
             <div class="mb-2">
-              <a href="<?= htmlspecialchars($brochureSrc, ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="btn btn-sm btn-outline-secondary">
+              <a href="<?= htmlspecialchars(mediaUrl($data['brochure_url']), ENT_QUOTES, 'UTF-8') ?>" target="_blank" class="btn btn-sm btn-outline-secondary">
                 <i class="fa-solid fa-file-pdf me-1"></i> View Current Brochure
               </a>
             </div>
           <?php endif; ?>
-          <input type="file" name="brochure_pdf" class="form-control" accept="application/pdf">
+          <input type="file" name="brochure_url" class="form-control" accept="application/pdf">
           <div class="form-text">Max 5MB. PDF only.</div>
         </div>
         <div class="col-12 col-md-6">
           <label class="form-label fw-600">Master Plan Image</label>
-          <?php if ($data['master_plan']): ?>
-            <?php $masterSrc = (strpos($data['master_plan'],'http')===0) ? $data['master_plan'] : '/assets/uploads/'.ltrim($data['master_plan'],'/'); ?>
+          <?php if ($data['master_plan_url']): ?>
             <div class="mb-2">
-              <img src="<?= htmlspecialchars($masterSrc, ENT_QUOTES, 'UTF-8') ?>"
+              <img src="<?= htmlspecialchars(mediaUrl($data['master_plan_url']), ENT_QUOTES, 'UTF-8') ?>"
                    alt="Master Plan" style="max-height:100px;border-radius:6px;">
             </div>
           <?php endif; ?>
-          <input type="file" name="master_plan" class="form-control" accept="image/jpeg,image/png,image/webp">
+          <input type="file" name="master_plan_url" class="form-control" accept="image/jpeg,image/png,image/webp">
         </div>
       </div>
     </div>
@@ -414,7 +411,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
   </div>
 
   <div class="d-flex justify-content-end gap-2 pb-4">
-    <a href="/admin/projects.php" class="btn btn-outline-secondary">Cancel</a>
+    <a href="<?= BASE_PATH ?>/admin/projects.php" class="btn btn-outline-secondary">Cancel</a>
     <button type="submit" class="btn btn-gold px-4">
       <i class="fa-solid fa-floppy-disk me-1"></i>
       <?= $isEdit ? 'Update Project' : 'Create Project' ?>

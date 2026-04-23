@@ -49,7 +49,7 @@ $projStmt = $pdo->prepare("
         p.lng,
         p.created_at,
         (SELECT COUNT(*) FROM properties pr
-         WHERE pr.project_id = p.id AND pr.is_published = 1) AS property_count
+         WHERE pr.project_id = p.id AND pr.is_published = 1 AND pr.is_sold = 0) AS property_count
     FROM projects p
     WHERE p.is_featured  = 1
       AND p.is_published = 1
@@ -101,6 +101,7 @@ $propStmt = $pdo->prepare("
     LEFT JOIN users u ON u.id = p.agent_id
     WHERE p.is_featured  = 1
       AND p.is_published = 1
+      AND p.is_sold      = 0
     ORDER BY p.created_at DESC
     LIMIT 9
 ");
