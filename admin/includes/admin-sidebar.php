@@ -63,9 +63,10 @@ function sideLink(string $href, string $icon, string $label, string $current, st
     <li class="sidebar-section-label">Administration</li>
 
     <?php if (isset($_SESSION['admin_role']) && in_array($_SESSION['admin_role'], ['admin', 'super_admin'])): ?>
-      <?= sideLink('/admin/dealers.php',  'fa-handshake',      'Authorized Dealers', $currentPage) ?>
-      <?= sideLink('/admin/users.php',    'fa-users',          'Users & Roles', $currentPage) ?>
-      <?= sideLink('/admin/settings.php', 'fa-gear',           'Settings',      $currentPage) ?>
+      <?= sideLink('/admin/dealers.php',  'fa-handshake',      'Authorized Dealers',   $currentPage) ?>
+      <?= sideLink('/admin/features.php', 'fa-list-check',     'Features & Amenities', $currentPage) ?>
+      <?= sideLink('/admin/users.php',    'fa-users',          'Users & Roles',        $currentPage) ?>
+      <?= sideLink('/admin/settings.php', 'fa-gear',           'Settings',             $currentPage) ?>
     <?php endif; ?>
 
     <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>

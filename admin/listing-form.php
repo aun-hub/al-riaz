@@ -14,12 +14,17 @@ $id  = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $isEdit = $id > 0;
 $pageTitle = $isEdit ? 'Edit Listing' : 'New Listing';
 
-// Feature checkboxes list
-$allFeatures = [
-    'parking','gas','electricity','water','security','boundary_wall',
-    'furnished','corner','garden','servant_quarter','store_room',
-    'drawing_room','double_unit','basement','lift'
-];
+// Feature checkboxes list (loaded from DB; admins can manage at /admin/features.php)
+$featureRows = [];
+try {
+    $featureRows = $db->query(
+        "SELECT slug, label FROM property_features WHERE is_active = 1 ORDER BY sort_order ASC, label ASC"
+    )->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log('[listing-form] features query: ' . $e->getMessage());
+}
+$allFeatures   = array_column($featureRows, 'slug');
+$featureLabels = array_column($featureRows, 'label', 'slug');
 
 // Listing types per category
 $listingTypes = [
@@ -103,7 +108,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'is_published'     => isset($_POST['is_published']) ? 1 : 0,
         'is_featured'      => isset($_POST['is_featured'])  ? 1 : 0,
     ];
-    $features = array_intersect($_POST['features'] ?? [], $allFeatures);
+    // Accept any slug that matches the storage pattern. Admins are the only
+    // submitters and can only check options the form rendered for them, so
+    // pattern validation is enough; using array_intersect here would silently
+    // drop pre-existing slugs that have since been deactivated.
+    $features = [];
+    foreach ((array)($_POST['features'] ?? []) as $slug) {
+        $slug = trim((string)$slug);
+        if ($slug !== '' && preg_match('/^[a-z0-9_]+$/', $slug)) {
+            $features[] = $slug;
+        }
+    }
+    $features = array_values(array_unique($features));
 
     // Validation
     if ($fields['title'] === '') $formErrors[] = 'Title is required.';
@@ -491,16 +507,46 @@ include __DIR__ . '/includes/admin-sidebar.php';
           </div>
 
           <div class="col-12">
-            <label class="form-label fw-600">Features & Amenities</label>
+            <label class="form-label fw-600 d-flex align-items-center justify-content-between">
+              <span>Features &amp; Amenities</span>
+              <?php if (in_array($_SESSION['admin_role'] ?? '', ['admin','super_admin'], true)): ?>
+              <a href="<?= BASE_PATH ?>/admin/features.php" class="fs-12 text-muted text-decoration-none" target="_blank" rel="noopener">
+                <i class="fa-solid fa-gear me-1"></i>Manage list
+              </a>
+              <?php endif; ?>
+            </label>
+            <?php if (empty($allFeatures)): ?>
+              <div class="alert alert-warning fs-13 mb-0">
+                No active features defined.
+                <?php if (in_array($_SESSION['admin_role'] ?? '', ['admin','super_admin'], true)): ?>
+                  <a href="<?= BASE_PATH ?>/admin/features.php">Add some</a> to make them selectable here.
+                <?php endif; ?>
+              </div>
+            <?php else:
+              // Always include any slug already on this listing, even if its
+              // feature row has since been deactivated, so the admin sees and
+              // can choose to keep or remove it.
+              $renderSlugs = $allFeatures;
+              foreach ((array)$data['features'] as $existingSlug) {
+                  if (!in_array($existingSlug, $renderSlugs, true)) $renderSlugs[] = $existingSlug;
+              }
+            ?>
             <div class="feature-grid">
-              <?php foreach ($allFeatures as $feat): ?>
-              <label class="feature-check-item">
-                <input type="checkbox" name="features[]" value="<?= $feat ?>"
+              <?php foreach ($renderSlugs as $feat):
+                $featLabel  = $featureLabels[$feat] ?? ucwords(str_replace('_',' ',$feat));
+                $isInactive = !in_array($feat, $allFeatures, true);
+              ?>
+              <label class="feature-check-item" <?= $isInactive ? 'title="This feature is inactive — uncheck to remove from this listing."' : '' ?>>
+                <input type="checkbox" name="features[]" value="<?= htmlspecialchars($feat, ENT_QUOTES, 'UTF-8') ?>"
                        <?= in_array($feat, (array)$data['features'])?'checked':'' ?>>
-                <span><?= htmlspecialchars(ucwords(str_replace('_',' ',$feat)), ENT_QUOTES,'UTF-8') ?></span>
+                <span>
+                  <?= htmlspecialchars($featLabel, ENT_QUOTES, 'UTF-8') ?>
+                  <?php if ($isInactive): ?><small class="text-muted">(inactive)</small><?php endif; ?>
+                </span>
               </label>
               <?php endforeach; ?>
             </div>
+            <?php endif; ?>
           </div>
         </div>
       </div>

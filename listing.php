@@ -130,21 +130,20 @@ $breadcrumbItems = [
     ['label' => mb_strimwidth(htmlspecialchars($property['title']), 0, 40, '…'), 'url' => null],
 ];
 
-/* ─── Feature icon map ──────────────────────────────────────────────────── */
-$featureIcons = [
-    'parking'          => ['fa-square-parking',     'Parking'],
-    'gas'              => ['fa-fire-flame-curved',  'Gas'],
-    'electricity'      => ['fa-bolt-lightning',     'Electricity'],
-    'water'            => ['fa-droplet',            'Water Supply'],
-    'security'         => ['fa-shield-halved',      'Security'],
-    'furnished'        => ['fa-couch',              'Furnished'],
-    'corner'           => ['fa-arrows-turn-to-dots','Corner Plot'],
-    'garden'           => ['fa-tree',               'Garden'],
-    'servant_quarter'  => ['fa-user-tie',           'Servant Quarter'],
+/* ─── Feature icon map (DB-driven, with hardcoded fallbacks for legacy slugs) ─── */
+$featureIcons = [];
+try {
+    $featureRows = $db->query("SELECT slug, label, icon FROM property_features")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($featureRows as $r) {
+        $featureIcons[$r['slug']] = [$r['icon'] ?: 'fa-check-circle', $r['label']];
+    }
+} catch (Exception $e) {
+    error_log('[listing] features query: ' . $e->getMessage());
+}
+// Legacy slug aliases — keep so older listing data still renders correctly even
+// if the admin has removed/renamed the feature row.
+$featureIcons += [
     'servant_quarters' => ['fa-user-tie',           'Servant Quarters'],
-    'boundary_wall'    => ['fa-border-all',         'Boundary Wall'],
-    'drawing_room'     => ['fa-couch',              'Drawing Room'],
-    'lift'             => ['fa-elevator',           'Lift / Elevator'],
     'elevator'         => ['fa-elevator',           'Elevator'],
     'generator'        => ['fa-plug-circle-bolt',   'Generator'],
     'internet'         => ['fa-wifi',               'Internet'],
@@ -154,8 +153,6 @@ $featureIcons = [
     'gym'              => ['fa-dumbbell',           'Gym'],
     'pool'             => ['fa-water-ladder',       'Swimming Pool'],
     'swimming_pool'    => ['fa-water-ladder',       'Swimming Pool'],
-    'store_room'       => ['fa-box-archive',        'Store Room'],
-    'basement'         => ['fa-layer-group',        'Basement'],
     'ac'               => ['fa-snowflake',          'Air Conditioning'],
     'air_conditioning' => ['fa-snowflake',          'Air Conditioning'],
     'heating'          => ['fa-temperature-high',   'Heating'],

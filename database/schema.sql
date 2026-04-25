@@ -294,6 +294,37 @@ CREATE TABLE IF NOT EXISTS `authorized_dealers` (
     INDEX `idx_sort`      (`sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ── 007_property_features.php — create + seed `property_features` ─
+CREATE TABLE IF NOT EXISTS `property_features` (
+    `id`         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `slug`       VARCHAR(80)  NOT NULL UNIQUE,
+    `label`      VARCHAR(120) NOT NULL,
+    `icon`       VARCHAR(80)  NOT NULL DEFAULT 'fa-check-circle',
+    `sort_order` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    `is_active`  TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_active` (`is_active`),
+    INDEX `idx_sort`   (`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `property_features` (`slug`, `label`, `icon`, `sort_order`) VALUES
+  ('parking',         'Parking',         'fa-square-parking',       0),
+  ('gas',             'Gas',             'fa-fire-flame-curved',   10),
+  ('electricity',     'Electricity',     'fa-bolt-lightning',      20),
+  ('water',           'Water Supply',    'fa-droplet',             30),
+  ('security',        'Security',        'fa-shield-halved',       40),
+  ('boundary_wall',   'Boundary Wall',   'fa-border-all',          50),
+  ('furnished',       'Furnished',       'fa-couch',               60),
+  ('corner',          'Corner Plot',     'fa-arrows-turn-to-dots', 70),
+  ('garden',          'Garden',          'fa-tree',                80),
+  ('servant_quarter', 'Servant Quarter', 'fa-user-tie',            90),
+  ('store_room',      'Store Room',      'fa-box-archive',        100),
+  ('drawing_room',    'Drawing Room',    'fa-couch',              110),
+  ('double_unit',     'Double Unit',     'fa-layer-group',        120),
+  ('basement',        'Basement',        'fa-layer-group',        130),
+  ('lift',            'Lift / Elevator', 'fa-elevator',           140);
+
 -- ── Sample Data (remove in production) ───────────────────────
 -- Insert a sample project
 INSERT IGNORE INTO projects (name, slug, developer, city, area_locality, status, noc_status, is_published, is_featured, description) VALUES

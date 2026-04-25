@@ -166,7 +166,12 @@
       "Bash(/usr/bin/grep -A 3 'filter-sidebar is-mobile\\\\|filter-head-title' /tmp/l.html)",
       "Bash(/usr/bin/curl -s -o /tmp/l.html -w \"%{http_code}\" \"http://localhost/al-riaz/listings.php\")",
       "Bash(/usr/bin/grep -c 'prop-badge-featured' /tmp/l.html)",
-      "Bash(/Applications/XAMPP/xamppfiles/bin/php /tmp/verify_schema.php)"
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php /tmp/verify_schema.php)",
+      "Bash(grep -n '^$db\\\\|Database::getInstance' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/listing.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/features.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/feature-form.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/listing-form.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/database/migrations/007_property_features.php)"
     ],
     "additionalDirectories": [
       "/tmp",
