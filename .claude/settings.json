@@ -165,7 +165,12 @@
       "Bash(/usr/bin/grep -n \"filterOffcanvas\\\\|Show Filters\\\\|btn-navy w-100\" /Applications/XAMPP/xamppfiles/htdocs/al-riaz/listings.php)",
       "Bash(/usr/bin/grep -A 3 'filter-sidebar is-mobile\\\\|filter-head-title' /tmp/l.html)",
       "Bash(/usr/bin/curl -s -o /tmp/l.html -w \"%{http_code}\" \"http://localhost/al-riaz/listings.php\")",
-      "Bash(/usr/bin/grep -c 'prop-badge-featured' /tmp/l.html)"
+      "Bash(/usr/bin/grep -c 'prop-badge-featured' /tmp/l.html)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php /tmp/verify_schema.php)"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/private/tmp"
     ]
   }
 }

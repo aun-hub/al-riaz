@@ -3,11 +3,6 @@
 -- MySQL 8.x | utf8mb4_unicode_ci
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS alriaz_db
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE alriaz_db;
-
 -- ── Admin Users ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS admin_users (
     id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -99,7 +94,7 @@ CREATE TABLE IF NOT EXISTS properties (
     views_count       INT UNSIGNED NOT NULL DEFAULT 0,
     is_featured       TINYINT(1) NOT NULL DEFAULT 0,
     is_published      TINYINT(1) NOT NULL DEFAULT 0,
-    is_sold           TINYINT(1) NOT NULL DEFAULT 0,
+    is_sold           TINYINT(1) NOT NULL DEFAULT 0,  -- via migration 004_properties_is_sold.php
     created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
@@ -190,7 +185,28 @@ CREATE TABLE IF NOT EXISTS settings (
     INDEX idx_key (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ── Branch Offices ────────────────────────────────────────────
+-- Folded from migrations:
+--   001_branches.php                — base table
+--   002_branches_is_hq.php          — added `is_hq`
+--   003_branches_hours_schedule.php — added `hours_schedule`
+CREATE TABLE IF NOT EXISTS branches (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(180) NOT NULL DEFAULT '',
+    address     VARCHAR(300) NOT NULL DEFAULT '',
+    phone       VARCHAR(40)  NOT NULL DEFAULT '',
+    hours          VARCHAR(120) NOT NULL DEFAULT '',
+    hours_schedule LONGTEXT DEFAULT NULL,            -- via migration 003
+    is_hq       TINYINT(1) NOT NULL DEFAULT 0,       -- via migration 002
+    sort_order  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_sort (sort_order),
+    INDEX idx_hq   (is_hq)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ── Authorized Dealers ────────────────────────────────────────
+-- Folded from migration: 006_authorized_dealers.php
 CREATE TABLE IF NOT EXISTS authorized_dealers (
     id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name          VARCHAR(200) NOT NULL,
@@ -204,20 +220,78 @@ CREATE TABLE IF NOT EXISTS authorized_dealers (
     INDEX idx_sort      (sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── Branch Offices ────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS branches (
+-- ── Migrations Tracking ──────────────────────────────────────
+-- Records which migration files under /database/migrations/ have been applied.
+CREATE TABLE IF NOT EXISTS migrations (
     id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    name        VARCHAR(180) NOT NULL DEFAULT '',
-    address     VARCHAR(300) NOT NULL DEFAULT '',
-    phone       VARCHAR(40)  NOT NULL DEFAULT '',
-    hours          VARCHAR(120) NOT NULL DEFAULT '',
-    hours_schedule LONGTEXT DEFAULT NULL,
-    is_hq       TINYINT(1) NOT NULL DEFAULT 0,
-    sort_order  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_sort (sort_order),
-    INDEX idx_hq   (is_hq)
+    migration   VARCHAR(255) NOT NULL UNIQUE,
+    batch       INT UNSIGNED NOT NULL DEFAULT 1,
+    executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_batch (batch)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+--  MIGRATION QUERIES
+--  Exact SQL extracted from each /database/migrations/NNN_*.php file.
+--  All statements are idempotent (IF NOT EXISTS / INFORMATION_SCHEMA
+--  guard) so running schema.sql against a populated database is safe.
+--  The tables above already reflect the final post-migration state,
+--  so these statements are no-ops on a fresh install.
+-- ============================================================
+
+-- ── 001_branches.php — create `branches` table ──────────────
+CREATE TABLE IF NOT EXISTS `branches` (
+    `id`          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `name`        VARCHAR(180) NOT NULL DEFAULT '',
+    `address`     VARCHAR(300) NOT NULL DEFAULT '',
+    `phone`       VARCHAR(40)  NOT NULL DEFAULT '',
+    `hours`       VARCHAR(120) NOT NULL DEFAULT '',
+    `sort_order`  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    `created_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`  DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_sort` (`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── 002_branches_is_hq.php — add `is_hq` to branches ────────
+SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+           WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='branches' AND COLUMN_NAME='is_hq');
+SET @q := IF(@c=0,
+  'ALTER TABLE `branches` ADD COLUMN `is_hq` TINYINT(1) NOT NULL DEFAULT 0 AFTER `hours`, ADD INDEX `idx_hq` (`is_hq`)',
+  'DO 0');
+PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- ── 003_branches_hours_schedule.php — add `hours_schedule` ──
+SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+           WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='branches' AND COLUMN_NAME='hours_schedule');
+SET @q := IF(@c=0,
+  'ALTER TABLE `branches` ADD COLUMN `hours_schedule` LONGTEXT DEFAULT NULL AFTER `hours`',
+  'DO 0');
+PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- ── 004_properties_is_sold.php — add `is_sold` to properties ─
+SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+           WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='properties' AND COLUMN_NAME='is_sold');
+SET @q := IF(@c=0,
+  'ALTER TABLE `properties` ADD COLUMN `is_sold` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_published`, ADD INDEX `idx_sold` (`is_sold`)',
+  'DO 0');
+PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- ── 005_smtp_to_db.php — data-only (JSON → DB); no schema change ──
+-- The PHP migration moves SMTP keys from config/settings.json into the
+-- `settings` table at first run. Nothing to execute at schema level.
+
+-- ── 006_authorized_dealers.php — create `authorized_dealers` ─
+CREATE TABLE IF NOT EXISTS `authorized_dealers` (
+    `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `name`         VARCHAR(200) NOT NULL,
+    `logo_url`     VARCHAR(500) NOT NULL DEFAULT '',
+    `website_url`  VARCHAR(500) NOT NULL DEFAULT '',
+    `sort_order`   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    `is_published` TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`   DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_published` (`is_published`),
+    INDEX `idx_sort`      (`sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── Sample Data (remove in production) ───────────────────────
