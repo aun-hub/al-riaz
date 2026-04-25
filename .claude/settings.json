@@ -203,7 +203,12 @@
       "Bash(/usr/bin/grep -n \"is_sold\\\\|is_published\" /Applications/XAMPP/xamppfiles/htdocs/al-riaz/listings.php)",
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -r 'require '\\\\''includes/functions.php'\\\\''; echo mediaUrl\\('\\\\''/assets/uploads/properties/2/photo_69e95ba6a46b3.jpeg'\\\\''\\) . PHP_EOL; echo mediaUrl\\('\\\\''https://picsum.photos/seed/prop2a/1200/800'\\\\''\\) . PHP_EOL; echo mediaUrl\\('\\\\'''\\\\''\\) . PHP_EOL;')",
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/listings.php)",
-      "Bash(grep -n ''\\\\''title'\\\\''\\\\|'\\\\''slug'\\\\''\\\\|slugStmt\\\\|title.*\\\\$_POST\\\\|title=.*trim' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/listing-form.php)"
+      "Bash(grep -n ''\\\\''title'\\\\''\\\\|'\\\\''slug'\\\\''\\\\|slugStmt\\\\|title.*\\\\$_POST\\\\|title=.*trim' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/listing-form.php)",
+      "Read(//Applications/XAMPP/xamppfiles/htdocs/al-riaz/require \"/Applications/XAMPP/xamppfiles/htdocs/al-riaz/config/config.php\"; require \"/Applications/XAMPP/xamppfiles/htdocs/al-riaz/includes/**)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/login.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/forgot-password.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/reset-password.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/database/migrations/008_users_password_reset.php)"
     ],
     "additionalDirectories": [
       "/tmp",

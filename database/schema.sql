@@ -325,6 +325,21 @@ INSERT IGNORE INTO `property_features` (`slug`, `label`, `icon`, `sort_order`) V
   ('basement',        'Basement',        'fa-layer-group',        130),
   ('lift',            'Lift / Elevator', 'fa-elevator',           140);
 
+-- ── 008_users_password_reset.php — add password-reset columns to `users` ─
+SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+           WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='reset_token');
+SET @q := IF(@c=0,
+  'ALTER TABLE `users` ADD COLUMN `reset_token` VARCHAR(100) DEFAULT NULL AFTER `invite_token`, ADD INDEX `idx_reset_token` (`reset_token`)',
+  'DO 0');
+PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+           WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='reset_token_expires_at');
+SET @q := IF(@c=0,
+  'ALTER TABLE `users` ADD COLUMN `reset_token_expires_at` DATETIME DEFAULT NULL AFTER `reset_token`',
+  'DO 0');
+PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+
 -- ── Sample Data (remove in production) ───────────────────────
 -- Insert a sample project
 INSERT IGNORE INTO projects (name, slug, developer, city, area_locality, status, noc_status, is_published, is_featured, description) VALUES

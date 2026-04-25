@@ -126,6 +126,18 @@ $csrfToken = $_SESSION['csrf_token'];
         </div>
       <?php endif; ?>
 
+      <?php
+        $flash = $_SESSION['flash'] ?? null;
+        if ($flash) unset($_SESSION['flash']);
+      ?>
+      <?php if ($flash && ($flash['type'] ?? '') === 'success'): ?>
+        <div class="alert alert-success alert-dismissible d-flex align-items-center gap-2" role="alert">
+          <i class="fa-solid fa-circle-check"></i>
+          <span><?= htmlspecialchars($flash['message'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
+          <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+        </div>
+      <?php endif; ?>
+
       <form method="POST" action="<?= BASE_PATH ?>/admin/login.php" novalidate>
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -158,6 +170,9 @@ $csrfToken = $_SESSION['csrf_token'];
             <input class="form-check-input" type="checkbox" id="remember" name="remember" value="1">
             <label class="form-check-label" for="remember" style="font-size:0.84rem;">Remember me</label>
           </div>
+          <a href="<?= BASE_PATH ?>/admin/forgot-password.php" class="text-decoration-none" style="font-size:0.84rem;">
+            Forgot password?
+          </a>
         </div>
 
         <button type="submit" class="btn btn-login w-100 rounded-2">
