@@ -130,6 +130,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $formErrors[] = 'Price is required (or check Price on Demand).';
     }
 
+    // Auto-generate a unique slug from the title. On edit, only regenerate
+    // when the existing row has no slug (don't break URLs of older listings).
+    if (empty($formErrors)) {
+        $needsSlug = !$isEdit || empty($data['slug']);
+        if ($needsSlug) {
+            $base = makeSlug($fields['title']) ?: 'listing';
+            $slug = $base;
+            $n = 2;
+            $check = $db->prepare('SELECT id FROM properties WHERE slug = ? AND id <> ? LIMIT 1');
+            while (true) {
+                $check->execute([$slug, $isEdit ? $id : 0]);
+                if (!$check->fetch()) break;
+                $slug = $base . '-' . $n++;
+            }
+            $fields['slug'] = $slug;
+        }
+    }
+
     if (empty($formErrors)) {
         $fields['features']    = json_encode(array_values($features));
         $fields['price']       = $fields['price_on_demand'] ? 0 : (float)$fields['price'];
