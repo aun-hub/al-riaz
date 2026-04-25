@@ -123,7 +123,7 @@ require_once __DIR__ . '/includes/header.php';
 <link rel="canonical"           href="<?= htmlspecialchars(SITE_URL . '/project.php?slug=' . urlencode($project['slug'])) ?>">
 
 <!-- ── Page Header (with cover image) ───────────────────────────────────── -->
-<div class="page-header" style="background-image:url('<?= htmlspecialchars($project['cover_image'] ?? $heroImage) ?>');background-size:cover;background-position:center;position:relative;">
+<div class="page-header" style="background-image:url('<?= htmlspecialchars(mediaUrl($project['cover_image'] ?? '') ?: $heroImage) ?>');background-size:cover;background-position:center;position:relative;">
     <div style="position:absolute;inset:0;background:linear-gradient(to right,rgba(6,13,31,.85) 40%,rgba(6,13,31,.4));"></div>
     <div class="container" style="position:relative;z-index:1;">
         <?= generateBreadcrumb([['label'=>'Home','url'=>'/'],['label'=>'Projects','url'=>'/projects.php'],['label'=>htmlspecialchars($project['name'])]]) ?>
@@ -403,7 +403,7 @@ require_once __DIR__ . '/includes/header.php';
                     $slides = [];
                     if (!empty($project['master_plan_url'])) {
                         $slides[] = [
-                            'src'     => $project['master_plan_url'],
+                            'src'     => mediaUrl($project['master_plan_url']),
                             'alt'     => 'Master Plan — ' . $project['name'],
                             'contain' => true,
                             'label'   => 'Master Plan',
@@ -413,7 +413,7 @@ require_once __DIR__ . '/includes/header.php';
                         $galSrc = is_string($galleryItem) ? $galleryItem : ($galleryItem['url'] ?? '');
                         if (!$galSrc) continue;
                         $slides[] = [
-                            'src'     => $galSrc,
+                            'src'     => mediaUrl($galSrc),
                             'alt'     => is_array($galleryItem) ? ($galleryItem['alt'] ?? $project['name'] . ' photo ' . ($gi + 1)) : $project['name'] . ' photo ' . ($gi + 1),
                             'contain' => false,
                             'label'   => null,

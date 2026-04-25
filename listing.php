@@ -98,7 +98,7 @@ if (!empty($property['features'])) {
 }
 
 /* ─── SEO / Meta ────────────────────────────────────────────────────────── */
-$ogImage     = $images[0]['url'] ?? 'https://picsum.photos/id/1029/1200/630';
+$ogImage     = !empty($images[0]['url']) ? mediaUrl($images[0]['url']) : 'https://picsum.photos/id/1029/1200/630';
 $descClean   = strip_tags($property['description'] ?? '');
 $metaDesc    = mb_substr($descClean, 0, 160);
 $pageTitle   = htmlspecialchars($property['title']) . ' - Al-Riaz Associates';
@@ -179,7 +179,7 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <!-- ── Page Header with hero background ─────────────────────────────────── -->
-<div class="page-header" style="background-image: url('<?= htmlspecialchars($images[0]['url'] ?? '') ?>'); background-size:cover; background-position:center; position:relative;">
+<div class="page-header" style="background-image: url('<?= htmlspecialchars(mediaUrl($images[0]['url'] ?? '')) ?>'); background-size:cover; background-position:center; position:relative;">
     <div style="position:absolute;inset:0;background:linear-gradient(to right,rgba(6,13,31,.85) 40%,rgba(6,13,31,.4));"></div>
     <div class="container" style="position:relative;z-index:1;">
         <?= generateBreadcrumb($breadcrumbItems) ?>

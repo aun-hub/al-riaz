@@ -8,6 +8,36 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/db.php';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Media URL helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a media URL stored in the database for the public site.
+ *
+ * Uploads are persisted as root-relative paths like `/assets/uploads/…`.
+ * When the app lives in a subdirectory (e.g. `/al-riaz`), those paths need
+ * the BASE_PATH prefix prepended so the browser can find them.
+ *
+ * - Empty input → empty string (caller can fall back to a placeholder).
+ * - Absolute URLs (`http://`, `https://`, `//`, `data:`) are returned untouched.
+ * - Already-prefixed paths are returned untouched.
+ * - Anything else gets BASE_PATH prepended.
+ */
+if (!function_exists('mediaUrl')) {
+    function mediaUrl(?string $url): string {
+        $url = trim((string) $url);
+        if ($url === '') return '';
+        if (preg_match('#^(?:https?:)?//#', $url) || str_starts_with($url, 'data:')) {
+            return $url;
+        }
+        $b = defined('BASE_PATH') ? BASE_PATH : '';
+        if ($b === '') return $url;
+        if (str_starts_with($url, $b . '/') || $url === $b) return $url;
+        return $b . (str_starts_with($url, '/') ? $url : '/' . $url);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SMTP (DB-backed)
 // ─────────────────────────────────────────────────────────────────────────────
 
