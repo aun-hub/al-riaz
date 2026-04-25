@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // If already logged in, go to dashboard
 if (!empty($_SESSION['admin_id'])) {
@@ -106,11 +107,27 @@ $csrfToken = $_SESSION['csrf_token'];
   <div class="login-card">
 
     <!-- Header -->
+    <?php
+      $brand     = function_exists('getSettings') ? getSettings() : [];
+      $brandLogo = $brand['logo_path'] ?? '';
+      $brandName = !empty($brand['agency_name']) ? $brand['agency_name'] : SITE_NAME;
+      $brandLogoUrl = $brandLogo
+          ? BASE_PATH . $brandLogo . '?v=' . (@filemtime(__DIR__ . '/..' . $brandLogo) ?: '')
+          : '';
+    ?>
     <div class="login-card-header">
       <div class="login-logo-circle">
-        <i class="fa-solid fa-building-columns"></i>
+        <?php if ($brandLogoUrl): ?>
+          <img src="<?= htmlspecialchars($brandLogoUrl, ENT_QUOTES, 'UTF-8') ?>"
+               alt="<?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?>"
+               style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+        <?php else: ?>
+          <i class="fa-solid fa-building-columns"></i>
+        <?php endif; ?>
       </div>
-      <h1 style="color:#fff;font-size:1.25rem;font-weight:800;margin:0 0 0.25rem;">Al-Riaz Associates</h1>
+      <h1 style="color:#fff;font-size:1.25rem;font-weight:800;margin:0 0 0.25rem;">
+        <?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?>
+      </h1>
       <p style="color:rgba(255,255,255,0.65);font-size:0.8rem;margin:0;letter-spacing:1px;text-transform:uppercase;">Admin Panel</p>
     </div>
 

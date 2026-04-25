@@ -110,12 +110,28 @@ $cssVer  = file_exists($cssPath) ? filemtime($cssPath) : time();
 <div class="login-wrapper">
   <div class="login-card">
 
+    <?php
+      $brand     = function_exists('getSettings') ? getSettings() : [];
+      $brandLogo = $brand['logo_path'] ?? '';
+      $brandName = !empty($brand['agency_name']) ? $brand['agency_name'] : SITE_NAME;
+      $brandLogoUrl = $brandLogo
+          ? BASE_PATH . $brandLogo . '?v=' . (@filemtime(__DIR__ . '/..' . $brandLogo) ?: '')
+          : '';
+    ?>
     <div class="login-card-header">
       <div class="login-logo-circle">
-        <i class="fa-solid fa-key"></i>
+        <?php if ($brandLogoUrl): ?>
+          <img src="<?= htmlspecialchars($brandLogoUrl, ENT_QUOTES, 'UTF-8') ?>"
+               alt="<?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?>"
+               style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+        <?php else: ?>
+          <i class="fa-solid fa-key"></i>
+        <?php endif; ?>
       </div>
       <h1 style="color:#fff;font-size:1.25rem;font-weight:800;margin:0 0 0.25rem;">Forgot Password</h1>
-      <p style="color:rgba(255,255,255,0.65);font-size:0.8rem;margin:0;letter-spacing:1px;text-transform:uppercase;">Al-Riaz Associates</p>
+      <p style="color:rgba(255,255,255,0.65);font-size:0.8rem;margin:0;letter-spacing:1px;text-transform:uppercase;">
+        <?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?>
+      </p>
     </div>
 
     <div class="login-card-body">
