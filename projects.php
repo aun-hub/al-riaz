@@ -254,11 +254,6 @@ require_once __DIR__ . '/includes/header.php';
             Contact our team — we work with 20+ authorised developers across Pakistan.
         </p>
         <div class="d-flex flex-wrap justify-content-center gap-3">
-            <a href="<?= htmlspecialchars(getWhatsAppLink(SITE_WHATSAPP, 'Hi, I\'m looking for a specific real estate project. Can you help me?')) ?>"
-               target="_blank" rel="noopener noreferrer"
-               class="btn-whatsapp">
-                <i class="fa-brands fa-whatsapp me-2"></i>WhatsApp Us
-            </a>
             <a href="<?= $b ?>/contact.php" class="btn-gold">
                 <i class="fa-solid fa-headset me-2"></i>Get in Touch
             </a>
