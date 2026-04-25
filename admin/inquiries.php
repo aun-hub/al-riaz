@@ -13,6 +13,34 @@ requireLogin();
 
 $db = Database::getInstance();
 
+// Role scoping: admin and super_admin see every inquiry; everyone else
+// (agents) is restricted to inquiries assigned to them.
+$myAdminId    = (int)($_SESSION['admin_id'] ?? 0);
+$isAgentOnly  = !hasRole('admin');
+
+/**
+ * Returns SQL fragment + params to AND into a query so an agent only sees
+ * their own assigned inquiries. Returns empty arrays for admin/super_admin.
+ */
+function inquiryScope(bool $agentOnly, int $myId): array
+{
+    if (!$agentOnly) return ['', []];
+    return [' AND i.assigned_to = ?', [$myId]];
+}
+
+/**
+ * Verify an inquiry id is one this user is allowed to act on.
+ * Admin/super_admin: always allowed. Agent: must be assigned to them.
+ */
+function canActOnInquiry(PDO $db, int $inqId, bool $agentOnly, int $myId): bool
+{
+    if (!$agentOnly) return true;
+    $stmt = $db->prepare('SELECT assigned_to FROM inquiries WHERE id = ? LIMIT 1');
+    $stmt->execute([$inqId]);
+    $row = $stmt->fetch();
+    return $row && (int)$row['assigned_to'] === $myId;
+}
+
 // ── AJAX Handlers ─────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
     header('Content-Type: application/json');
@@ -23,6 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
         $status = $_POST['status'] ?? '';
         $allowed = ['new','assigned','contacted','qualified','closed_won','closed_lost'];
         if (!in_array($status, $allowed)) { echo json_encode(['ok'=>false,'msg'=>'Invalid status']); exit; }
+        if (!canActOnInquiry($db, $inqId, $isAgentOnly, $myAdminId)) {
+            echo json_encode(['ok'=>false,'msg'=>'You can only update inquiries assigned to you.']); exit;
+        }
         try {
             $db->prepare("UPDATE inquiries SET status=?, updated_at=NOW() WHERE id=?")->execute([$status, $inqId]);
             auditLog('update_status','inquiries',$inqId,'Status changed to: '.$status);
@@ -32,6 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
     }
 
     if ($action === 'assign_agent') {
+        if ($isAgentOnly) {
+            echo json_encode(['ok'=>false,'msg'=>'Only admins can reassign inquiries.']); exit;
+        }
         $inqId   = (int)($_POST['inquiry_id'] ?? 0);
         $agentId = (int)($_POST['agent_id'] ?? 0) ?: null;
         try {
@@ -45,6 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
         $inqId = (int)($_POST['inquiry_id'] ?? 0);
         $note  = trim($_POST['note'] ?? '');
         if ($note === '') { echo json_encode(['ok'=>false,'msg'=>'Note cannot be empty.']); exit; }
+        if (!canActOnInquiry($db, $inqId, $isAgentOnly, $myAdminId)) {
+            echo json_encode(['ok'=>false,'msg'=>'You can only add notes to inquiries assigned to you.']); exit;
+        }
         try {
             $db->prepare("INSERT INTO inquiry_notes (inquiry_id, admin_id, note, created_at) VALUES (?,?,?,NOW())")
                ->execute([$inqId, $_SESSION['admin_id'], $note]);
@@ -55,6 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
 
     if ($action === 'load_inquiry') {
         $inqId = (int)($_POST['inquiry_id'] ?? 0);
+        if (!canActOnInquiry($db, $inqId, $isAgentOnly, $myAdminId)) {
+            echo json_encode(['ok'=>false,'msg'=>'Not found']); exit;
+        }
         try {
             $stmt = $db->prepare(
                 "SELECT i.*, i.name AS visitor_name, p.title AS property_title, p.id AS property_id,
@@ -99,14 +139,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     requireLogin();
     try {
-        $stmt = $db->query(
-            "SELECT i.id, i.name AS visitor_name, i.phone, i.email, i.status, i.message, i.created_at,
-                    p.title AS property_title, u.name AS assigned_to
-             FROM inquiries i
-             LEFT JOIN properties p ON i.property_id=p.id
-             LEFT JOIN users u ON i.assigned_to=u.id
-             ORDER BY i.created_at DESC"
-        );
+        [$scopeSql, $scopeParams] = inquiryScope($isAgentOnly, $myAdminId);
+        $sql = "SELECT i.id, i.name AS visitor_name, i.phone, i.email, i.status, i.message, i.created_at,
+                       p.title AS property_title, u.name AS assigned_to
+                FROM inquiries i
+                LEFT JOIN properties p ON i.property_id=p.id
+                LEFT JOIN users u ON i.assigned_to=u.id"
+             . ($scopeSql ? ' WHERE 1=1' . $scopeSql : '')
+             . ' ORDER BY i.created_at DESC';
+        $stmt = $db->prepare($sql);
+        $stmt->execute($scopeParams);
         $rows = $stmt->fetchAll();
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="inquiries_' . date('Ymd') . '.csv"');
@@ -135,6 +177,8 @@ if ($filterStatus !== '') { $where[] = 'i.status=?'; $params[] = $filterStatus; 
 if ($search !== '') { $where[] = '(i.name LIKE ? OR i.phone LIKE ? OR i.email LIKE ?)'; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; }
 if ($dateFrom !== '') { $where[] = 'i.created_at >= ?'; $params[] = $dateFrom . ' 00:00:00'; }
 if ($dateTo   !== '') { $where[] = 'i.created_at <= ?'; $params[] = $dateTo   . ' 23:59:59'; }
+// Restrict agents to their own assigned inquiries.
+if ($isAgentOnly) { $where[] = 'i.assigned_to = ?'; $params[] = $myAdminId; }
 $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
 try {
@@ -156,10 +200,17 @@ try {
     $listStmt->execute($params);
     $inquiries = $listStmt->fetchAll();
 
-    // For Kanban: get all (no limit) when in kanban mode
+    // For Kanban: get all (no limit) when in kanban mode — still scoped to
+    // the agent's assigned inquiries when applicable.
     if ($viewMode === 'kanban') {
-        $allStmt = $db->prepare("SELECT i.*, p.title AS property_title FROM inquiries i LEFT JOIN properties p ON i.property_id=p.id ORDER BY i.created_at DESC");
-        $allStmt->execute();
+        [$kanbanScopeSql, $kanbanScopeParams] = inquiryScope($isAgentOnly, $myAdminId);
+        $kanbanSql = "SELECT i.*, p.title AS property_title
+                      FROM inquiries i
+                      LEFT JOIN properties p ON i.property_id=p.id"
+                   . ($kanbanScopeSql ? ' WHERE 1=1' . $kanbanScopeSql : '')
+                   . ' ORDER BY i.created_at DESC';
+        $allStmt = $db->prepare($kanbanSql);
+        $allStmt->execute($kanbanScopeParams);
         $allInquiries = $allStmt->fetchAll();
         $kanbanCols = ['new'=>[],'assigned'=>[],'contacted'=>[],'qualified'=>[],'closed'=>[]];
         foreach ($allInquiries as $inq) {
@@ -382,7 +433,8 @@ include __DIR__ . '/includes/admin-sidebar.php';
 </div>
 
 <script>
-var CSRF_TOKEN = '<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>';
+var CSRF_TOKEN    = '<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>';
+var IS_AGENT_ONLY = <?= $isAgentOnly ? 'true' : 'false' ?>;
 
 function openInquiryPanel(id) {
   var offcanvas = new bootstrap.Offcanvas(document.getElementById('inquiryOffcanvas'));
@@ -457,9 +509,11 @@ function openInquiryPanel(id) {
       '<div class="col-12"><label class="fw-600 fs-13">Update Status:</label>' +
       '<select class="form-select form-select-sm mt-1" id="statusSelect">'+statusOpts+'</select>' +
       '<button class="btn btn-sm btn-gold mt-2 w-100" onclick="updateStatus('+inq.id+')"><i class="fa-solid fa-check me-1"></i>Update Status</button></div>' +
-      '<div class="col-12"><label class="fw-600 fs-13">Assign Agent:</label>' +
-      '<select class="form-select form-select-sm mt-1" id="agentSelect"><option value="">— Unassigned —</option>'+agentOptions+'</select>' +
-      '<button class="btn btn-sm btn-outline-dark mt-2 w-100" onclick="assignAgent('+inq.id+')"><i class="fa-solid fa-user-check me-1"></i>Assign</button></div>' +
+      (IS_AGENT_ONLY ? '' :
+        '<div class="col-12"><label class="fw-600 fs-13">Assign Agent:</label>' +
+        '<select class="form-select form-select-sm mt-1" id="agentSelect"><option value="">— Unassigned —</option>'+agentOptions+'</select>' +
+        '<button class="btn btn-sm btn-outline-dark mt-2 w-100" onclick="assignAgent('+inq.id+')"><i class="fa-solid fa-user-check me-1"></i>Assign</button></div>'
+      ) +
       '</div></div>' +
       // Notes
       '<div class="mb-3">' +

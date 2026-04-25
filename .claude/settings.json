@@ -220,7 +220,8 @@
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/includes/_filter_sidebar.php)",
       "Bash(grep -n 'filterCity\\\\|p\\\\.city\\\\|properties.*city\\\\|$cities\\\\b' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/listings.php)",
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/listings.php)",
-      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/projects.php)"
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/projects.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/index.php)"
     ],
     "additionalDirectories": [
       "/tmp",

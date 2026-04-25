@@ -76,8 +76,18 @@ $adminAvatarUrl = $adminAvatar !== ''
       try {
         require_once __DIR__ . '/../../includes/db.php';
         $dbh = Database::getInstance();
-        $bellStmt = $dbh->query("SELECT COUNT(*) FROM inquiries WHERE status='new'");
-        $newCount = (int)$bellStmt->fetchColumn();
+        if (function_exists('hasRole') && hasRole('admin')) {
+            $bellStmt = $dbh->query("SELECT COUNT(*) FROM inquiries WHERE status='new'");
+            $newCount = (int)$bellStmt->fetchColumn();
+        } else {
+            $bellStmt = $dbh->prepare(
+                "SELECT COUNT(*) FROM inquiries
+                  WHERE assigned_to = ?
+                    AND status NOT IN ('closed_won','closed_lost')"
+            );
+            $bellStmt->execute([(int)($_SESSION['admin_id'] ?? 0)]);
+            $newCount = (int)$bellStmt->fetchColumn();
+        }
         if ($newCount > 0):
       ?>
         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem">

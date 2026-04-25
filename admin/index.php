@@ -13,14 +13,34 @@ requireLogin();
 
 $db = Database::getInstance();
 
+// Role scoping: admin/super_admin see every inquiry; agents only see their own.
+$myAdminId   = (int)($_SESSION['admin_id'] ?? 0);
+$isAgentOnly = !hasRole('admin');
+// SQL fragment + params to bolt on for agent-scoped inquiry queries.
+$inqScopeSql    = $isAgentOnly ? ' AND i.assigned_to = ?' : '';
+$inqScopeParams = $isAgentOnly ? [$myAdminId] : [];
+
 // ── KPI Data ─────────────────────────────────────────────────
 try {
-    // New inquiries (last 7 days)
-    $stmt = $db->query("SELECT COUNT(*) FROM inquiries WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+    // New inquiries (last 7 days) — scoped for agents.
+    $sql = "SELECT COUNT(*) FROM inquiries i WHERE i.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)" . $inqScopeSql;
+    $stmt = $db->prepare($sql);
+    $stmt->execute($inqScopeParams);
     $newInquiries7d = (int)$stmt->fetchColumn();
 
-    // Total pending inquiries
-    $stmt = $db->query("SELECT COUNT(*) FROM inquiries WHERE status='new'");
+    // Pending inquiries:
+    //   admin: leads still in `new` (unassigned)
+    //   agent: open inquiries (assigned to them, not closed)
+    if ($isAgentOnly) {
+        $stmt = $db->prepare(
+            "SELECT COUNT(*) FROM inquiries
+              WHERE assigned_to = ?
+                AND status NOT IN ('closed_won','closed_lost')"
+        );
+        $stmt->execute([$myAdminId]);
+    } else {
+        $stmt = $db->query("SELECT COUNT(*) FROM inquiries WHERE status='new'");
+    }
     $pendingInquiries = (int)$stmt->fetchColumn();
 
     // Total published listings
@@ -35,23 +55,26 @@ try {
     $stmt = $db->query("SELECT COUNT(*) FROM properties WHERE is_featured=1 AND is_published=1");
     $featuredListings = (int)$stmt->fetchColumn();
 
-    // Total inquiries
-    $stmt = $db->query("SELECT COUNT(*) FROM inquiries");
+    // Total inquiries — scoped for agents.
+    $sql = "SELECT COUNT(*) FROM inquiries i WHERE 1=1" . $inqScopeSql;
+    $stmt = $db->prepare($sql);
+    $stmt->execute($inqScopeParams);
     $totalInquiries = (int)$stmt->fetchColumn();
 
     // Most viewed property
     $stmt = $db->query("SELECT title, views_count, id FROM properties WHERE is_published=1 ORDER BY views_count DESC LIMIT 1");
     $topProperty = $stmt->fetch();
 
-    // Recent 10 inquiries
-    $stmt = $db->query(
-        "SELECT i.id, i.name AS visitor_name, i.phone, i.status, i.created_at,
-                p.title AS property_title, p.id AS property_id
-         FROM inquiries i
-         LEFT JOIN properties p ON i.property_id = p.id
-         ORDER BY i.created_at DESC
-         LIMIT 10"
-    );
+    // Recent 10 inquiries — scoped for agents.
+    $sql = "SELECT i.id, i.name AS visitor_name, i.phone, i.status, i.created_at,
+                   p.title AS property_title, p.id AS property_id
+            FROM inquiries i
+            LEFT JOIN properties p ON i.property_id = p.id
+            WHERE 1=1" . $inqScopeSql . "
+            ORDER BY i.created_at DESC
+            LIMIT 10";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($inqScopeParams);
     $recentInquiries = $stmt->fetchAll();
 
     // Listings by city
@@ -60,10 +83,13 @@ try {
     );
     $byCity = $stmt->fetchAll();
 
-    // Inquiries last 30 days by status
-    $stmt = $db->query(
-        "SELECT status, COUNT(*) as cnt FROM inquiries WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY status"
-    );
+    // Inquiries last 30 days by status — scoped for agents.
+    $sql = "SELECT status, COUNT(*) as cnt
+            FROM inquiries i
+            WHERE i.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)" . $inqScopeSql . "
+            GROUP BY status";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($inqScopeParams);
     $inquiriesByStatus = $stmt->fetchAll();
 
     $dbError = false;
@@ -122,7 +148,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <div class="kpi-icon gold"><i class="fa-solid fa-envelope-open-text"></i></div>
       <div class="kpi-info">
         <div class="kpi-value"><?= $newInquiries7d ?></div>
-        <div class="kpi-label">New Inquiries (7d)</div>
+        <div class="kpi-label"><?= $isAgentOnly ? 'My Inquiries (7d)' : 'New Inquiries (7d)' ?></div>
         <div class="kpi-change up"><i class="fa-solid fa-arrow-up"></i> Last 7 days</div>
       </div>
     </div>
@@ -152,7 +178,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <div class="kpi-icon red"><i class="fa-solid fa-bell-concierge"></i></div>
       <div class="kpi-info">
         <div class="kpi-value"><?= $pendingInquiries ?></div>
-        <div class="kpi-label">Pending Inquiries</div>
+        <div class="kpi-label"><?= $isAgentOnly ? 'My Open Inquiries' : 'Pending Inquiries' ?></div>
         <?php if ($pendingInquiries > 0): ?>
         <div class="kpi-change down"><i class="fa-solid fa-circle-exclamation"></i> Needs attention</div>
         <?php else: ?>

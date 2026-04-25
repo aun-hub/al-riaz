@@ -7,13 +7,26 @@
 // Determine current page for active state
 $currentPage = basename($_SERVER['PHP_SELF']);
 
-// Fetch new inquiry count for badge
+// Fetch inquiry badge count, role-scoped:
+//   - admin / super_admin: all inquiries still in `new` status
+//   - agent: their own assigned inquiries that are not yet closed
 $newInquiryCount = 0;
 try {
     require_once __DIR__ . '/../../includes/db.php';
+    require_once __DIR__ . '/../../includes/auth.php';
     $dbSide = Database::getInstance();
-    $sideStmt = $dbSide->query("SELECT COUNT(*) FROM inquiries WHERE status='new'");
-    $newInquiryCount = (int)$sideStmt->fetchColumn();
+    if (function_exists('hasRole') && hasRole('admin')) {
+        $sideStmt = $dbSide->query("SELECT COUNT(*) FROM inquiries WHERE status='new'");
+        $newInquiryCount = (int)$sideStmt->fetchColumn();
+    } else {
+        $sideStmt = $dbSide->prepare(
+            "SELECT COUNT(*) FROM inquiries
+              WHERE assigned_to = ?
+                AND status NOT IN ('closed_won','closed_lost')"
+        );
+        $sideStmt->execute([(int)($_SESSION['admin_id'] ?? 0)]);
+        $newInquiryCount = (int)$sideStmt->fetchColumn();
+    }
 } catch(Exception $e) {}
 
 function sideLink(string $href, string $icon, string $label, string $current, string $badge = ''): string
