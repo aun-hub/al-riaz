@@ -11,6 +11,24 @@ require_once __DIR__ . '/../../includes/auth.php';
 $pageTitle = $pageTitle ?? 'Admin Panel';
 $flash = !empty($_SESSION['flash']) ? $_SESSION['flash'] : null;
 if ($flash) unset($_SESSION['flash']);
+
+// Lazy-load avatar URL into the session for older sessions that pre-date the
+// avatar feature, so the header circle picks it up without a re-login.
+if (!isset($_SESSION['admin_avatar']) && !empty($_SESSION['admin_id'])) {
+    try {
+        require_once __DIR__ . '/../../includes/db.php';
+        $hdrDb = Database::getInstance();
+        $hdrStmt = $hdrDb->prepare('SELECT avatar_url FROM users WHERE id = ? LIMIT 1');
+        $hdrStmt->execute([(int)$_SESSION['admin_id']]);
+        $_SESSION['admin_avatar'] = (string)($hdrStmt->fetchColumn() ?: '');
+    } catch (Exception $e) {
+        $_SESSION['admin_avatar'] = '';
+    }
+}
+$adminAvatar = (string)($_SESSION['admin_avatar'] ?? '');
+$adminAvatarUrl = $adminAvatar !== ''
+    ? (function_exists('mediaUrl') ? mediaUrl($adminAvatar) : $adminAvatar)
+    : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -79,9 +97,15 @@ if ($flash) unset($_SESSION['flash']);
       <button class="btn btn-sm d-flex align-items-center gap-2 px-2 py-1"
               data-bs-toggle="dropdown" aria-expanded="false"
               style="border:1px solid #dee2e6; border-radius:8px; background:#fff;">
-        <div style="width:32px;height:32px;border-radius:50%;background:var(--sidebar-bg);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:0.85rem;font-weight:700;">
-          <?= strtoupper(substr($_SESSION['admin_name'] ?? 'A', 0, 1)) ?>
-        </div>
+        <?php if ($adminAvatarUrl): ?>
+          <img src="<?= htmlspecialchars($adminAvatarUrl, ENT_QUOTES, 'UTF-8') ?>"
+               alt="<?= htmlspecialchars($_SESSION['admin_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+               style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+        <?php else: ?>
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--sidebar-bg);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:0.85rem;font-weight:700;">
+            <?= strtoupper(substr($_SESSION['admin_name'] ?? 'A', 0, 1)) ?>
+          </div>
+        <?php endif; ?>
         <div class="text-start d-none d-lg-block">
           <div style="font-size:0.82rem;font-weight:600;color:#1a1a2e;line-height:1.1;">
             <?= htmlspecialchars($_SESSION['admin_name'] ?? 'Admin', ENT_QUOTES, 'UTF-8') ?>
@@ -100,10 +124,17 @@ if ($flash) unset($_SESSION['flash']);
           </div>
         </li>
         <li>
-          <a class="dropdown-item d-flex align-items-center gap-2" href="<?= BASE_PATH ?>/admin/settings.php">
-            <i class="fa-solid fa-user-cog fa-fw text-muted"></i> Profile & Settings
+          <a class="dropdown-item d-flex align-items-center gap-2" href="<?= BASE_PATH ?>/admin/profile.php">
+            <i class="fa-solid fa-user fa-fw text-muted"></i> My Profile
           </a>
         </li>
+        <?php if (function_exists('hasRole') && hasRole('admin')): ?>
+        <li>
+          <a class="dropdown-item d-flex align-items-center gap-2" href="<?= BASE_PATH ?>/admin/settings.php">
+            <i class="fa-solid fa-gear fa-fw text-muted"></i> System Settings
+          </a>
+        </li>
+        <?php endif; ?>
         <li><hr class="dropdown-divider"></li>
         <li>
           <a class="dropdown-item d-flex align-items-center gap-2 text-danger" href="<?= BASE_PATH ?>/admin/logout.php">

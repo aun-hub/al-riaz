@@ -2135,7 +2135,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline:none
    ========================================================================== */
 .wa-float {
   position:fixed;
-  bottom:28px; right:28px;
+  bottom:80px; right:28px;
   width:60px; height:60px;
   background:#25D366;
   border-radius:50%;
@@ -2287,8 +2287,8 @@ img.lazy.loaded, img:not(.lazy) { filter: none; }
 
   .footer-body .row > div + div { margin-top: 2.5rem; }
 
-  .wa-float { bottom:22px; right:22px; }
-  .back-to-top { bottom:92px; right:22px; }
+  .wa-float { bottom:74px; right:22px; }
+  .back-to-top { bottom:144px; right:22px; }
 }
 
 @media (max-width: 480px) {
@@ -4166,8 +4166,8 @@ pre, code { max-width: 100%; overflow-x: auto; }
   .feature-chip { font-size: 0.78rem; padding: 0.35rem 0.8rem; }
 
   /* WhatsApp float stays away from back-to-top */
-  .wa-float { width: 52px; height: 52px; font-size: 1.4rem; bottom: 18px; right: 18px; }
-  .back-to-top { bottom: 82px; right: 18px; width: 42px; height: 42px; }
+  .wa-float { width: 52px; height: 52px; font-size: 1.4rem; bottom: 70px; right: 18px; }
+  .back-to-top { bottom: 134px; right: 18px; width: 42px; height: 42px; }
 
   /* Filter offcanvas takes full width on small phones */
   .filter-offcanvas { --bs-offcanvas-width: 92vw; }

@@ -205,14 +205,15 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
 
                 <div class="quick-search-field">
                     <i class="fa-solid fa-location-dot"></i>
-                    <select name="city" class="quick-search-input" aria-label="City">
-                        <option value="">Any City</option>
-                        <option value="islamabad">Islamabad</option>
-                        <option value="rawalpindi">Rawalpindi</option>
-                        <option value="lahore">Lahore</option>
-                        <option value="karachi">Karachi</option>
-                    </select>
+                    <input type="text" name="city" class="quick-search-input" aria-label="City"
+                           list="pkCityOptions" autocomplete="off"
+                           placeholder="Any City — type to search">
                 </div>
+                <datalist id="pkCityOptions">
+                    <?php foreach (getPakistanCities() as $cityName): ?>
+                      <option value="<?= htmlspecialchars($cityName) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
 
                 <div class="quick-search-field">
                     <i class="fa-solid fa-house"></i>

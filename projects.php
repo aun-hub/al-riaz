@@ -28,7 +28,9 @@ $where  = ['p.is_published = 1'];
 $params = [];
 
 if ($filterCity !== '') {
-    $where[]  = 'p.city = ?';
+    // Case-insensitive match so a typed city ("Lahore", "lahore", "LAHORE")
+    // hits regardless of how it was stored.
+    $where[]  = 'LOWER(p.city) = LOWER(?)';
     $params[] = $filterCity;
 }
 if ($filterStatus !== '') {
@@ -65,14 +67,10 @@ try {
     $projects = [];
 }
 
-/* ─── Distinct Cities for filter ────────────────────────────────────────── */
-try {
-    $stmtCities = $db->query('SELECT DISTINCT city FROM projects WHERE is_published = 1 ORDER BY city ASC');
-    $cities     = $stmtCities->fetchAll(PDO::FETCH_COLUMN);
-} catch (Exception $e) {
-    error_log('[projects.php] cities: ' . $e->getMessage());
-    $cities = [];
-}
+/* ─── City list for filter ──────────────────────────────────────────────── */
+// Pulled from the shared helper so the same Pakistan-city list backs every
+// city picker on the site (homepage hero, listings sidebar, projects filter).
+$pakistanCities = getPakistanCities();
 
 /* ─── Status labels ─────────────────────────────────────────────────────── */
 function getStatusLabel(string $status): string
@@ -120,15 +118,52 @@ require_once __DIR__ . '/includes/header.php';
 <!-- ── Main Content ──────────────────────────────────────────────────────── -->
 <main id="main-content">
 <div class="container py-4">
+    <style>
+      .city-filter-wrap { position:relative; min-width:240px; }
+      .city-filter-icon {
+        position:absolute; left:0.85rem; top:50%; transform:translateY(-50%);
+        color:#94a3b8; font-size:0.8rem; pointer-events:none;
+      }
+      .city-filter-input {
+        padding-left:2.1rem; padding-right:2.1rem;
+        min-width:240px;
+      }
+      .city-filter-clear {
+        position:absolute; right:0.7rem; top:50%; transform:translateY(-50%);
+        color:#94a3b8; font-size:0.85rem; line-height:1;
+        text-decoration:none; padding:0.15rem 0.3rem; border-radius:4px;
+      }
+      .city-filter-clear:hover { color:#dc3545; background:rgba(220,53,69,0.08); }
+    </style>
     <div class="d-flex flex-wrap gap-3 align-items-center mb-4">
-        <form method="GET" action="<?= $b ?>/projects.php" class="d-flex gap-2 align-items-center">
+        <form method="GET" action="<?= $b ?>/projects.php" class="d-flex gap-2 align-items-center city-filter-form">
             <input type="hidden" name="status" value="<?= htmlspecialchars($filterStatus) ?>">
-            <select name="city" class="sort-select" onchange="this.form.submit()">
-                <option value="">All Cities</option>
-                <?php foreach ($cities as $c): ?>
-                <option value="<?= htmlspecialchars($c) ?>" <?= $filterCity===$c?'selected':'' ?>><?= htmlspecialchars($c) ?></option>
-                <?php endforeach; ?>
-            </select>
+            <div class="city-filter-wrap">
+              <i class="fa-solid fa-magnifying-glass city-filter-icon" aria-hidden="true"></i>
+              <input type="text"
+                     name="city"
+                     id="cityFilter"
+                     list="cityOptions"
+                     class="sort-select city-filter-input"
+                     placeholder="All Cities — type to search"
+                     autocomplete="off"
+                     value="<?= htmlspecialchars($filterCity) ?>"
+                     onchange="this.form.submit()">
+              <?php if ($filterCity !== ''): ?>
+                <a href="<?= $b ?>/projects.php?status=<?= urlencode($filterStatus) ?>"
+                   class="city-filter-clear" title="Clear city filter" aria-label="Clear city filter">
+                  <i class="fa-solid fa-xmark"></i>
+                </a>
+              <?php endif; ?>
+            </div>
+            <datalist id="cityOptions">
+              <?php foreach ($pakistanCities as $c): ?>
+                <option value="<?= htmlspecialchars($c) ?>"></option>
+              <?php endforeach; ?>
+            </datalist>
+            <button type="submit" class="btn btn-sm btn-dark" title="Apply filter">
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
         </form>
         <span class="text-muted small ms-auto"><?= number_format($totalProjects) ?> projects</span>
     </div>

@@ -146,7 +146,8 @@ $youtubeUrl    = $s('youtube_url');
                     &copy; <?= $currentYear ?> <a href="<?= $b ?>/"><?= htmlspecialchars($agencyName) ?></a>. All Rights Reserved.
                 </p>
                 <p class="footer-bottom-text mb-0">
-                    Designed &amp; Developed with <i class="fa-solid fa-heart" style="color:var(--gold);"></i> in Pakistan
+                    Designed &amp; Developed by
+                    <a href="https://www.codewyse.io" target="_blank" rel="noopener noreferrer">Codewyse</a>
                 </p>
             </div>
         </div>

@@ -814,39 +814,78 @@ document.querySelectorAll('[name="purpose"]').forEach(function(radio) {
   });
 });
 
-// ── Photo upload drag & drop ───────────────────────────────
-var dropZone  = document.getElementById('dropZone');
-var photoInput= document.getElementById('photoInput');
-var previewGrid = document.getElementById('newPhotoGrid');
-var deletedPhotoIds = [];
+// ── Photo upload drag & drop (multi-select, accumulates across picks) ─
+var dropZone   = document.getElementById('dropZone');
+var photoInput = document.getElementById('photoInput');
+var previewGrid= document.getElementById('newPhotoGrid');
+
+// Accumulator — survives across file-picker openings and drag/drop events.
+// Each new pick is APPENDED instead of replacing the previous selection.
+var photoBuffer = new DataTransfer();
+var photoUid    = 0;
 
 dropZone.addEventListener('click', function() { photoInput.click(); });
-dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragover',  function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
 dropZone.addEventListener('dragleave', function()  { dropZone.classList.remove('dragover'); });
 dropZone.addEventListener('drop', function(e) {
   e.preventDefault();
   dropZone.classList.remove('dragover');
   addFiles(e.dataTransfer.files);
 });
-photoInput.addEventListener('change', function() { addFiles(this.files); });
+photoInput.addEventListener('change', function() {
+  addFiles(this.files);
+  // Re-sync the input with the accumulator so the next change event doesn't
+  // overwrite previously chosen files.
+  photoInput.files = photoBuffer.files;
+});
 
 function addFiles(files) {
   var existingCount = document.querySelectorAll('#existingPhotoGrid .photo-preview-item:not([style*="display:none"])').length;
-  var newCount = previewGrid.children.length;
   Array.from(files).forEach(function(file) {
-    if (existingCount + newCount >= 20) return;
+    if (existingCount + photoBuffer.files.length >= 20) return;
     if (!['image/jpeg','image/png','image/webp'].includes(file.type)) return;
     if (file.size > 5*1024*1024) return;
+
+    // Skip exact duplicates (same name + size + lastModified).
+    for (var i = 0; i < photoBuffer.files.length; i++) {
+      var f = photoBuffer.files[i];
+      if (f.name === file.name && f.size === file.size && f.lastModified === file.lastModified) return;
+    }
+
+    photoBuffer.items.add(file);
+    var uid = ++photoUid;
+    file.__previewUid = uid;
+
     var reader = new FileReader();
     reader.onload = function(e) {
       var div = document.createElement('div');
       div.className = 'photo-preview-item';
-      div.innerHTML = '<img src="' + e.target.result + '" alt=""><button type="button" class="btn-remove-photo" onclick="this.closest(\'.photo-preview-item\').remove()"><i class="fa-solid fa-xmark"></i></button>';
+      div.dataset.uid = uid;
+      div.innerHTML =
+        '<img src="' + e.target.result + '" alt="">' +
+        '<button type="button" class="btn-remove-photo" onclick="removeBufferedPhoto(' + uid + ', this)">' +
+        '<i class="fa-solid fa-xmark"></i></button>';
       previewGrid.appendChild(div);
     };
     reader.readAsDataURL(file);
-    newCount++;
   });
+
+  // Always reflect the latest accumulator into the actual <input>.
+  photoInput.files = photoBuffer.files;
+}
+
+function removeBufferedPhoto(uid, btn) {
+  // Find the file in the buffer that matches this preview tile and rebuild
+  // the DataTransfer without it (DataTransfer has no remove-by-index API).
+  var keep = new DataTransfer();
+  for (var i = 0; i < photoBuffer.files.length; i++) {
+    var f = photoBuffer.files[i];
+    if (f.__previewUid !== uid) keep.items.add(f);
+  }
+  photoBuffer = keep;
+  photoInput.files = photoBuffer.files;
+  var tile = btn.closest('.photo-preview-item');
+  if (tile) tile.remove();
 }
 
 function removeExistingPhoto(photoId, btn) {

@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $db = Database::getInstance();
                 $stmt = $db->prepare(
-                    'SELECT id, name, email, password_hash, role, is_active
+                    'SELECT id, name, email, password_hash, role, is_active, avatar_url
                      FROM users
                      WHERE email = ?
                      LIMIT 1'
@@ -44,10 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Regenerate session ID to prevent fixation
                     session_regenerate_id(true);
 
-                    $_SESSION['admin_id']    = (int)$user['id'];
-                    $_SESSION['admin_name']  = $user['name'];
-                    $_SESSION['admin_role']  = $user['role'];
-                    $_SESSION['admin_email'] = $user['email'];
+                    $_SESSION['admin_id']     = (int)$user['id'];
+                    $_SESSION['admin_name']   = $user['name'];
+                    $_SESSION['admin_role']   = $user['role'];
+                    $_SESSION['admin_email']  = $user['email'];
+                    $_SESSION['admin_avatar'] = $user['avatar_url'] ?? '';
 
                     // Remember me: extend session cookie lifetime
                     if ($remember) {

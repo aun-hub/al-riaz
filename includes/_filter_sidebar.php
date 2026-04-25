@@ -137,14 +137,15 @@ $uid = $f['formId']; // used to namespace element ids so desktop + offcanvas coe
         <div class="filter-label">City</div>
         <div class="filter-field-wrap">
             <i class="fa-solid fa-city filter-field-icon" aria-hidden="true"></i>
-            <select name="city" class="filter-select with-icon">
-                <option value="">All Cities</option>
-                <?php foreach ($f['allCities'] as $c): ?>
-                    <option value="<?= htmlspecialchars($c) ?>" <?= $sel['city'] === $c ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($c) ?>
-                    </option>
+            <input type="text" name="city" class="filter-select with-icon"
+                   list="pkCityOptionsSidebar" autocomplete="off"
+                   placeholder="All Cities — type to search"
+                   value="<?= htmlspecialchars($sel['city'] ?? '') ?>">
+            <datalist id="pkCityOptionsSidebar">
+                <?php foreach (function_exists('getPakistanCities') ? getPakistanCities() : (array)$f['allCities'] as $c): ?>
+                    <option value="<?= htmlspecialchars($c) ?>"></option>
                 <?php endforeach; ?>
-            </select>
+            </datalist>
         </div>
     </div>
 

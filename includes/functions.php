@@ -512,6 +512,32 @@ if (!function_exists('getHqOffice')) {
  * @param  int|float|null $price Amount in PKR
  * @return string
  */
+if (!function_exists('getPakistanCities')) {
+    /**
+     * Comprehensive list of Pakistani cities for searchable city pickers.
+     * Returns the labels alphabetically sorted; values are intended to be
+     * lowercased before comparison against the DB (city is stored lowercase).
+     */
+    function getPakistanCities(): array
+    {
+        $cities = [
+            'Islamabad','Rawalpindi','Lahore','Karachi','Peshawar','Quetta',
+            'Faisalabad','Multan','Hyderabad','Sialkot','Gujranwala','Gujrat',
+            'Sargodha','Bahawalpur','Sukkur','Larkana','Mardan','Sheikhupura',
+            'Mirpur','Muzaffarabad','Abbottabad','Mansehra','Murree','Sahiwal',
+            'Jhelum','Kasur','Okara','Wah Cantt','Mingora','Swat',
+            'Rahim Yar Khan','Jhang','Chiniot','Dera Ghazi Khan','Sadiqabad',
+            'Burewala','Charsadda','Kohat','Bannu','Mianwali','Toba Tek Singh',
+            'Hafizabad','Khanewal','Vehari','Nawabshah','Mirpur Khas','Tando Adam',
+            'Attock','Chakwal','Narowal','Gilgit','Skardu','Chitral','Hunza',
+            'Khairpur','Dadu','Jacobabad','Shikarpur','Turbat','Gwadar','Khuzdar',
+            'Zhob','Loralai','Haripur','Swabi','Nowshera','Kotli','Bagh','Rawalakot',
+        ];
+        sort($cities);
+        return $cities;
+    }
+}
+
 function getPKRFormatted(int|float|null $price): string
 {
     if ($price === null || $price <= 0) {

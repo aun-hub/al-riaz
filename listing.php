@@ -592,7 +592,7 @@ require_once __DIR__ . '/includes/header.php';
             <!-- Agent Card ───────────────────────────────────────────────── -->
             <div class="agent-card card mb-3 shadow-sm">
                 <div class="card-body text-center">
-                    <img src="<?= htmlspecialchars($property['agent_avatar'] ?: 'https://picsum.photos/id/64/80/80') ?>"
+                    <img src="<?= htmlspecialchars(!empty($property['agent_avatar']) ? mediaUrl($property['agent_avatar']) : 'https://picsum.photos/id/64/80/80', ENT_QUOTES, 'UTF-8') ?>"
                          alt="<?= htmlspecialchars($property['agent_name'] ?: 'Agent') ?>"
                          class="agent-avatar rounded-circle mb-2"
                          onerror="this.src='https://picsum.photos/id/64/80/80'"

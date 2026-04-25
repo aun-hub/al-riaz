@@ -340,6 +340,14 @@ SET @q := IF(@c=0,
   'DO 0');
 PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
 
+-- ── 009_users_created_by.php — track which admin invited each user ─
+SET @c := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+           WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='created_by');
+SET @q := IF(@c=0,
+  'ALTER TABLE `users` ADD COLUMN `created_by` INT UNSIGNED DEFAULT NULL AFTER `is_active`, ADD INDEX `idx_created_by` (`created_by`)',
+  'DO 0');
+PREPARE s FROM @q; EXECUTE s; DEALLOCATE PREPARE s;
+
 -- ── Sample Data (remove in production) ───────────────────────
 -- Insert a sample project
 INSERT IGNORE INTO projects (name, slug, developer, city, area_locality, status, noc_status, is_published, is_featured, description) VALUES

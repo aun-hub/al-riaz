@@ -38,9 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $token = bin2hex(random_bytes(24));
                     $db->prepare(
-                        'INSERT INTO users (name, email, phone, role, password_hash, is_active, invite_token, created_at)
-                         VALUES (?,?,?,?, ?, 0, ?, NOW())'
-                    )->execute([$name, $email, $phone, $role, password_hash($token, PASSWORD_BCRYPT), $token]);
+                        'INSERT INTO users (name, email, phone, role, password_hash, is_active, invite_token, created_by, created_at)
+                         VALUES (?,?,?,?, ?, 0, ?, ?, NOW())'
+                    )->execute([
+                        $name, $email, $phone, $role,
+                        password_hash($token, PASSWORD_BCRYPT),
+                        $token,
+                        (int)$_SESSION['admin_id'] ?: null,
+                    ]);
                     auditLog('invite','users',0,'Invited: '.$email.' as '.$role);
 
                     // Build invite link (absolute URL for the email).
@@ -174,7 +179,7 @@ HTML;
 // ── Load Users ───────────────────────────────────────────────
 try {
     $stmt = $db->query(
-        'SELECT id, name, email, phone, role, is_active, last_login, created_at
+        'SELECT id, name, email, phone, role, is_active, last_login, created_at, created_by, avatar_url
          FROM users ORDER BY role ASC, name ASC'
     );
     $users  = $stmt->fetchAll();
@@ -228,9 +233,15 @@ include __DIR__ . '/includes/admin-sidebar.php';
         <tr>
           <td>
             <div class="d-flex align-items-center gap-2">
+              <?php if (!empty($u['avatar_url'])): ?>
+                <img src="<?= htmlspecialchars(mediaUrl($u['avatar_url']), ENT_QUOTES, 'UTF-8') ?>"
+                     alt="<?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>"
+                     style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+              <?php else: ?>
               <div style="width:34px;height:34px;border-radius:50%;background:var(--sidebar-bg);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;flex-shrink:0;">
                 <?= strtoupper(substr($u['name'], 0, 1)) ?>
               </div>
+              <?php endif; ?>
               <div>
                 <div class="fw-600" style="font-size:0.88rem;"><?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?></div>
                 <?php if ((int)$u['id'] === (int)$_SESSION['admin_id']): ?>
@@ -277,8 +288,22 @@ include __DIR__ . '/includes/admin-sidebar.php';
             <?= htmlspecialchars(date('d M Y', strtotime($u['created_at'])), ENT_QUOTES,'UTF-8') ?>
           </td>
           <td class="text-end">
+            <?php
+              // Edit eligibility: super_admin can edit anyone; admin can only
+              // edit users they created.
+              $canEdit = (int)$u['id'] !== (int)$_SESSION['admin_id'] && (
+                  hasRole('super_admin')
+                  || (hasRole('admin') && (int)($u['created_by'] ?? 0) === (int)$_SESSION['admin_id'])
+              );
+            ?>
             <?php if ((int)$u['id'] !== (int)$_SESSION['admin_id']): ?>
             <div class="d-inline-flex gap-1">
+              <?php if ($canEdit): ?>
+              <a href="<?= BASE_PATH ?>/admin/user-form.php?id=<?= (int)$u['id'] ?>"
+                 class="btn btn-sm btn-outline-primary" title="Edit user">
+                <i class="fa-solid fa-pen"></i>
+              </a>
+              <?php endif; ?>
               <form method="POST" class="d-inline">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="toggle_status">

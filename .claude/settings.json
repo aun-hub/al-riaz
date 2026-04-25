@@ -208,7 +208,19 @@
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/login.php)",
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/forgot-password.php)",
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/reset-password.php)",
-      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/database/migrations/008_users_password_reset.php)"
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/database/migrations/008_users_password_reset.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/user-form.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/profile.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/includes/admin-header.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/database/migrations/009_users_created_by.php)",
+      "Bash(grep -n '$cities\\\\|$stmtCities' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/projects.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/includes/footer.php)",
+      "Bash(grep -n 'p.city\\\\|city=\\\\?\\\\|filterCity\\\\|$city\\\\b\\\\|city.*LOWER\\\\|city LIKE' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/listings.php)",
+      "Bash(grep -n 'Any City\\\\|$cities\\\\|cities as\\\\|name=\"city' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/listings.php /Applications/XAMPP/xamppfiles/htdocs/al-riaz/includes/_filter_sidebar.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/includes/_filter_sidebar.php)",
+      "Bash(grep -n 'filterCity\\\\|p\\\\.city\\\\|properties.*city\\\\|$cities\\\\b' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/listings.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/listings.php)",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/projects.php)"
     ],
     "additionalDirectories": [
       "/tmp",

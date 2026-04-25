@@ -56,7 +56,7 @@ $page         = max(1, (int)($_GET['page'] ?? 1));
 $perPage      = 15;
 
 $where = []; $params = [];
-if ($filterCity !== '') { $where[] = 'city=?'; $params[] = $filterCity; }
+if ($filterCity !== '') { $where[] = 'LOWER(city) = LOWER(?)'; $params[] = $filterCity; }
 if ($filterStatus !== '') {
     if ($filterStatus === 'published')   { $where[] = 'is_published=1'; }
     elseif ($filterStatus === 'draft')   { $where[] = 'is_published=0'; }
@@ -110,12 +110,15 @@ include __DIR__ . '/includes/admin-sidebar.php';
     </div>
     <div class="col-6 col-md-3">
       <label class="form-label fw-600 fs-12">City</label>
-      <select name="city" class="form-select form-select-sm">
-        <option value="">All Cities</option>
-        <?php foreach ($cities as $c): ?>
-          <option value="<?= htmlspecialchars($c, ENT_QUOTES, 'UTF-8') ?>" <?= $filterCity===$c?'selected':'' ?>><?= htmlspecialchars(ucfirst($c), ENT_QUOTES, 'UTF-8') ?></option>
+      <input type="text" name="city" class="form-control form-control-sm"
+             list="adminProjectCityOptions" autocomplete="off"
+             placeholder="All Cities — type to search"
+             value="<?= htmlspecialchars($filterCity, ENT_QUOTES, 'UTF-8') ?>">
+      <datalist id="adminProjectCityOptions">
+        <?php foreach (getPakistanCities() as $cityName): ?>
+          <option value="<?= htmlspecialchars($cityName, ENT_QUOTES, 'UTF-8') ?>"></option>
         <?php endforeach; ?>
-      </select>
+      </datalist>
     </div>
     <div class="col-6 col-md-3">
       <label class="form-label fw-600 fs-12">Status</label>

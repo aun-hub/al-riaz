@@ -110,7 +110,9 @@ if ($filterPurpose !== '') {
     $params[] = $filterPurpose;
 }
 if ($filterCity !== '') {
-    $where[]  = 'p.city = ?';
+    // Case-insensitive so a typed city ("Lahore", "lahore", "LAHORE")
+    // matches regardless of how it was stored.
+    $where[]  = 'LOWER(p.city) = LOWER(?)';
     $params[] = $filterCity;
 }
 if ($filterAgent !== '') {
@@ -230,15 +232,15 @@ include __DIR__ . '/includes/admin-sidebar.php';
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label fw-600 fs-12">City</label>
-      <select name="city" class="form-select form-select-sm">
-        <option value="">All Cities</option>
-        <?php foreach ($cities as $c): ?>
-          <option value="<?= htmlspecialchars($c, ENT_QUOTES, 'UTF-8') ?>"
-                  <?= $filterCity===$c?'selected':'' ?>>
-            <?= htmlspecialchars(ucfirst($c), ENT_QUOTES, 'UTF-8') ?>
-          </option>
+      <input type="text" name="city" class="form-control form-control-sm"
+             list="adminCityOptions" autocomplete="off"
+             placeholder="All Cities — type to search"
+             value="<?= htmlspecialchars($filterCity, ENT_QUOTES, 'UTF-8') ?>">
+      <datalist id="adminCityOptions">
+        <?php foreach (getPakistanCities() as $cityName): ?>
+          <option value="<?= htmlspecialchars($cityName, ENT_QUOTES, 'UTF-8') ?>"></option>
         <?php endforeach; ?>
-      </select>
+      </datalist>
     </div>
     <div class="col-12 col-md-1 d-flex gap-1">
       <button type="submit" class="btn btn-sm btn-dark w-100">

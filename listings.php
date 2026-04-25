@@ -111,7 +111,7 @@ $params = [];
 
 if ($category !== '') { $where[] = 'p.category = ?'; $params[] = $category; }
 if ($purpose  !== '') { $where[] = 'p.purpose  = ?'; $params[] = $purpose;  }
-if ($city     !== '') { $where[] = 'p.city     = ?'; $params[] = $city;     }
+if ($city     !== '') { $where[] = 'LOWER(p.city) = LOWER(?)'; $params[] = $city; }
 
 if (!empty($type)) {
     $ph = implode(',', array_fill(0, count($type), '?'));

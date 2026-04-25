@@ -30,7 +30,7 @@ try {
 
 // Fetch agents from DB
 try {
-    $agents = $db->query("SELECT id, name, phone, email, avatar_url FROM users WHERE role IN ('agent','admin') AND is_active = 1 ORDER BY role DESC, name ASC LIMIT 8")->fetchAll();
+    $agents = $db->query("SELECT id, name, phone, email, avatar_url, role FROM users WHERE role IN ('agent','admin') AND is_active = 1 ORDER BY role DESC, name ASC LIMIT 8")->fetchAll();
 } catch (Exception $e) { $agents = []; }
 
 // Authorized Dealers
@@ -237,14 +237,19 @@ require_once 'includes/header.php';
     <div class="container">
         <h2 class="content-heading text-center mb-5">Meet Our Team</h2>
         <div class="row g-4">
-            <?php foreach ($agents as $agent): ?>
+            <?php foreach ($agents as $agent):
+                $agentImg = !empty($agent['avatar_url'])
+                    ? mediaUrl($agent['avatar_url'])
+                    : 'https://picsum.photos/id/' . (60 + ($agent['id'] % 10)) . '/200/200';
+                $roleLabel = ucwords(str_replace('_', ' ', $agent['role'] ?? 'agent'));
+            ?>
             <div class="col-6 col-md-4 col-lg-3">
                 <div class="team-card reveal">
-                    <img src="<?= htmlspecialchars($agent['avatar_url'] ?: 'https://picsum.photos/id/'.(60+($agent['id']%10)).'/200/200') ?>"
-                         alt="<?= htmlspecialchars($agent['name']) ?>" class="team-card-img">
+                    <img src="<?= htmlspecialchars($agentImg, ENT_QUOTES, 'UTF-8') ?>"
+                         alt="<?= htmlspecialchars($agent['name'], ENT_QUOTES, 'UTF-8') ?>" class="team-card-img">
                     <div class="team-card-body">
-                        <h4><?= htmlspecialchars($agent['name']) ?></h4>
-                        <p><?= ucfirst($agent['role'] ?? 'Agent') ?></p>
+                        <h4><?= htmlspecialchars($agent['name'], ENT_QUOTES, 'UTF-8') ?></h4>
+                        <p><?= htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8') ?></p>
                         <?php if (!empty($agent['phone'])): ?>
                         <a href="tel:<?= htmlspecialchars($agent['phone']) ?>" class="btn-navy" style="font-size:.75rem;padding:.3rem .75rem;">
                             <i class="fa-solid fa-phone"></i> Call
