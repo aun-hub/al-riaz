@@ -201,7 +201,8 @@
       "Bash(/usr/bin/grep -E \"photo_69e95|assets/uploads\" /tmp/d.html)",
       "Bash(/Applications/XAMPP/xamppfiles/bin/mysql -u root alriaz_db -e 'SELECT id, title, is_published, is_sold FROM properties WHERE id = 2;')",
       "Bash(/usr/bin/grep -n \"is_sold\\\\|is_published\" /Applications/XAMPP/xamppfiles/htdocs/al-riaz/listings.php)",
-      "Bash(/Applications/XAMPP/xamppfiles/bin/php -r 'require '\\\\''includes/functions.php'\\\\''; echo mediaUrl\\('\\\\''/assets/uploads/properties/2/photo_69e95ba6a46b3.jpeg'\\\\''\\) . PHP_EOL; echo mediaUrl\\('\\\\''https://picsum.photos/seed/prop2a/1200/800'\\\\''\\) . PHP_EOL; echo mediaUrl\\('\\\\'''\\\\''\\) . PHP_EOL;')"
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -r 'require '\\\\''includes/functions.php'\\\\''; echo mediaUrl\\('\\\\''/assets/uploads/properties/2/photo_69e95ba6a46b3.jpeg'\\\\''\\) . PHP_EOL; echo mediaUrl\\('\\\\''https://picsum.photos/seed/prop2a/1200/800'\\\\''\\) . PHP_EOL; echo mediaUrl\\('\\\\'''\\\\''\\) . PHP_EOL;')",
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/listings.php)"
     ],
     "additionalDirectories": [
       "/tmp",

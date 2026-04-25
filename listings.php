@@ -168,12 +168,11 @@ try {
                p.is_featured, p.published_at, p.possession_status,
                u.name  AS agent_name,
                u.phone AS agent_phone,
-               pm.url  AS thumbnail
+               (SELECT pm.url FROM property_media pm
+                 WHERE pm.property_id = p.id AND pm.kind = 'image'
+                 ORDER BY pm.sort_order ASC, pm.id ASC LIMIT 1) AS thumbnail
           FROM properties p
      LEFT JOIN users u           ON u.id = p.agent_id
-     LEFT JOIN property_media pm ON pm.property_id = p.id
-                                AND pm.kind = 'image'
-                                AND pm.sort_order = 0
          WHERE $whereSQL
          ORDER BY p.is_featured DESC, $orderSQL
          LIMIT $limit OFFSET $offset

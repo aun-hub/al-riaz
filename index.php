@@ -29,10 +29,11 @@ try {
 $featuredProperties = [];
 try {
     $stmt = $db->prepare(
-        'SELECT p.*, pm.url AS thumbnail
+        'SELECT p.*,
+                (SELECT pm.url FROM property_media pm
+                  WHERE pm.property_id = p.id AND pm.kind = \'image\'
+                  ORDER BY pm.sort_order ASC, pm.id ASC LIMIT 1) AS thumbnail
          FROM properties p
-         LEFT JOIN property_media pm
-             ON pm.property_id = p.id AND pm.kind = \'image\' AND pm.sort_order = 0
          WHERE p.is_featured = 1 AND p.is_published = 1 AND p.is_sold = 0
          ORDER BY p.created_at DESC
          LIMIT 6'

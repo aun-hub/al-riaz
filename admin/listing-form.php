@@ -44,7 +44,7 @@ $data = [
     'latitude'        => '', 'longitude'       => '',
     'area_value'      => '', 'area_unit'       => 'marla',
     'bedrooms'        => 0,  'bathrooms'       => 0,
-    'possession_status' => 'available',
+    'possession_status' => 'ready',
     'features'        => [], 'description'     => '',
     'is_published'    => 0,  'is_featured'     => 0,
 ];
@@ -103,7 +103,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'area_unit'        => $_POST['area_unit']         ?? 'marla',
         'bedrooms'         => (int)($_POST['bedrooms']    ?? 0),
         'bathrooms'        => (int)($_POST['bathrooms']   ?? 0),
-        'possession_status'=> $_POST['possession_status'] ?? 'available',
+        'possession_status'=> in_array($_POST['possession_status'] ?? '', ['ready','under_construction','not_applicable'], true)
+                              ? $_POST['possession_status']
+                              : 'ready',
         'description'      => trim($_POST['description']  ?? ''),
         'is_published'     => isset($_POST['is_published']) ? 1 : 0,
         'is_featured'      => isset($_POST['is_featured'])  ? 1 : 0,
@@ -157,7 +159,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($_FILES['photos']['name'][0])) {
                 $uploadDir = __DIR__ . '/../assets/uploads/properties/' . $propId . '/';
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-                $sortOrder = $isEdit ? (int)($db->query("SELECT MAX(sort_order) FROM property_media WHERE property_id=$propId")->fetchColumn()) : 0;
+                // First photo on a new listing starts at sort_order=0 so it
+                // matches the cards/queries that pick the cover image. On edit,
+                // continue from the existing max.
+                $maxStmt = $db->prepare("SELECT COALESCE(MAX(sort_order) + 1, 0) FROM property_media WHERE property_id = ?");
+                $maxStmt->execute([$propId]);
+                $sortOrder = (int)$maxStmt->fetchColumn();
 
                 foreach ($_FILES['photos']['error'] as $idx => $err) {
                     if ($err !== UPLOAD_ERR_OK) continue;
@@ -171,12 +178,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $fname= 'photo_' . uniqid() . '.' . $ext;
                     $localPath = $uploadDir . $fname;
                     if (move_uploaded_file($tmpName, $localPath)) {
-                        $sortOrder++;
                         $publicUrl = '/assets/uploads/properties/' . $propId . '/' . $fname;
                         $db->prepare(
                             'INSERT INTO property_media (property_id, url, thumbnail_url, alt_text, kind, sort_order)
                              VALUES (?, ?, ?, ?, "image", ?)'
                         )->execute([$propId, $publicUrl, $publicUrl, $origName, $sortOrder]);
+                        $sortOrder++;
                     }
                 }
             }
@@ -480,7 +487,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <div class="col-12 col-md-4">
             <label class="form-label fw-600">Possession Status</label>
             <select name="possession_status" class="form-select">
-              <?php foreach (['available'=>'Available','under_construction'=>'Under Construction','ready'=>'Ready to Move','on_possession'=>'On Possession'] as $val=>$lbl): ?>
+              <?php foreach (['ready'=>'Ready to Move','under_construction'=>'Under Construction','not_applicable'=>'Not Applicable'] as $val=>$lbl): ?>
                 <option value="<?= $val ?>" <?= $data['possession_status']===$val?'selected':'' ?>><?= $lbl ?></option>
               <?php endforeach; ?>
             </select>
