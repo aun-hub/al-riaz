@@ -17,6 +17,84 @@
     "watermark": "0",
     "currency_format": "pakistan",
     "logo_path": "\/assets\/images\/logo.jpeg",
+    "about_story_label": "Our Story",
+    "about_story_heading": "Built on Trust & Transparency",
+    "about_story_body": "Al-Riaz Associates was founded with a clear mission: to bring transparency, integrity, and professionalism to Pakistan's real estate market. Based in the heart of Islamabad, we began as a small consultancy helping families find their dream homes in Rawalpindi and Islamabad.\r\n\r\nOver the years, we have grown into a full-service real estate agency, becoming an **authorised dealer** for Pakistan's most prestigious developments including Bahria Town, DHA, Capital Smart City, Gulberg Greens, and Blue World City.\r\n\r\nToday, our team of experienced property consultants serves clients across Islamabad, Rawalpindi, Lahore, and Karachi — offering verified listings, transparent pricing, and end-to-end support from property search to final possession.",
+    "about_story_image": "",
+    "about_story_badge_value": "5+ Years",
+    "about_story_badge_label": "In Real Estate",
+    "about_stats": [
+        {
+            "value": "",
+            "label": "Properties Listed"
+        },
+        {
+            "value": "",
+            "label": "Active Projects"
+        },
+        {
+            "value": "200",
+            "label": "Happy Clients"
+        },
+        {
+            "value": "5",
+            "label": "Years Active"
+        }
+    ],
+    "about_mv_label": "Purpose",
+    "about_mv_title": "Our Mission & Vision",
+    "about_mv_subtitle": "Why we do what we do — and where we're headed next.",
+    "about_mission": {
+        "icon": "fa-bullseye",
+        "tag": "01 — Mission",
+        "title": "Empowering Pakistanis to make the best property decisions.",
+        "body": "Transparent pricing, verified listings, and honest advice — the way real estate should have always been. We turn paperwork, site visits, and payment plans into a process you can actually understand.",
+        "bullets": [
+            "Verified ownership & NOC on every listing",
+            "Clear, up-front brokerage disclosure",
+            "End-to-end support, from search to possession"
+        ]
+    },
+    "about_vision": {
+        "icon": "fa-eye",
+        "tag": "02 — Vision",
+        "title": "Becoming Pakistan's most trusted real estate partner.",
+        "body": "We want \"Al-Riaz\" to mean the same thing in Islamabad as it does in Karachi — integrity, expertise, and client-first service at every step. Built on relationships that outlast a single transaction.",
+        "bullets": [
+            "Authorised dealer for Pakistan's top developments",
+            "Data-driven investment guidance",
+            "A team that picks up the phone"
+        ]
+    },
+    "about_ceo_show": "1",
+    "about_ceo_label": "A Message from Our CEO",
+    "about_ceo_heading": "Welcome to Al-Riaz Associates",
+    "about_ceo_message": "Real estate is one of the most important decisions a family ever makes. At Al-Riaz Associates, we treat that responsibility with the seriousness it deserves — verifying every listing, disclosing every fee, and walking with our clients from the first site visit to the final possession.\r\n\r\nThank you for considering us. We look forward to earning your trust.",
+    "about_ceo_image": "\/assets\/images\/about_ceo_69efc80add622.png",
+    "about_ceo_name": "Syed Jaffar Raza Kazmi",
+    "about_ceo_title": "Founder & CEO",
+    "about_values": [
+        {
+            "icon": "fa-handshake",
+            "title": "Integrity",
+            "desc": "We never compromise on honesty in our dealings."
+        },
+        {
+            "icon": "fa-check-circle",
+            "title": "Transparency",
+            "desc": "Clear pricing, no hidden costs or surprises."
+        },
+        {
+            "icon": "fa-user-tie",
+            "title": "Expertise",
+            "desc": "Seasoned consultants with deep market knowledge."
+        },
+        {
+            "icon": "fa-headset",
+            "title": "Client First",
+            "desc": "Your satisfaction is our top priority."
+        }
+    ],
     "smtp_host": "sandbox.smtp.mailtrap.io",
     "smtp_port": "587",
     "smtp_user": "e209a868c7f3fb",

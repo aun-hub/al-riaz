@@ -64,27 +64,40 @@ require_once 'includes/header.php';
 <!-- ============================================================
      AGENCY STORY
      ============================================================ -->
+<?php
+    // Pull editable copy from Settings → About Page (with sensible defaults
+    // that preserve the original hardcoded text/badge if nothing is set).
+    $storySettings = function_exists('getSettings') ? getSettings() : [];
+    $storyLabel    = trim((string)($storySettings['about_story_label']   ?? '')) ?: 'Our Story';
+    $storyHeading  = trim((string)($storySettings['about_story_heading'] ?? '')) ?: 'Built on Trust & Transparency';
+    $storyBody     = (string)($storySettings['about_story_body'] ?? '');
+    $storyImageRaw = trim((string)($storySettings['about_story_image']  ?? ''));
+    $storyImage    = $storyImageRaw !== ''
+        ? mediaUrl($storyImageRaw)
+        : 'https://picsum.photos/id/1067/600/420';
+    $storyBadgeVal = trim((string)($storySettings['about_story_badge_value'] ?? ''));
+    $storyBadgeLbl = trim((string)($storySettings['about_story_badge_label'] ?? 'In Real Estate'));
+
+    /**
+     * Render the body: split on blank lines, escape, and convert **text** to <strong>.
+     */
+    $storyBodyHtml = '';
+    foreach (preg_split('/\R\s*\R/', $storyBody) as $para) {
+        $para = trim($para);
+        if ($para === '') continue;
+        $esc = htmlspecialchars($para, ENT_QUOTES, 'UTF-8');
+        $esc = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $esc);
+        $esc = nl2br($esc);
+        $storyBodyHtml .= '<p class="text-muted lh-lg">' . $esc . '</p>';
+    }
+?>
 <section class="section-pad" style="background:#fff;">
     <div class="container">
         <div class="row align-items-center g-5">
             <div class="col-12 col-lg-6">
-                <span class="text-uppercase fw-semibold small" style="color:var(--gold); letter-spacing:1.5px;">Our Story</span>
-                <h2 class="content-heading mt-2 mb-3" style="text-align:left;">Built on Trust &amp; Transparency</h2>
-                <p class="text-muted lh-lg">
-                    Al-Riaz Associates was founded with a clear mission: to bring transparency, integrity, and
-                    professionalism to Pakistan's real estate market. Based in the heart of Islamabad, we began
-                    as a small consultancy helping families find their dream homes in Rawalpindi and Islamabad.
-                </p>
-                <p class="text-muted lh-lg">
-                    Over the years, we have grown into a full-service real estate agency, becoming an
-                    <strong>authorised dealer</strong> for Pakistan's most prestigious developments including
-                    Bahria Town, DHA, Capital Smart City, Gulberg Greens, and Blue World City.
-                </p>
-                <p class="text-muted lh-lg">
-                    Today, our team of experienced property consultants serves clients across Islamabad,
-                    Rawalpindi, Lahore, and Karachi — offering verified listings, transparent pricing, and
-                    end-to-end support from property search to final possession.
-                </p>
+                <span class="text-uppercase fw-semibold small" style="color:var(--gold); letter-spacing:1.5px;"><?= htmlspecialchars($storyLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                <h2 class="content-heading mt-2 mb-3" style="text-align:left;"><?= htmlspecialchars($storyHeading, ENT_QUOTES, 'UTF-8') ?></h2>
+                <?= $storyBodyHtml ?>
                 <div class="d-flex flex-wrap gap-3 mt-4">
                     <a href="<?= $b ?>/contact.php" class="btn-gold">
                         <i class="fa-solid fa-phone me-2"></i>Get in Touch
@@ -93,21 +106,25 @@ require_once 'includes/header.php';
             </div>
             <div class="col-12 col-lg-6">
                 <div class="position-relative">
-                    <img src="https://picsum.photos/id/1067/600/420"
-                         alt="Al-Riaz Associates Office"
+                    <img src="<?= htmlspecialchars($storyImage, ENT_QUOTES, 'UTF-8') ?>"
+                         alt="<?= htmlspecialchars($storyHeading, ENT_QUOTES, 'UTF-8') ?>"
                          class="img-fluid rounded-3 shadow"
                          loading="lazy">
+                    <?php if ($storyBadgeVal !== ''): ?>
                     <!-- Floating stat card -->
                     <div class="position-absolute d-none d-md-flex align-items-center gap-3 bg-white rounded-3 shadow-sm p-3"
                          style="bottom:-20px; left:-20px; min-width:200px; border-left:4px solid var(--gold);">
                         <i class="fas fa-award fa-2x" style="color:var(--gold);"></i>
                         <div>
                             <div class="fw-bold" style="color:var(--navy-700); font-size:1.3rem;">
-                                <?= $yearsActive ?>+ Years
+                                <?= htmlspecialchars($storyBadgeVal, ENT_QUOTES, 'UTF-8') ?>
                             </div>
-                            <div class="text-muted small">In Real Estate</div>
+                            <?php if ($storyBadgeLbl !== ''): ?>
+                            <div class="text-muted small"><?= htmlspecialchars($storyBadgeLbl, ENT_QUOTES, 'UTF-8') ?></div>
+                            <?php endif; ?>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -117,33 +134,35 @@ require_once 'includes/header.php';
 <!-- ============================================================
      KEY STATS
      ============================================================ -->
+<?php
+    // Editable from Settings → About Page → Key Stats. If a value is left
+    // blank, fall back to the auto-derived/seed defaults below so the
+    // section stays populated.
+    $statFallbacks = [$totalListings, $totalProjects, $happyClients, $yearsActive];
+    $statLabelsDefault = ['Properties Listed', 'Active Projects', 'Happy Clients', 'Years Active'];
+    $aboutStats = $storySettings['about_stats'] ?? [];
+?>
 <section class="stats-section">
     <div class="container">
         <div class="row g-4 justify-content-center">
+            <?php for ($i = 0; $i < 4; $i++):
+                $row = $aboutStats[$i] ?? [];
+                $rawVal = trim((string)($row['value'] ?? ''));
+                $label  = trim((string)($row['label'] ?? '')) ?: $statLabelsDefault[$i];
+                $value  = $rawVal !== '' ? $rawVal : (string)$statFallbacks[$i];
+                // Pull the leading number out for the count-up animation; fall
+                // back to the full string if it isn't a clean number ("5+ Yrs").
+                preg_match('/^\d+/', $value, $m);
+                $countTo = $m[0] ?? $value;
+                $delay   = $i === 0 ? '' : ' style="--delay:0.' . $i . 's"';
+            ?>
             <div class="col-6 col-md-3">
-                <div class="stat-card reveal">
-                    <div class="stat-number" data-count-to="<?= $totalListings ?>">0<span class="suffix">+</span></div>
-                    <div class="stat-label">Properties Listed</div>
+                <div class="stat-card reveal"<?= $delay ?>>
+                    <div class="stat-number" data-count-to="<?= htmlspecialchars($countTo, ENT_QUOTES, 'UTF-8') ?>">0<span class="suffix">+</span></div>
+                    <div class="stat-label"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></div>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card reveal" style="--delay:0.1s">
-                    <div class="stat-number" data-count-to="<?= $totalProjects ?>">0<span class="suffix">+</span></div>
-                    <div class="stat-label">Active Projects</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card reveal" style="--delay:0.2s">
-                    <div class="stat-number" data-count-to="<?= $happyClients ?>">0<span class="suffix">+</span></div>
-                    <div class="stat-label">Happy Clients</div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="stat-card reveal" style="--delay:0.3s">
-                    <div class="stat-number" data-count-to="<?= $yearsActive ?>">0<span class="suffix">+</span></div>
-                    <div class="stat-label">Years Active</div>
-                </div>
-            </div>
+            <?php endfor; ?>
         </div>
     </div>
 </section>
@@ -155,11 +174,49 @@ require_once 'includes/header.php';
     <div class="mv-decor mv-decor-1" aria-hidden="true"></div>
     <div class="mv-decor mv-decor-2" aria-hidden="true"></div>
 
+    <?php
+        // Mission/Vision section header — editable from Settings → About Page.
+        $mvLabel    = trim((string)($storySettings['about_mv_label']    ?? '')) ?: 'Purpose';
+        $mvTitle    = trim((string)($storySettings['about_mv_title']    ?? '')) ?: 'Our Mission & Vision';
+        $mvSubtitle = trim((string)($storySettings['about_mv_subtitle'] ?? '')) ?: "Why we do what we do — and where we're headed next.";
+
+        // Mission and Vision cards.
+        $missionCard = $storySettings['about_mission'] ?? [];
+        $visionCard  = $storySettings['about_vision']  ?? [];
+        $cardDefaults = [
+            'mission' => [
+                'icon'    => 'fa-bullseye',
+                'tag'     => '01 — Mission',
+                'title'   => 'Empowering Pakistanis to make the best property decisions.',
+                'body'    => 'Transparent pricing, verified listings, and honest advice — the way real estate should have always been. We turn paperwork, site visits, and payment plans into a process you can actually understand.',
+                'bullets' => [
+                    'Verified ownership & NOC on every listing',
+                    'Clear, up-front brokerage disclosure',
+                    'End-to-end support, from search to possession',
+                ],
+            ],
+            'vision' => [
+                'icon'    => 'fa-eye',
+                'tag'     => '02 — Vision',
+                'title'   => "Becoming Pakistan's most trusted real estate partner.",
+                'body'    => 'We want "Al-Riaz" to mean the same thing in Islamabad as it does in Karachi — integrity, expertise, and client-first service at every step. Built on relationships that outlast a single transaction.',
+                'bullets' => [
+                    "Authorised dealer for Pakistan's top developments",
+                    'Data-driven investment guidance',
+                    'A team that picks up the phone',
+                ],
+            ],
+        ];
+        $missionCard = $missionCard + $cardDefaults['mission'];
+        $visionCard  = $visionCard  + $cardDefaults['vision'];
+        if (empty($missionCard['bullets']) || !is_array($missionCard['bullets'])) $missionCard['bullets'] = $cardDefaults['mission']['bullets'];
+        if (empty($visionCard['bullets'])  || !is_array($visionCard['bullets']))  $visionCard['bullets']  = $cardDefaults['vision']['bullets'];
+    ?>
     <div class="container">
         <div class="section-header center reveal">
-            <div class="section-label">Purpose</div>
-            <h2 class="section-title">Our Mission &amp; Vision</h2>
-            <p class="section-subtitle">Why we do what we do — and where we're headed next.</p>
+            <div class="section-label"><?= htmlspecialchars($mvLabel, ENT_QUOTES, 'UTF-8') ?></div>
+            <h2 class="section-title"><?= htmlspecialchars($mvTitle, ENT_QUOTES, 'UTF-8') ?></h2>
+            <p class="section-subtitle"><?= htmlspecialchars($mvSubtitle, ENT_QUOTES, 'UTF-8') ?></p>
         </div>
 
         <div class="row g-4 mv-grid">
@@ -168,19 +225,16 @@ require_once 'includes/header.php';
                 <article class="mv-card reveal reveal-left">
                     <div class="mv-card-head">
                         <div class="mv-icon">
-                            <i class="fa-solid fa-bullseye"></i>
+                            <i class="fa-solid <?= htmlspecialchars($missionCard['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
                         </div>
-                        <div class="mv-tag">01 — Mission</div>
+                        <div class="mv-tag"><?= htmlspecialchars($missionCard['tag'], ENT_QUOTES, 'UTF-8') ?></div>
                     </div>
-                    <h3 class="mv-title">Empowering Pakistanis to make the best property decisions.</h3>
-                    <p class="mv-text">
-                        Transparent pricing, verified listings, and honest advice — the way real estate should have always been.
-                        We turn paperwork, site visits, and payment plans into a process you can actually understand.
-                    </p>
+                    <h3 class="mv-title"><?= htmlspecialchars($missionCard['title'], ENT_QUOTES, 'UTF-8') ?></h3>
+                    <p class="mv-text"><?= nl2br(htmlspecialchars($missionCard['body'], ENT_QUOTES, 'UTF-8')) ?></p>
                     <ul class="mv-bullets">
-                        <li><i class="fa-solid fa-check"></i> Verified ownership &amp; NOC on every listing</li>
-                        <li><i class="fa-solid fa-check"></i> Clear, up-front brokerage disclosure</li>
-                        <li><i class="fa-solid fa-check"></i> End-to-end support, from search to possession</li>
+                        <?php foreach ($missionCard['bullets'] as $b): if (trim($b) === '') continue; ?>
+                        <li><i class="fa-solid fa-check"></i> <?= htmlspecialchars($b, ENT_QUOTES, 'UTF-8') ?></li>
+                        <?php endforeach; ?>
                     </ul>
                 </article>
             </div>
@@ -190,19 +244,16 @@ require_once 'includes/header.php';
                 <article class="mv-card mv-card-alt reveal reveal-right">
                     <div class="mv-card-head">
                         <div class="mv-icon mv-icon-gold">
-                            <i class="fa-solid fa-eye"></i>
+                            <i class="fa-solid <?= htmlspecialchars($visionCard['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
                         </div>
-                        <div class="mv-tag">02 — Vision</div>
+                        <div class="mv-tag"><?= htmlspecialchars($visionCard['tag'], ENT_QUOTES, 'UTF-8') ?></div>
                     </div>
-                    <h3 class="mv-title">Becoming Pakistan's most trusted real estate partner.</h3>
-                    <p class="mv-text">
-                        We want "Al-Riaz" to mean the same thing in Islamabad as it does in Karachi — integrity, expertise,
-                        and client-first service at every step. Built on relationships that outlast a single transaction.
-                    </p>
+                    <h3 class="mv-title"><?= htmlspecialchars($visionCard['title'], ENT_QUOTES, 'UTF-8') ?></h3>
+                    <p class="mv-text"><?= nl2br(htmlspecialchars($visionCard['body'], ENT_QUOTES, 'UTF-8')) ?></p>
                     <ul class="mv-bullets">
-                        <li><i class="fa-solid fa-check"></i> Authorised dealer for Pakistan's top developments</li>
-                        <li><i class="fa-solid fa-check"></i> Data-driven investment guidance</li>
-                        <li><i class="fa-solid fa-check"></i> A team that picks up the phone</li>
+                        <?php foreach ($visionCard['bullets'] as $b): if (trim($b) === '') continue; ?>
+                        <li><i class="fa-solid fa-check"></i> <?= htmlspecialchars($b, ENT_QUOTES, 'UTF-8') ?></li>
+                        <?php endforeach; ?>
                     </ul>
                 </article>
             </div>
@@ -211,24 +262,112 @@ require_once 'includes/header.php';
         <!-- Core Values -->
         <div class="mv-values reveal-stagger">
             <?php
-            $values = [
+            $valueDefaults = [
                 ['fa-handshake',    'Integrity',    'We never compromise on honesty in our dealings.'],
                 ['fa-check-circle', 'Transparency', 'Clear pricing, no hidden costs or surprises.'],
                 ['fa-user-tie',     'Expertise',    'Seasoned consultants with deep market knowledge.'],
                 ['fa-headset',      'Client First', 'Your satisfaction is our top priority, always.'],
             ];
-            foreach ($values as $i => [$icon, $title, $desc]):
+            $aboutValues = $storySettings['about_values'] ?? [];
+            for ($i = 0; $i < 4; $i++):
+                $vRow = $aboutValues[$i] ?? [];
+                $vIcon  = trim((string)($vRow['icon']  ?? '')) ?: $valueDefaults[$i][0];
+                $vTitle = trim((string)($vRow['title'] ?? '')) ?: $valueDefaults[$i][1];
+                $vDesc  = trim((string)($vRow['desc']  ?? '')) ?: $valueDefaults[$i][2];
             ?>
             <div class="mv-value">
                 <div class="mv-value-num"><?= str_pad((string)($i + 1), 2, '0', STR_PAD_LEFT) ?></div>
-                <div class="mv-value-icon"><i class="fa-solid <?= $icon ?>"></i></div>
-                <div class="mv-value-title"><?= $title ?></div>
-                <p class="mv-value-desc"><?= $desc ?></p>
+                <div class="mv-value-icon"><i class="fa-solid <?= htmlspecialchars($vIcon, ENT_QUOTES, 'UTF-8') ?>"></i></div>
+                <div class="mv-value-title"><?= htmlspecialchars($vTitle, ENT_QUOTES, 'UTF-8') ?></div>
+                <p class="mv-value-desc"><?= htmlspecialchars($vDesc, ENT_QUOTES, 'UTF-8') ?></p>
             </div>
-            <?php endforeach; ?>
+            <?php endfor; ?>
         </div>
     </div>
 </section>
+
+<!-- ============================================================
+     CEO MESSAGE — editable from Settings → About Page → CEO Message
+     ============================================================ -->
+<?php
+    $ceoShow    = ($storySettings['about_ceo_show'] ?? '1') === '1';
+    $ceoLabel   = trim((string)($storySettings['about_ceo_label']   ?? '')) ?: 'A Message from Our CEO';
+    $ceoHeading = trim((string)($storySettings['about_ceo_heading'] ?? ''));
+    $ceoMsg     = (string)($storySettings['about_ceo_message'] ?? '');
+    $ceoImgRaw  = trim((string)($storySettings['about_ceo_image']  ?? ''));
+    $ceoImage   = $ceoImgRaw !== '' ? mediaUrl($ceoImgRaw) : '';
+    $ceoName    = trim((string)($storySettings['about_ceo_name']  ?? ''));
+    $ceoTitle   = trim((string)($storySettings['about_ceo_title'] ?? ''));
+
+    // Render the message body the same way as the story body: paragraphs by
+    // blank lines, with **bold** support (HTML-escaped first, so it's safe).
+    $ceoMsgHtml = '';
+    foreach (preg_split('/\R\s*\R/', $ceoMsg) as $para) {
+        $para = trim($para);
+        if ($para === '') continue;
+        $esc = htmlspecialchars($para, ENT_QUOTES, 'UTF-8');
+        $esc = preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', $esc);
+        $esc = nl2br($esc);
+        $ceoMsgHtml .= '<p class="text-muted lh-lg mb-3">' . $esc . '</p>';
+    }
+?>
+<?php if ($ceoShow && ($ceoMsgHtml !== '' || $ceoName !== '' || $ceoImage !== '')): ?>
+<section style="padding:5rem 0; background:#fff;">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <!-- Photo + signature card -->
+            <div class="col-12 col-lg-5 text-center text-lg-start">
+                <div class="position-relative d-inline-block">
+                    <?php if ($ceoImage !== ''): ?>
+                        <img src="<?= htmlspecialchars($ceoImage, ENT_QUOTES, 'UTF-8') ?>"
+                             alt="<?= htmlspecialchars($ceoName ?: 'CEO', ENT_QUOTES, 'UTF-8') ?>"
+                             class="rounded-3 shadow"
+                             style="width:100%;max-width:380px;aspect-ratio:1/1;object-fit:cover;border:1px solid rgba(10,22,40,0.08);"
+                             loading="lazy">
+                    <?php else: ?>
+                        <div class="rounded-3 shadow d-flex align-items-center justify-content-center"
+                             style="width:100%;max-width:380px;aspect-ratio:1/1;background:var(--navy-50);border:1px dashed rgba(10,22,40,0.12);">
+                            <i class="fa-solid fa-user-tie" style="font-size:5rem;color:var(--navy-200);"></i>
+                        </div>
+                    <?php endif; ?>
+                    <!-- Decorative quote badge -->
+                    <div class="position-absolute d-none d-md-flex align-items-center justify-content-center"
+                         style="bottom:-18px;right:-18px;width:64px;height:64px;border-radius:50%;background:var(--gold);box-shadow:0 6px 18px rgba(245,179,1,0.4);">
+                        <i class="fa-solid fa-quote-right" style="color:#0A1628;font-size:1.5rem;"></i>
+                    </div>
+                </div>
+                <?php if ($ceoName !== '' || $ceoTitle !== ''): ?>
+                <div class="mt-4">
+                    <?php if ($ceoName !== ''): ?>
+                    <div class="fw-bold" style="color:var(--navy-900);font-size:1.2rem;">
+                        <?= htmlspecialchars($ceoName, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($ceoTitle !== ''): ?>
+                    <div class="text-uppercase fw-semibold small" style="color:var(--gold);letter-spacing:1.2px;">
+                        <?= htmlspecialchars($ceoTitle, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Message body -->
+            <div class="col-12 col-lg-7">
+                <span class="text-uppercase fw-semibold small" style="color:var(--gold);letter-spacing:1.5px;">
+                    <?= htmlspecialchars($ceoLabel, ENT_QUOTES, 'UTF-8') ?>
+                </span>
+                <?php if ($ceoHeading !== ''): ?>
+                <h2 class="content-heading mt-2 mb-4" style="text-align:left;">
+                    <?= htmlspecialchars($ceoHeading, ENT_QUOTES, 'UTF-8') ?>
+                </h2>
+                <?php endif; ?>
+                <?= $ceoMsgHtml ?>
+            </div>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 
 <!-- ============================================================
      MEET THE TEAM

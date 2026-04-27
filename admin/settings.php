@@ -51,6 +51,70 @@ $defaults = [
     'watermark'      => '0',
     'currency_format'=> 'pakistan', // pakistan = Lakh/Crore, raw = number
     'logo_path'      => '',
+    // About-page "Our Story" section (editable on Settings → About Page)
+    'about_story_label'       => 'Our Story',
+    'about_story_heading'     => 'Built on Trust & Transparency',
+    'about_story_body'        => "Al-Riaz Associates was founded with a clear mission: to bring transparency, integrity, and professionalism to Pakistan's real estate market. Based in the heart of Islamabad, we began as a small consultancy helping families find their dream homes in Rawalpindi and Islamabad.\n\nOver the years, we have grown into a full-service real estate agency, becoming an **authorised dealer** for Pakistan's most prestigious developments including Bahria Town, DHA, Capital Smart City, Gulberg Greens, and Blue World City.\n\nToday, our team of experienced property consultants serves clients across Islamabad, Rawalpindi, Lahore, and Karachi — offering verified listings, transparent pricing, and end-to-end support from property search to final possession.",
+    'about_story_image'       => '',
+    'about_story_badge_value' => '5+ Years',
+    'about_story_badge_label' => 'In Real Estate',
+
+    // About-page key-stats strip (4 cards). Empty value falls back to the
+    // DB-derived count or the legacy seed value.
+    'about_stats' => [
+        ['value' => '', 'label' => 'Properties Listed'],
+        ['value' => '', 'label' => 'Active Projects'],
+        ['value' => '200', 'label' => 'Happy Clients'],
+        ['value' => '5',   'label' => 'Years Active'],
+    ],
+
+    // About-page Mission & Vision section header.
+    'about_mv_label'    => 'Purpose',
+    'about_mv_title'    => 'Our Mission & Vision',
+    'about_mv_subtitle' => "Why we do what we do — and where we're headed next.",
+
+    // Mission card.
+    'about_mission' => [
+        'icon'    => 'fa-bullseye',
+        'tag'     => '01 — Mission',
+        'title'   => 'Empowering Pakistanis to make the best property decisions.',
+        'body'    => "Transparent pricing, verified listings, and honest advice — the way real estate should have always been. We turn paperwork, site visits, and payment plans into a process you can actually understand.",
+        'bullets' => [
+            'Verified ownership & NOC on every listing',
+            'Clear, up-front brokerage disclosure',
+            'End-to-end support, from search to possession',
+        ],
+    ],
+
+    // Vision card.
+    'about_vision' => [
+        'icon'    => 'fa-eye',
+        'tag'     => '02 — Vision',
+        'title'   => "Becoming Pakistan's most trusted real estate partner.",
+        'body'    => "We want \"Al-Riaz\" to mean the same thing in Islamabad as it does in Karachi — integrity, expertise, and client-first service at every step. Built on relationships that outlast a single transaction.",
+        'bullets' => [
+            "Authorised dealer for Pakistan's top developments",
+            'Data-driven investment guidance',
+            'A team that picks up the phone',
+        ],
+    ],
+
+    // CEO message section.
+    'about_ceo_show'    => '1',
+    'about_ceo_label'   => 'A Message from Our CEO',
+    'about_ceo_heading' => "Welcome to Al-Riaz Associates",
+    'about_ceo_message' => "Real estate is one of the most important decisions a family ever makes. At Al-Riaz Associates, we treat that responsibility with the seriousness it deserves — verifying every listing, disclosing every fee, and walking with our clients from the first site visit to the final possession.\n\nThank you for considering us. We look forward to earning your trust.",
+    'about_ceo_image'   => '',
+    'about_ceo_name'    => '',
+    'about_ceo_title'   => 'Founder & CEO',
+
+    // Core Values strip (4 cards).
+    'about_values' => [
+        ['icon' => 'fa-handshake',    'title' => 'Integrity',    'desc' => 'We never compromise on honesty in our dealings.'],
+        ['icon' => 'fa-check-circle', 'title' => 'Transparency', 'desc' => 'Clear pricing, no hidden costs or surprises.'],
+        ['icon' => 'fa-user-tie',     'title' => 'Expertise',    'desc' => 'Seasoned consultants with deep market knowledge.'],
+        ['icon' => 'fa-headset',      'title' => 'Client First', 'desc' => 'Your satisfaction is our top priority, always.'],
+    ],
 ];
 
 $settings = array_merge($defaults, $settings);
@@ -214,6 +278,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash('success', 'Preferences saved.');
         header('Location: ' . BASE_PATH . '/admin/settings.php?tab=preferences'); exit;
     }
+
+    if ($tab === 'about') {
+        // ── Story sub-section ───────────────────────────────────────
+        foreach (['about_story_label','about_story_heading','about_story_body','about_story_badge_value','about_story_badge_label'] as $f) {
+            if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
+        }
+
+        // ── Stats strip (4 items) ──────────────────────────────────
+        $statsIn = $_POST['about_stats'] ?? [];
+        $stats = [];
+        for ($i = 0; $i < 4; $i++) {
+            $row = is_array($statsIn[$i] ?? null) ? $statsIn[$i] : [];
+            $stats[] = [
+                'value' => trim((string)($row['value'] ?? '')),
+                'label' => trim((string)($row['label'] ?? '')),
+            ];
+        }
+        $settings['about_stats'] = $stats;
+
+        // ── Mission & Vision header ────────────────────────────────
+        foreach (['about_mv_label','about_mv_title','about_mv_subtitle'] as $f) {
+            if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
+        }
+
+        // ── Mission card / Vision card ─────────────────────────────
+        foreach (['about_mission', 'about_vision'] as $key) {
+            $in = $_POST[$key] ?? [];
+            $bulletsIn = is_array($in['bullets'] ?? null) ? $in['bullets'] : [];
+            $bullets = [];
+            foreach ($bulletsIn as $b) {
+                $b = trim((string)$b);
+                if ($b !== '') $bullets[] = $b;
+            }
+            $settings[$key] = [
+                'icon'    => preg_replace('/[^a-z0-9_-]/i', '', trim((string)($in['icon'] ?? ''))) ?: ($settings[$key]['icon'] ?? 'fa-circle'),
+                'tag'     => trim((string)($in['tag']   ?? '')),
+                'title'   => trim((string)($in['title'] ?? '')),
+                'body'    => trim((string)($in['body']  ?? '')),
+                'bullets' => $bullets,
+            ];
+        }
+
+        // ── CEO Message ────────────────────────────────────────────
+        $settings['about_ceo_show'] = isset($_POST['about_ceo_show']) ? '1' : '0';
+        foreach (['about_ceo_label','about_ceo_heading','about_ceo_message','about_ceo_name','about_ceo_title'] as $f) {
+            if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
+        }
+        if (!empty($_FILES['about_ceo_image']['tmp_name']) && $_FILES['about_ceo_image']['error'] === UPLOAD_ERR_OK) {
+            if ($_FILES['about_ceo_image']['size'] > MAX_FILE_SIZE) {
+                setFlash('danger', 'CEO image exceeds the file size limit.');
+            } else {
+                $mime = mime_content_type($_FILES['about_ceo_image']['tmp_name']);
+                if (!in_array($mime, ALLOWED_IMAGE_TYPES)) {
+                    setFlash('danger', 'CEO image must be JPEG, PNG, WebP, or GIF.');
+                } else {
+                    $ext   = strtolower(pathinfo($_FILES['about_ceo_image']['name'], PATHINFO_EXTENSION));
+                    $fname = 'about_ceo_' . uniqid() . '.' . $ext;
+                    $dir   = __DIR__ . '/../assets/images/';
+                    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                    if (move_uploaded_file($_FILES['about_ceo_image']['tmp_name'], $dir . $fname)) {
+                        $old = (string)($settings['about_ceo_image'] ?? '');
+                        if ($old && str_starts_with($old, '/assets/images/about_ceo_')) {
+                            $oldFs = __DIR__ . '/..' . $old;
+                            if (is_file($oldFs)) @unlink($oldFs);
+                        }
+                        $settings['about_ceo_image'] = '/assets/images/' . $fname;
+                    }
+                }
+            }
+        }
+
+        // ── Core Values (4 cards) ──────────────────────────────────
+        $valuesIn = $_POST['about_values'] ?? [];
+        $values = [];
+        for ($i = 0; $i < 4; $i++) {
+            $row = is_array($valuesIn[$i] ?? null) ? $valuesIn[$i] : [];
+            $values[] = [
+                'icon'  => preg_replace('/[^a-z0-9_-]/i', '', trim((string)($row['icon'] ?? ''))) ?: 'fa-circle',
+                'title' => trim((string)($row['title'] ?? '')),
+                'desc'  => trim((string)($row['desc']  ?? '')),
+            ];
+        }
+        $settings['about_values'] = $values;
+
+        // Optional image upload — overwrites the previous about-story image.
+        if (!empty($_FILES['about_story_image']['tmp_name']) && $_FILES['about_story_image']['error'] === UPLOAD_ERR_OK) {
+            if ($_FILES['about_story_image']['size'] > MAX_FILE_SIZE) {
+                setFlash('danger', 'Story image exceeds the file size limit.');
+            } else {
+                $mime = mime_content_type($_FILES['about_story_image']['tmp_name']);
+                if (!in_array($mime, ALLOWED_IMAGE_TYPES)) {
+                    setFlash('danger', 'Story image must be JPEG, PNG, WebP, or GIF.');
+                } else {
+                    $ext   = strtolower(pathinfo($_FILES['about_story_image']['name'], PATHINFO_EXTENSION));
+                    $fname = 'about_story_' . uniqid() . '.' . $ext;
+                    $dir   = __DIR__ . '/../assets/images/';
+                    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                    if (move_uploaded_file($_FILES['about_story_image']['tmp_name'], $dir . $fname)) {
+                        // Best-effort cleanup of the previous local upload.
+                        $old = (string)($settings['about_story_image'] ?? '');
+                        if ($old && str_starts_with($old, '/assets/images/about_story_')) {
+                            $oldFs = __DIR__ . '/..' . $old;
+                            if (is_file($oldFs)) @unlink($oldFs);
+                        }
+                        $settings['about_story_image'] = '/assets/images/' . $fname;
+                    }
+                }
+            }
+        }
+
+        saveSettings($settingsFile, $settings);
+        auditLog('update','settings',0,'Updated About-page story section');
+        setFlash('success', 'About-page settings saved.');
+        header('Location: ' . BASE_PATH . '/admin/settings.php?tab=about'); exit;
+    }
 }
 
 $csrf = csrfToken();
@@ -310,6 +489,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <?php
       $tabs = [
         'agency'        => ['icon'=>'fa-building','label'=>'Agency Profile'],
+        'about'         => ['icon'=>'fa-circle-info','label'=>'About Page'],
         'navigation'    => ['icon'=>'fa-bars','label'=>'Navigation'],
         'smtp'          => ['icon'=>'fa-envelope','label'=>'SMTP Config'],
         'notifications' => ['icon'=>'fa-bell','label'=>'Notifications'],
@@ -575,6 +755,297 @@ include __DIR__ . '/includes/admin-sidebar.php';
         row.querySelectorAll('input[type="time"]').forEach(function(i){ i.disabled = !open; });
       });
       </script>
+
+      <?php elseif ($activeTab === 'about'): ?>
+      <!-- About Page Tab — controls the "Our Story" section on /about.php -->
+      <?php include __DIR__ . '/includes/_icon_picker.php'; ?>
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="tab" value="about">
+
+        <div class="alert alert-info d-flex align-items-start gap-2 mb-4" role="alert">
+          <i class="fa-solid fa-circle-info mt-1"></i>
+          <div>
+            <strong>"Our Story" section on /about.php</strong> &mdash; the label, heading, body, image, and badge below all render in that block on the public About page.
+            <div class="text-muted small mt-1">Tip: separate paragraphs with a blank line. Wrap text in <code>**double asterisks**</code> to make it bold.</div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Section Label</label>
+            <input type="text" name="about_story_label" class="form-control" maxlength="80"
+                   placeholder="Our Story"
+                   value="<?= htmlspecialchars($settings['about_story_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Small uppercase eyebrow shown above the heading.</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="about_story_heading" class="form-control" maxlength="160"
+                   placeholder="Built on Trust &amp; Transparency"
+                   value="<?= htmlspecialchars($settings['about_story_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label fw-600">Body</label>
+            <textarea name="about_story_body" class="form-control" rows="9"
+                      placeholder="Tell your agency's story..."><?= htmlspecialchars($settings['about_story_body'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+            <div class="form-text">
+              Plain text. Blank line = new paragraph. Wrap a phrase in <code>**stars**</code> to bold it.
+            </div>
+          </div>
+
+          <div class="col-12 col-md-8">
+            <label class="form-label fw-600">Story Image</label>
+            <?php if (!empty($settings['about_story_image'])): ?>
+              <div class="mb-2">
+                <img src="<?= htmlspecialchars(BASE_PATH . $settings['about_story_image'], ENT_QUOTES, 'UTF-8') ?>?v=<?= @filemtime(__DIR__ . '/..' . $settings['about_story_image']) ?: '' ?>"
+                     alt="Current story image"
+                     style="max-height:140px;border-radius:8px;border:1px solid #dee2e6;">
+              </div>
+            <?php endif; ?>
+            <input type="file" name="about_story_image" class="form-control" accept="image/jpeg,image/png,image/webp,image/gif">
+            <div class="form-text">Max 5MB. JPEG / PNG / WebP / GIF. Landscape (e.g. 1200&times;800) works best.</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <div class="form-section-card mb-0" style="height:100%;">
+              <div class="card-header"><i class="fa-solid fa-award" style="color:var(--gold)"></i> Floating Badge</div>
+              <div class="card-body">
+                <label class="form-label fw-600 small">Value</label>
+                <input type="text" name="about_story_badge_value" class="form-control form-control-sm mb-2" maxlength="40"
+                       placeholder="5+ Years"
+                       value="<?= htmlspecialchars($settings['about_story_badge_value'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">Label</label>
+                <input type="text" name="about_story_badge_label" class="form-control form-control-sm" maxlength="60"
+                       placeholder="In Real Estate"
+                       value="<?= htmlspecialchars($settings['about_story_badge_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <div class="form-text mt-2">The small white card that floats over the image. Leave value blank to hide it.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ─────────────── Key Stats Strip ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-chart-line me-2" style="color:var(--gold);"></i>Key Stats
+        </h5>
+        <p class="text-muted small mb-3">The 4 dark-blue stat cards under the story. Leave a value blank to auto-pull from the database (where supported) or fall back to the previous default.</p>
+        <div class="row g-3">
+          <?php for ($i = 0; $i < 4; $i++):
+            $stat = $settings['about_stats'][$i] ?? ['value'=>'', 'label'=>''];
+          ?>
+          <div class="col-12 col-md-3">
+            <div class="form-section-card mb-0" style="height:100%;">
+              <div class="card-body">
+                <label class="form-label fw-600 small">Stat <?= $i + 1 ?> Value</label>
+                <input type="text" name="about_stats[<?= $i ?>][value]" class="form-control form-control-sm mb-2" maxlength="20"
+                       placeholder="<?= $i === 0 ? 'auto' : ($i === 1 ? 'auto' : ($i === 2 ? '200' : '5')) ?>"
+                       value="<?= htmlspecialchars($stat['value'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">Stat <?= $i + 1 ?> Label</label>
+                <input type="text" name="about_stats[<?= $i ?>][label]" class="form-control form-control-sm" maxlength="60"
+                       value="<?= htmlspecialchars($stat['label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+
+        <!-- ─────────────── Mission & Vision ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-bullseye me-2" style="color:var(--gold);"></i>Mission &amp; Vision
+        </h5>
+        <p class="text-muted small mb-3">The two large cards in the Purpose section.</p>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-600">Eyebrow Label</label>
+            <input type="text" name="about_mv_label" class="form-control" maxlength="80"
+                   value="<?= htmlspecialchars($settings['about_mv_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-600">Section Title</label>
+            <input type="text" name="about_mv_title" class="form-control" maxlength="160"
+                   value="<?= htmlspecialchars($settings['about_mv_title'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">Subtitle</label>
+            <input type="text" name="about_mv_subtitle" class="form-control" maxlength="200"
+                   value="<?= htmlspecialchars($settings['about_mv_subtitle'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+        </div>
+
+        <?php
+          $mvBlocks = [
+            'about_mission' => 'Mission Card',
+            'about_vision'  => 'Vision Card',
+          ];
+          foreach ($mvBlocks as $mvKey => $mvHeading):
+            $mv = $settings[$mvKey] ?? ['icon'=>'','tag'=>'','title'=>'','body'=>'','bullets'=>['','','']];
+            $mvBullets = $mv['bullets'] ?? [];
+            $mvBullets = array_pad($mvBullets, 3, '');
+        ?>
+        <div class="form-section-card mt-3">
+          <div class="card-header"><i class="fa-solid <?= htmlspecialchars($mv['icon'] ?: 'fa-circle', ENT_QUOTES, 'UTF-8') ?>" style="color:var(--gold)"></i> <?= $mvHeading ?></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12 col-md-3">
+                <label class="form-label fw-600 small">Icon</label>
+                <?php $mvIconId = $mvKey . 'IconPick'; $mvIconCls = $mv['icon'] ?: 'fa-circle'; ?>
+                <input type="hidden" name="<?= $mvKey ?>[icon]" id="<?= $mvIconId ?>" value="<?= htmlspecialchars($mvIconCls, ENT_QUOTES, 'UTF-8') ?>">
+                <button type="button" class="btn btn-outline-secondary btn-sm icon-picker-trigger w-100"
+                        data-icon-target="<?= $mvIconId ?>" title="Click to choose an icon">
+                  <i class="fa-solid <?= htmlspecialchars($mvIconCls, ENT_QUOTES, 'UTF-8') ?>"></i>
+                  <span class="icon-picker-label"><?= htmlspecialchars($mvIconCls, ENT_QUOTES, 'UTF-8') ?></span>
+                  <i class="fa-solid fa-chevron-down ms-auto text-muted small"></i>
+                </button>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label fw-600 small">Tag</label>
+                <input type="text" name="<?= $mvKey ?>[tag]" class="form-control form-control-sm" maxlength="60"
+                       value="<?= htmlspecialchars($mv['tag'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-600 small">Title</label>
+                <input type="text" name="<?= $mvKey ?>[title]" class="form-control form-control-sm" maxlength="200"
+                       value="<?= htmlspecialchars($mv['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-600 small">Body</label>
+                <textarea name="<?= $mvKey ?>[body]" class="form-control form-control-sm" rows="3"><?= htmlspecialchars($mv['body'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+              </div>
+              <?php for ($b = 0; $b < 3; $b++): ?>
+              <div class="col-12 col-md-4">
+                <label class="form-label fw-600 small">Bullet <?= $b + 1 ?></label>
+                <input type="text" name="<?= $mvKey ?>[bullets][]" class="form-control form-control-sm" maxlength="200"
+                       value="<?= htmlspecialchars($mvBullets[$b] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <?php endfor; ?>
+            </div>
+          </div>
+        </div>
+        <?php endforeach; ?>
+
+        <!-- ─────────────── CEO Message ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-user-tie me-2" style="color:var(--gold);"></i>CEO Message
+        </h5>
+        <p class="text-muted small mb-3">A personal message from leadership shown on the About page. Toggle off to hide the section entirely.</p>
+
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="aboutCeoShow" name="about_ceo_show" value="1"
+                 <?= ($settings['about_ceo_show'] ?? '1') === '1' ? 'checked' : '' ?>>
+          <label class="form-check-label" for="aboutCeoShow">
+            <i class="fa-solid fa-eye text-success me-1"></i> Show CEO message on the About page
+          </label>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">CEO Photo</label>
+            <?php if (!empty($settings['about_ceo_image'])): ?>
+              <div class="mb-2">
+                <img src="<?= htmlspecialchars(BASE_PATH . $settings['about_ceo_image'], ENT_QUOTES, 'UTF-8') ?>?v=<?= @filemtime(__DIR__ . '/..' . $settings['about_ceo_image']) ?: '' ?>"
+                     alt="Current CEO photo"
+                     style="width:120px;height:120px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);">
+              </div>
+            <?php endif; ?>
+            <input type="file" name="about_ceo_image" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp,image/gif">
+            <div class="form-text">Square photo recommended (e.g. 600&times;600).</div>
+          </div>
+
+          <div class="col-12 col-md-8">
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-600">Section Eyebrow</label>
+                <input type="text" name="about_ceo_label" class="form-control" maxlength="100"
+                       placeholder="A Message from Our CEO"
+                       value="<?= htmlspecialchars($settings['about_ceo_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-600">Section Heading</label>
+                <input type="text" name="about_ceo_heading" class="form-control" maxlength="160"
+                       placeholder="Welcome to Al-Riaz Associates"
+                       value="<?= htmlspecialchars($settings['about_ceo_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-7">
+                <label class="form-label fw-600">CEO Name</label>
+                <input type="text" name="about_ceo_name" class="form-control" maxlength="120"
+                       placeholder="e.g. Riaz Ahmed"
+                       value="<?= htmlspecialchars($settings['about_ceo_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-5">
+                <label class="form-label fw-600">CEO Title</label>
+                <input type="text" name="about_ceo_title" class="form-control" maxlength="120"
+                       placeholder="Founder &amp; CEO"
+                       value="<?= htmlspecialchars($settings['about_ceo_title'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-600">Message</label>
+                <textarea name="about_ceo_message" class="form-control" rows="6"
+                          placeholder="Write a short message from the CEO..."><?= htmlspecialchars($settings['about_ceo_message'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                <div class="form-text">Plain text. Blank line = new paragraph. Wrap text in <code>**stars**</code> to bold it.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─────────────── Core Values ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-heart me-2" style="color:var(--gold);"></i>Core Values
+        </h5>
+        <p class="text-muted small mb-3">The 4 numbered value cards beneath Mission &amp; Vision.</p>
+        <div class="row g-3">
+          <?php for ($i = 0; $i < 4; $i++):
+            $v = $settings['about_values'][$i] ?? ['icon'=>'','title'=>'','desc'=>''];
+          ?>
+          <div class="col-12 col-md-6">
+            <div class="form-section-card mb-0" style="height:100%;">
+              <div class="card-header">
+                <i class="fa-solid <?= htmlspecialchars($v['icon'] ?: 'fa-circle', ENT_QUOTES, 'UTF-8') ?>" style="color:var(--gold)"></i>
+                Value <?= $i + 1 ?>
+              </div>
+              <div class="card-body">
+                <div class="row g-2">
+                  <div class="col-12 col-md-5">
+                    <label class="form-label fw-600 small">Icon</label>
+                    <?php $valIconId = 'aboutValueIcon' . $i; $valIconCls = $v['icon'] ?: 'fa-circle'; ?>
+                    <input type="hidden" name="about_values[<?= $i ?>][icon]" id="<?= $valIconId ?>"
+                           value="<?= htmlspecialchars($valIconCls, ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="button" class="btn btn-outline-secondary btn-sm icon-picker-trigger w-100"
+                            data-icon-target="<?= $valIconId ?>" title="Click to choose an icon">
+                      <i class="fa-solid <?= htmlspecialchars($valIconCls, ENT_QUOTES, 'UTF-8') ?>"></i>
+                      <span class="icon-picker-label"><?= htmlspecialchars($valIconCls, ENT_QUOTES, 'UTF-8') ?></span>
+                      <i class="fa-solid fa-chevron-down ms-auto text-muted small"></i>
+                    </button>
+                  </div>
+                  <div class="col-12 col-md-7">
+                    <label class="form-label fw-600 small">Title</label>
+                    <input type="text" name="about_values[<?= $i ?>][title]" class="form-control form-control-sm" maxlength="80"
+                           value="<?= htmlspecialchars($v['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-600 small">Description</label>
+                    <textarea name="about_values[<?= $i ?>][desc]" class="form-control form-control-sm" rows="2" maxlength="240"><?= htmlspecialchars($v['desc'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+
+        <div class="d-flex justify-content-end mt-4 pb-2">
+          <button type="submit" class="btn btn-gold">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Save About Page
+          </button>
+        </div>
+      </form>
 
       <?php elseif ($activeTab === 'navigation'): ?>
       <!-- Navigation Tab -->

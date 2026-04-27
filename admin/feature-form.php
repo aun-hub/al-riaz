@@ -142,14 +142,16 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <div class="form-text">Lowercase letters, digits, underscores only. Used as the storage key — change with care on existing features.</div>
         </div>
         <div class="col-12 col-md-8">
-          <label class="form-label fw-600">FontAwesome Icon Class</label>
-          <div class="input-group">
-            <span class="input-group-text" id="iconPreview"><i class="fa-solid <?= htmlspecialchars($data['icon'], ENT_QUOTES, 'UTF-8') ?>"></i></span>
-            <input type="text" name="icon" id="featIcon" class="form-control" maxlength="80"
-                   placeholder="fa-water-ladder"
-                   value="<?= htmlspecialchars($data['icon'], ENT_QUOTES, 'UTF-8') ?>">
-          </div>
-          <div class="form-text">Use a FontAwesome 6 solid icon name (e.g. <code>fa-water-ladder</code>). Browse at <a href="https://fontawesome.com/icons" target="_blank" rel="noopener">fontawesome.com/icons</a>.</div>
+          <label class="form-label fw-600">Icon</label>
+          <?php include __DIR__ . '/includes/_icon_picker.php'; ?>
+          <input type="hidden" name="icon" id="featIcon" value="<?= htmlspecialchars($data['icon'], ENT_QUOTES, 'UTF-8') ?>">
+          <button type="button" class="btn btn-outline-secondary icon-picker-trigger w-100"
+                  data-icon-target="featIcon" title="Click to choose an icon">
+            <i class="fa-solid <?= htmlspecialchars($data['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
+            <span class="icon-picker-label"><?= htmlspecialchars($data['icon'], ENT_QUOTES, 'UTF-8') ?></span>
+            <i class="fa-solid fa-chevron-down ms-auto text-muted small"></i>
+          </button>
+          <div class="form-text">Pick an icon from the curated list — search by name to narrow it down.</div>
         </div>
         <div class="col-12 col-md-4">
           <label class="form-label fw-600">Sort Order</label>
@@ -187,8 +189,6 @@ include __DIR__ . '/includes/admin-sidebar.php';
 (function () {
   var label = document.getElementById('featLabel');
   var slug  = document.getElementById('featSlug');
-  var icon  = document.getElementById('featIcon');
-  var iconPreview = document.getElementById('iconPreview');
   var slugManual = <?= ($isEdit && $data['slug'] !== '') ? 'true' : 'false' ?>;
 
   label.addEventListener('input', function () {
@@ -200,11 +200,8 @@ include __DIR__ . '/includes/admin-sidebar.php';
     }
   });
   slug.addEventListener('input', function () { slugManual = true; });
-
-  icon.addEventListener('input', function () {
-    var cls = this.value.trim() || 'fa-check-circle';
-    iconPreview.innerHTML = '<i class="fa-solid ' + cls.replace(/[^a-zA-Z0-9_-]/g, '') + '"></i>';
-  });
+  // Icon preview/sync is handled by the shared icon picker in
+  // admin/includes/_icon_picker.php — nothing to do here.
 })();
 </script>
 
