@@ -140,7 +140,8 @@ try {
         "SELECT p.id, p.title, p.category, p.purpose, p.listing_type, p.city,
                 p.price, p.price_on_demand, p.area_value, p.area_unit,
                 p.is_published, p.is_featured, p.is_sold, p.created_at,
-                u.name AS agent_name,
+                u.name AS agent_name, u.avatar_url AS agent_avatar,
+                u.phone AS agent_phone, u.email AS agent_email,
                 (SELECT pm.url FROM property_media pm WHERE pm.property_id=p.id AND pm.kind='image' ORDER BY pm.sort_order ASC LIMIT 1) AS thumb
          FROM properties p
          LEFT JOIN users u ON p.agent_id = u.id
@@ -350,8 +351,25 @@ include __DIR__ . '/includes/admin-sidebar.php';
               <?= htmlspecialchars(getAreaFormatted((float)($lst['area_value'] ?? 0), $lst['area_unit'] ?? 'marla'), ENT_QUOTES, 'UTF-8') ?>
             </td>
             <td><?= listingStatus((int)$lst['is_published'], (int)$lst['is_sold']) ?></td>
-            <td style="white-space:nowrap;font-size:0.82rem;">
-              <?= htmlspecialchars($lst['agent_name'] ?? '—', ENT_QUOTES, 'UTF-8') ?>
+            <td style="font-size:0.82rem; min-width:170px;">
+              <?php if (!empty($lst['agent_name'])): ?>
+                <div class="d-flex align-items-center gap-2">
+                  <?= renderUserAvatar([
+                      'name'       => $lst['agent_name'],
+                      'avatar_url' => $lst['agent_avatar'] ?? null,
+                  ], 30) ?>
+                  <div class="text-truncate" style="min-width:0;">
+                    <div class="fw-600 text-truncate"><?= htmlspecialchars($lst['agent_name'], ENT_QUOTES, 'UTF-8') ?></div>
+                    <?php if (!empty($lst['agent_phone'])): ?>
+                      <div class="text-muted text-truncate" style="font-size:0.72rem;">
+                        <i class="fa-solid fa-phone fa-xs me-1"></i><?= htmlspecialchars($lst['agent_phone'], ENT_QUOTES, 'UTF-8') ?>
+                      </div>
+                    <?php endif; ?>
+                  </div>
+                </div>
+              <?php else: ?>
+                <span class="text-muted">—</span>
+              <?php endif; ?>
             </td>
             <td style="white-space:nowrap;font-size:0.77rem;color:#6c757d;">
               <?= htmlspecialchars(date('d M Y', strtotime($lst['created_at'])), ENT_QUOTES, 'UTF-8') ?>

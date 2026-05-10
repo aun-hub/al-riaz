@@ -19,7 +19,7 @@ if ($token === '' || !ctype_xdigit($token) || strlen($token) < 10 || strlen($tok
     $error = 'Invalid or missing invite token.';
 } else {
     try {
-        $stmt = $db->prepare('SELECT id, email, name, role, invite_token, is_active FROM users WHERE invite_token = ? LIMIT 1');
+        $stmt = $db->prepare('SELECT id, email, name, role, invite_token, is_active, avatar_url FROM users WHERE invite_token = ? LIMIT 1');
         $stmt->execute([$token]);
         $user = $stmt->fetch();
         if (!$user) {
@@ -55,10 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user) {
 
                 // Log the new session in
                 session_regenerate_id(true);
-                $_SESSION['admin_id']    = (int)$user['id'];
-                $_SESSION['admin_name']  = $user['name'];
-                $_SESSION['admin_role']  = $user['role'];
-                $_SESSION['admin_email'] = $user['email'];
+                $_SESSION['admin_id']     = (int)$user['id'];
+                $_SESSION['admin_name']   = $user['name'];
+                $_SESSION['admin_role']   = $user['role'];
+                $_SESSION['admin_email']  = $user['email'];
+                $_SESSION['admin_avatar'] = (string)($user['avatar_url'] ?? '');
 
                 try {
                     $db->prepare(

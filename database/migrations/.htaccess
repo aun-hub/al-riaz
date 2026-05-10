@@ -1,0 +1,12 @@
+# Override the parent database/.htaccess (which denies everything) so
+# migration scripts can be run from the browser. Each migration file has
+# its own localhost / private-IP gate inside, so this is safe in dev.
+# In production, run migrations from CLI instead.
+
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Allow from all
+</IfModule>

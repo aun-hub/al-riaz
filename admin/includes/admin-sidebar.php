@@ -11,6 +11,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 //   - admin / super_admin: all inquiries still in `new` status
 //   - agent: their own assigned inquiries that are not yet closed
 $newInquiryCount = 0;
+$pendingReviewCount = 0;
 try {
     require_once __DIR__ . '/../../includes/db.php';
     require_once __DIR__ . '/../../includes/auth.php';
@@ -18,6 +19,12 @@ try {
     if (function_exists('hasRole') && hasRole('admin')) {
         $sideStmt = $dbSide->query("SELECT COUNT(*) FROM inquiries WHERE status='new'");
         $newInquiryCount = (int)$sideStmt->fetchColumn();
+        // Reviews are admin-only; query is wrapped in its own try so a missing
+        // table (pre-migration) doesn't break the sidebar.
+        try {
+            $rStmt = $dbSide->query("SELECT COUNT(*) FROM reviews WHERE status='pending'");
+            $pendingReviewCount = (int)$rStmt->fetchColumn();
+        } catch (Exception $e) {}
     } else {
         $sideStmt = $dbSide->prepare(
             "SELECT COUNT(*) FROM inquiries
@@ -76,6 +83,7 @@ function sideLink(string $href, string $icon, string $label, string $current, st
     <li class="sidebar-section-label">Administration</li>
 
     <?php if (isset($_SESSION['admin_role']) && in_array($_SESSION['admin_role'], ['admin', 'super_admin'])): ?>
+      <?= sideLink('/admin/reviews.php',  'fa-star',           'Reviews',              $currentPage, $pendingReviewCount > 0 ? (string)$pendingReviewCount : '') ?>
       <?= sideLink('/admin/dealers.php',  'fa-handshake',      'Authorized Dealers',   $currentPage) ?>
       <?= sideLink('/admin/features.php', 'fa-list-check',     'Features & Amenities', $currentPage) ?>
       <?= sideLink('/admin/users.php',    'fa-users',          'Users & Roles',        $currentPage) ?>

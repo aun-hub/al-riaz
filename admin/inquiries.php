@@ -100,7 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
                 "SELECT i.*, i.name AS visitor_name, p.title AS property_title, p.id AS property_id,
                         p.city AS property_city,
                         (SELECT pm.url FROM property_media pm WHERE pm.property_id=p.id ORDER BY pm.sort_order LIMIT 1) AS prop_thumb,
-                        u.name AS assigned_name
+                        u.name AS assigned_name, u.avatar_url AS assigned_avatar,
+                        u.phone AS assigned_phone, u.email AS assigned_email,
+                        u.role AS assigned_role
                  FROM inquiries i
                  LEFT JOIN properties p ON i.property_id=p.id
                  LEFT JOIN users u ON i.assigned_to=u.id
@@ -123,9 +125,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_REQUESTED_W
             $nStmt->execute([$inqId]);
             $notes = $nStmt->fetchAll();
 
-            // Agents
-            $aStmt = $db->query("SELECT id, name FROM users WHERE role IN ('agent','admin') ORDER BY name ASC");
+            // Agents — full row so the panel can render a rich card after assignment
+            $aStmt = $db->query("SELECT id, name, avatar_url, phone, email, role FROM users WHERE role IN ('agent','admin','super_admin') AND is_active = 1 ORDER BY name ASC");
             $agents = $aStmt->fetchAll();
+
+            // Resolve assigned-agent avatar to an absolute URL so the JS doesn't need to know about BASE_PATH
+            if (!empty($inq['assigned_avatar'])) {
+                $inq['assigned_avatar_url'] = mediaUrl($inq['assigned_avatar']);
+            }
+            $inq['default_avatar_url'] = defaultAvatarUrl();
 
             echo json_encode(['ok'=>true,'inquiry'=>$inq,'notes'=>$notes,'agents'=>$agents]);
         } catch(Exception $e) { echo json_encode(['ok'=>false,'msg'=>$e->getMessage()]); }
@@ -189,7 +197,10 @@ try {
     $offset     = ($page-1)*$perPage;
 
     $listStmt = $db->prepare(
-        "SELECT i.*, p.title AS property_title, u.name AS assigned_name
+        "SELECT i.*, p.title AS property_title,
+                u.name AS assigned_name, u.avatar_url AS assigned_avatar,
+                u.phone AS assigned_phone, u.email AS assigned_email,
+                u.role AS assigned_role
          FROM inquiries i
          LEFT JOIN properties p ON i.property_id=p.id
          LEFT JOIN users u ON i.assigned_to=u.id
@@ -204,9 +215,11 @@ try {
     // the agent's assigned inquiries when applicable.
     if ($viewMode === 'kanban') {
         [$kanbanScopeSql, $kanbanScopeParams] = inquiryScope($isAgentOnly, $myAdminId);
-        $kanbanSql = "SELECT i.*, p.title AS property_title
+        $kanbanSql = "SELECT i.*, p.title AS property_title,
+                             u.name AS assigned_name, u.avatar_url AS assigned_avatar
                       FROM inquiries i
-                      LEFT JOIN properties p ON i.property_id=p.id"
+                      LEFT JOIN properties p ON i.property_id=p.id
+                      LEFT JOIN users u ON i.assigned_to=u.id"
                    . ($kanbanScopeSql ? ' WHERE 1=1' . $kanbanScopeSql : '')
                    . ' ORDER BY i.created_at DESC';
         $allStmt = $db->prepare($kanbanSql);
@@ -349,7 +362,26 @@ include __DIR__ . '/includes/admin-sidebar.php';
             <?php endif; ?>
           </td>
           <td><?= inqBadge($inq['status'], $statusColors) ?></td>
-          <td style="font-size:0.82rem;"><?= htmlspecialchars($inq['assigned_name'] ?? '—', ENT_QUOTES, 'UTF-8') ?></td>
+          <td style="font-size:0.82rem; min-width:170px;">
+            <?php if (!empty($inq['assigned_name'])): ?>
+              <div class="d-flex align-items-center gap-2">
+                <?= renderUserAvatar([
+                    'name'       => $inq['assigned_name'],
+                    'avatar_url' => $inq['assigned_avatar'] ?? null,
+                ], 30) ?>
+                <div class="text-truncate" style="min-width:0;">
+                  <div class="fw-600 text-truncate"><?= htmlspecialchars($inq['assigned_name'], ENT_QUOTES, 'UTF-8') ?></div>
+                  <?php if (!empty($inq['assigned_phone'])): ?>
+                    <div class="text-muted text-truncate" style="font-size:0.72rem;">
+                      <i class="fa-solid fa-phone fa-xs me-1"></i><?= htmlspecialchars($inq['assigned_phone'], ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                  <?php endif; ?>
+                </div>
+              </div>
+            <?php else: ?>
+              <span class="text-muted">— Unassigned —</span>
+            <?php endif; ?>
+          </td>
           <td style="font-size:0.77rem;color:#6c757d;white-space:nowrap;">
             <?= htmlspecialchars(date('d M Y', strtotime($inq['created_at'])), ENT_QUOTES, 'UTF-8') ?>
           </td>
@@ -404,6 +436,15 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <div class="phone"><i class="fa-solid fa-phone fa-xs me-1"></i><?= htmlspecialchars($inq['phone'], ENT_QUOTES, 'UTF-8') ?></div>
       <?php if ($inq['property_title']): ?>
       <div class="prop"><i class="fa-solid fa-house fa-xs me-1"></i><?= htmlspecialchars(mb_strimwidth($inq['property_title'],0,45,'…'), ENT_QUOTES,'UTF-8') ?></div>
+      <?php endif; ?>
+      <?php if (!empty($inq['assigned_name'])): ?>
+      <div class="d-flex align-items-center gap-2 mt-2">
+        <?= renderUserAvatar([
+            'name'       => $inq['assigned_name'],
+            'avatar_url' => $inq['assigned_avatar'] ?? null,
+        ], 22) ?>
+        <span class="text-truncate" style="font-size:0.75rem;color:#475569;"><?= htmlspecialchars($inq['assigned_name'], ENT_QUOTES, 'UTF-8') ?></span>
+      </div>
       <?php endif; ?>
       <div class="date"><?= htmlspecialchars(date('d M Y', strtotime($inq['created_at'])), ENT_QUOTES,'UTF-8') ?></div>
     </div>
@@ -467,6 +508,29 @@ function openInquiryPanel(id) {
       return '<option value="'+a.id+'"'+(inq.assigned_to==a.id?' selected':'')+'>'+escH(a.name)+'</option>';
     }).join('');
 
+    // Rich "assigned agent" card — shown only when the inquiry is currently assigned.
+    var assignedHtml = '';
+    if (inq.assigned_to && inq.assigned_name) {
+      var roleLbl = (inq.assigned_role || 'agent').replace(/_/g,' ');
+      roleLbl = roleLbl.charAt(0).toUpperCase() + roleLbl.slice(1);
+      var avatarSrc = inq.assigned_avatar_url || inq.default_avatar_url;
+      var phoneRow = inq.assigned_phone
+        ? '<a href="tel:'+escH(inq.assigned_phone)+'" class="d-block text-decoration-none text-muted" style="font-size:.78rem;"><i class="fa-solid fa-phone fa-xs me-1"></i>'+escH(inq.assigned_phone)+'</a>'
+        : '';
+      var emailRow = inq.assigned_email
+        ? '<a href="mailto:'+escH(inq.assigned_email)+'" class="d-block text-decoration-none text-muted text-truncate" style="font-size:.78rem;" title="'+escH(inq.assigned_email)+'"><i class="fa-regular fa-envelope fa-xs me-1"></i>'+escH(inq.assigned_email)+'</a>'
+        : '';
+      assignedHtml =
+        '<div class="d-flex align-items-center gap-3 p-2 rounded mb-2" style="background:#f4f7fb; border:1px solid #e6ebf2;">' +
+          '<img src="'+escH(avatarSrc)+'" alt="'+escH(inq.assigned_name)+'" style="width:48px;height:48px;border-radius:50%;object-fit:cover;background:#0A1628;" onerror="this.onerror=null;this.src=\''+escH(inq.default_avatar_url)+'\';">' +
+          '<div class="text-truncate" style="min-width:0;">' +
+            '<div class="fw-700 text-truncate" style="font-size:.92rem;">'+escH(inq.assigned_name)+'</div>' +
+            '<div class="text-muted" style="font-size:.72rem; text-transform:capitalize;">'+escH(roleLbl)+'</div>' +
+            phoneRow + emailRow +
+          '</div>' +
+        '</div>';
+    }
+
     var statusOpts = statusOptions.map(function(s) {
       return '<option value="'+s+'"'+(inq.status===s?' selected':'')+'>'+statusLabels[s]+'</option>';
     }).join('');
@@ -489,7 +553,7 @@ function openInquiryPanel(id) {
       // Visitor Info
       '<div class="mb-3 pb-3 border-bottom">' +
       '<div class="d-flex align-items-center gap-3 mb-2">' +
-      '<div style="width:48px;height:48px;border-radius:50%;background:var(--sidebar-bg);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;">' + escH((inq.visitor_name||'?').charAt(0).toUpperCase()) + '</div>' +
+      '<img src="'+escH(inq.default_avatar_url)+'" alt="'+escH(inq.visitor_name||'Visitor')+'" style="width:48px;height:48px;border-radius:50%;object-fit:cover;background:#0A1628;">' +
       '<div><div class="fw-700" style="font-size:1rem;">'+escH(inq.visitor_name)+'</div>' +
       '<div class="text-muted fs-12">'+escH(inq.email||'No email')+'</div></div></div>' +
       '<div class="d-flex flex-wrap gap-2 mb-2">' +
@@ -510,7 +574,8 @@ function openInquiryPanel(id) {
       '<select class="form-select form-select-sm mt-1" id="statusSelect">'+statusOpts+'</select>' +
       '<button class="btn btn-sm btn-gold mt-2 w-100" onclick="updateStatus('+inq.id+')"><i class="fa-solid fa-check me-1"></i>Update Status</button></div>' +
       (IS_AGENT_ONLY ? '' :
-        '<div class="col-12"><label class="fw-600 fs-13">Assign Agent:</label>' +
+        '<div class="col-12"><label class="fw-600 fs-13">Assigned Agent:</label>' +
+        assignedHtml +
         '<select class="form-select form-select-sm mt-1" id="agentSelect"><option value="">— Unassigned —</option>'+agentOptions+'</select>' +
         '<button class="btn btn-sm btn-outline-dark mt-2 w-100" onclick="assignAgent('+inq.id+')"><i class="fa-solid fa-user-check me-1"></i>Assign</button></div>'
       ) +

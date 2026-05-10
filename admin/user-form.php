@@ -2,8 +2,8 @@
 /**
  * Al-Riaz Associates — Edit User
  *
- * - Super admins can edit any user.
- * - Admins can only edit users whose `created_by` is their own id.
+ * - Super admins and admins can edit any user.
+ * - Agents cannot reach this page (blocked by requireRole('admin')).
  * - Editing your own profile happens at /admin/profile.php instead.
  */
 $pageTitle = 'Edit User';
@@ -38,14 +38,6 @@ try {
 
 if (!$user) {
     setFlash('danger', 'User not found.');
-    redirect('/admin/users.php');
-}
-
-// Permission check: super_admin can edit any; admin can only edit users they created.
-$canEdit = hasRole('super_admin')
-        || (hasRole('admin') && (int)($user['created_by'] ?? 0) === (int)$_SESSION['admin_id']);
-if (!$canEdit) {
-    setFlash('danger', 'You can only edit users you have created.');
     redirect('/admin/users.php');
 }
 
@@ -90,13 +82,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($dup->fetch()) $formErrors[] = 'Another user already uses that email.';
     }
 
+    // Avatar upload (optional)
+    $avatarUrl = null;
+    if (!empty($_FILES['avatar']['tmp_name']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+        $file = $_FILES['avatar'];
+        if ($file['size'] > MAX_FILE_SIZE) {
+            $formErrors[] = 'Avatar exceeds the file size limit.';
+        } else {
+            $mime = mime_content_type($file['tmp_name']);
+            if (!in_array($mime, ALLOWED_IMAGE_TYPES)) {
+                $formErrors[] = 'Avatar must be JPEG, PNG, WebP, or GIF.';
+            } else {
+                $uploadDir = __DIR__ . '/../assets/uploads/avatars/';
+                if (!is_dir($uploadDir)) @mkdir($uploadDir, 0755, true);
+                $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                $fname = 'avatar_' . $id . '_' . uniqid() . '.' . $ext;
+                if (move_uploaded_file($file['tmp_name'], $uploadDir . $fname)) {
+                    $avatarUrl = '/assets/uploads/avatars/' . $fname;
+                    $old = (string)($user['avatar_url'] ?? '');
+                    if ($old && str_starts_with($old, '/assets/uploads/avatars/')) {
+                        $oldFs = __DIR__ . '/..' . $old;
+                        if (is_file($oldFs)) @unlink($oldFs);
+                    }
+                } else {
+                    $formErrors[] = 'Avatar upload failed.';
+                }
+            }
+        }
+    } elseif (!empty($_FILES['avatar']['name']) && $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $formErrors[] = 'Avatar upload error (code ' . (int)$_FILES['avatar']['error'] . ').';
+    }
+
     if (empty($formErrors)) {
         try {
-            $db->prepare(
-                'UPDATE users SET name = ?, email = ?, phone = ?, role = ?, is_active = ?, updated_at = NOW()
-                 WHERE id = ?'
-            )->execute([$name, $email, $phone, $role, $isActive, $id]);
-            auditLog('update', 'users', $id, 'Edited: ' . $email . ' (role=' . $role . ', active=' . $isActive . ')');
+            if ($avatarUrl !== null) {
+                $db->prepare(
+                    'UPDATE users SET name = ?, email = ?, phone = ?, role = ?, is_active = ?, avatar_url = ?, updated_at = NOW()
+                     WHERE id = ?'
+                )->execute([$name, $email, $phone, $role, $isActive, $avatarUrl, $id]);
+            } else {
+                $db->prepare(
+                    'UPDATE users SET name = ?, email = ?, phone = ?, role = ?, is_active = ?, updated_at = NOW()
+                     WHERE id = ?'
+                )->execute([$name, $email, $phone, $role, $isActive, $id]);
+            }
+            auditLog('update', 'users', $id, 'Edited: ' . $email . ' (role=' . $role . ', active=' . $isActive . ($avatarUrl !== null ? ', avatar updated' : '') . ')');
             setFlash('success', 'User updated successfully.');
             redirect('/admin/users.php');
         } catch (Exception $e) {
@@ -110,6 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user['phone']     = $phone;
     $user['role']      = $role;
     $user['is_active'] = $isActive;
+    if ($avatarUrl !== null) $user['avatar_url'] = $avatarUrl;
 }
 
 $csrf = csrfToken();
@@ -139,7 +170,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
 </div>
 <?php endif; ?>
 
-<form method="POST" action="<?= BASE_PATH ?>/admin/user-form.php?id=<?= (int)$id ?>">
+<form method="POST" enctype="multipart/form-data" action="<?= BASE_PATH ?>/admin/user-form.php?id=<?= (int)$id ?>">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 
   <div class="form-section-card">
@@ -177,6 +208,19 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <?php endif; ?>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="form-section-card">
+    <div class="card-header"><i class="fa-solid fa-image-portrait" style="color:var(--gold)"></i> Avatar</div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="fs-13 text-muted mb-1">Current avatar:</div>
+        <?= renderUserAvatar($user, 96, 'border') ?>
+      </div>
+      <label class="form-label fw-600">Replace avatar</label>
+      <input type="file" name="avatar" class="form-control" accept="image/jpeg,image/png,image/webp,image/gif">
+      <div class="form-text">Max 5MB. JPEG / PNG / WebP / GIF. Square images look best.</div>
     </div>
   </div>
 

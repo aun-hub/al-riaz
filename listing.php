@@ -592,15 +592,21 @@ require_once __DIR__ . '/includes/header.php';
             <!-- Agent Card ───────────────────────────────────────────────── -->
             <div class="agent-card card mb-3 shadow-sm">
                 <div class="card-body text-center">
-                    <img src="<?= htmlspecialchars(!empty($property['agent_avatar']) ? mediaUrl($property['agent_avatar']) : 'https://picsum.photos/id/64/80/80', ENT_QUOTES, 'UTF-8') ?>"
-                         alt="<?= htmlspecialchars($property['agent_name'] ?: 'Agent') ?>"
-                         class="agent-avatar rounded-circle mb-2"
-                         onerror="this.src='https://picsum.photos/id/64/80/80'"
-                         style="width:80px; height:80px; object-fit:cover;">
+                    <?= renderUserAvatar([
+                        'name'       => $property['agent_name'] ?: 'Al-Riaz Associate',
+                        'avatar_url' => $property['agent_avatar'] ?? null,
+                    ], 80, 'agent-avatar mb-2') ?>
                     <h5 class="mb-0 fw-bold">
                         <?= htmlspecialchars($property['agent_name'] ?: 'Al-Riaz Associate') ?>
                     </h5>
-                    <p class="text-muted mb-3 small">Property Agent</p>
+                    <p class="text-muted mb-2 small">Property Agent</p>
+
+                    <?php if (!empty($property['agent_email'])): ?>
+                    <div class="text-muted small mb-2 text-truncate" title="<?= htmlspecialchars($property['agent_email'], ENT_QUOTES, 'UTF-8') ?>">
+                        <i class="fa-regular fa-envelope me-1"></i>
+                        <?= htmlspecialchars($property['agent_email'], ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                    <?php endif; ?>
 
                     <a href="tel:<?= htmlspecialchars($property['agent_phone'] ?: '+923001234567') ?>"
                        class="btn btn-navy btn-sm w-100 mb-2 copy-phone"

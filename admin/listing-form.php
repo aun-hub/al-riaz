@@ -26,13 +26,16 @@ try {
 $allFeatures   = array_column($featureRows, 'slug');
 $featureLabels = array_column($featureRows, 'label', 'slug');
 
-// Listing types per category
+// Listing types per category. Plot / Agricultural Land appear under both
+// because a plot can be either residential or commercial — we no longer
+// expose "Plot" as its own top-level category.
 $listingTypes = [
     'residential' => ['house'=>'House','flat'=>'Flat / Apartment','upper_portion'=>'Upper Portion',
-                      'lower_portion'=>'Lower Portion','room'=>'Room','farmhouse'=>'Farmhouse','penthouse'=>'Penthouse'],
+                      'lower_portion'=>'Lower Portion','room'=>'Room','farmhouse'=>'Farmhouse','penthouse'=>'Penthouse',
+                      'plot'=>'Plot','agricultural_land'=>'Agricultural Land'],
     'commercial'  => ['shop'=>'Shop','office'=>'Office','warehouse'=>'Warehouse',
-                      'showroom'=>'Showroom','building'=>'Building','factory'=>'Factory'],
-    'plot'        => ['plot'=>'Plot','agricultural_land'=>'Agricultural Land'],
+                      'showroom'=>'Showroom','building'=>'Building','factory'=>'Factory',
+                      'plot'=>'Plot','agricultural_land'=>'Agricultural Land'],
 ];
 
 // Load existing data for edit
@@ -69,15 +72,18 @@ if ($isEdit) {
     }
 }
 
-// Load agents and projects
+// Load agents and projects. Pull full agent rows so the form can render a
+// rich "assigned agent" card once one is selected.
 try {
-    $agentsStmt = $db->query("SELECT id, name FROM users WHERE role IN ('agent','admin') ORDER BY name ASC");
+    $agentsStmt = $db->query("SELECT id, name, avatar_url, phone, email, role FROM users WHERE role IN ('agent','admin','super_admin') AND is_active = 1 ORDER BY name ASC");
     $agents = $agentsStmt->fetchAll();
     $projStmt = $db->query("SELECT id, name FROM projects ORDER BY name ASC");
     $projects = $projStmt->fetchAll();
 } catch(Exception $e) {
     $agents = []; $projects = [];
 }
+$agentsById = [];
+foreach ($agents as $a) { $agentsById[(int)$a['id']] = $a; }
 
 // ── Handle Form Submission ────────────────────────────────────
 $formErrors = [];
@@ -319,11 +325,16 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <div class="col-12 col-md-4">
             <label class="form-label fw-600">Category *</label>
             <div class="d-flex flex-wrap gap-2" id="categoryGroup">
-              <?php foreach (['residential'=>'Residential','commercial'=>'Commercial','plot'=>'Plot'] as $val=>$lbl): ?>
+              <?php
+                // Map any legacy 'plot' category to 'residential' so the form has
+                // a valid selection when editing a pre-migration listing.
+                $currentCategory = $data['category'] === 'plot' ? 'residential' : $data['category'];
+              ?>
+              <?php foreach (['residential'=>'Residential','commercial'=>'Commercial'] as $val=>$lbl): ?>
               <div class="form-check">
                 <input class="form-check-input" type="radio" name="category"
                        id="cat_<?= $val ?>" value="<?= $val ?>"
-                       <?= $data['category']===$val?'checked':'' ?>>
+                       <?= $currentCategory===$val?'checked':'' ?>>
                 <label class="form-check-label" for="cat_<?= $val ?>"><?= $lbl ?></label>
               </div>
               <?php endforeach; ?>
@@ -375,14 +386,31 @@ include __DIR__ . '/includes/admin-sidebar.php';
 
           <div class="col-12 col-md-6">
             <label class="form-label fw-600">Assign Agent</label>
-            <select name="agent_id" class="form-select">
+            <select name="agent_id" id="agentSelect" class="form-select">
               <option value="">— Unassigned —</option>
               <?php foreach ($agents as $agent): ?>
-                <option value="<?= (int)$agent['id'] ?>" <?= (int)$data['agent_id']===(int)$agent['id']?'selected':'' ?>>
+                <option value="<?= (int)$agent['id'] ?>"
+                        data-avatar="<?= htmlspecialchars(userAvatarUrl($agent['avatar_url'] ?? null), ENT_QUOTES, 'UTF-8') ?>"
+                        data-phone="<?= htmlspecialchars($agent['phone'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                        data-email="<?= htmlspecialchars($agent['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                        data-role="<?= htmlspecialchars(ucwords(str_replace('_',' ',$agent['role'] ?? 'agent')), ENT_QUOTES, 'UTF-8') ?>"
+                        <?= (int)$data['agent_id']===(int)$agent['id']?'selected':'' ?>>
                   <?= htmlspecialchars($agent['name'], ENT_QUOTES, 'UTF-8') ?>
                 </option>
               <?php endforeach; ?>
             </select>
+            <div id="agentCard" class="mt-2" style="display:none;">
+              <div class="d-flex align-items-center gap-3 p-2 rounded" style="background:#f4f7fb; border:1px solid #e6ebf2;">
+                <img id="agentCardAvatar" src="" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;background:#0A1628;"
+                     onerror="this.onerror=null;this.src='<?= htmlspecialchars(defaultAvatarUrl(), ENT_QUOTES, 'UTF-8') ?>';">
+                <div class="text-truncate" style="min-width:0;">
+                  <div class="fw-700 text-truncate" id="agentCardName" style="font-size:.92rem;"></div>
+                  <div class="text-muted text-truncate" id="agentCardRole" style="font-size:.72rem;"></div>
+                  <div class="text-muted text-truncate" id="agentCardPhone" style="font-size:.78rem;"></div>
+                  <div class="text-muted text-truncate" id="agentCardEmail" style="font-size:.78rem;"></div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="col-12">
@@ -773,6 +801,34 @@ function populateReview() {
   var baths = document.querySelector('[name="bathrooms"]').value;
   document.getElementById('rev_beds').textContent     = beds + ' bed / ' + baths + ' bath';
 }
+
+// ── Assigned-agent card ────────────────────────────────────
+(function () {
+  var sel = document.getElementById('agentSelect');
+  if (!sel) return;
+  var card  = document.getElementById('agentCard');
+  var avEl  = document.getElementById('agentCardAvatar');
+  var nmEl  = document.getElementById('agentCardName');
+  var rlEl  = document.getElementById('agentCardRole');
+  var phEl  = document.getElementById('agentCardPhone');
+  var emEl  = document.getElementById('agentCardEmail');
+
+  function fill() {
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !sel.value) { card.style.display = 'none'; return; }
+    avEl.src = opt.getAttribute('data-avatar') || '';
+    avEl.alt = opt.text;
+    nmEl.textContent = opt.text;
+    rlEl.textContent = opt.getAttribute('data-role') || '';
+    var phone = opt.getAttribute('data-phone') || '';
+    var email = opt.getAttribute('data-email') || '';
+    phEl.innerHTML = phone ? '<i class="fa-solid fa-phone fa-xs me-1"></i>' + phone : '';
+    emEl.innerHTML = email ? '<i class="fa-regular fa-envelope fa-xs me-1"></i>' + email : '';
+    card.style.display = '';
+  }
+  sel.addEventListener('change', fill);
+  fill();
+})();
 
 // ── Dynamic listing type based on category ─────────────────
 var listingTypes = <?= json_encode($listingTypes) ?>;

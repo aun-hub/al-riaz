@@ -208,14 +208,10 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <div class="form-section-card">
         <div class="card-header"><i class="fa-solid fa-image-portrait" style="color:var(--gold)"></i> Avatar</div>
         <div class="card-body">
-          <?php if (!empty($me['avatar_url'])): ?>
           <div class="mb-3">
             <div class="fs-13 text-muted mb-1">Current avatar:</div>
-            <img src="<?= htmlspecialchars(mediaUrl($me['avatar_url']), ENT_QUOTES, 'UTF-8') ?>"
-                 alt="Current avatar"
-                 style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:1px solid #dee2e6;">
+            <?= renderUserAvatar($me, 96, 'border') ?>
           </div>
-          <?php endif; ?>
           <label class="form-label fw-600">Replace avatar</label>
           <input type="file" name="avatar" class="form-control" accept="image/jpeg,image/png,image/webp,image/gif">
           <div class="form-text">Max 5MB. JPEG / PNG / WebP / GIF. Square images look best.</div>

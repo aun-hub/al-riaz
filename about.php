@@ -44,6 +44,24 @@ try {
     )->fetchAll();
 } catch (Exception $e) { $authorizedDealers = []; }
 
+// Approved client reviews — featured first, then most recent.
+$clientReviews   = [];
+$reviewAvg       = 0.0;
+$reviewCount     = 0;
+try {
+    $clientReviews = $db->query(
+        "SELECT id, name, rating, title, body, created_at
+         FROM reviews
+         WHERE status = 'approved'
+         ORDER BY is_featured DESC, created_at DESC
+         LIMIT 12"
+    )->fetchAll();
+
+    $stat = $db->query("SELECT COUNT(*) AS c, AVG(rating) AS avg_rating FROM reviews WHERE status='approved'")->fetch();
+    $reviewCount = (int)($stat['c'] ?? 0);
+    $reviewAvg   = $reviewCount > 0 ? (float)$stat['avg_rating'] : 0.0;
+} catch (Exception $e) { /* table may not exist yet — section degrades gracefully */ }
+
 $pageTitle       = 'About Us - Al-Riaz Associates';
 $pageDescription = 'Learn about Al-Riaz Associates — Pakistan\'s trusted real estate agency based in Islamabad. Authorised dealer for top developments with 5+ years of experience.';
 
@@ -232,8 +250,8 @@ require_once 'includes/header.php';
                     <h3 class="mv-title"><?= htmlspecialchars($missionCard['title'], ENT_QUOTES, 'UTF-8') ?></h3>
                     <p class="mv-text"><?= nl2br(htmlspecialchars($missionCard['body'], ENT_QUOTES, 'UTF-8')) ?></p>
                     <ul class="mv-bullets">
-                        <?php foreach ($missionCard['bullets'] as $b): if (trim($b) === '') continue; ?>
-                        <li><i class="fa-solid fa-check"></i> <?= htmlspecialchars($b, ENT_QUOTES, 'UTF-8') ?></li>
+                        <?php foreach ($missionCard['bullets'] as $bullet): if (trim($bullet) === '') continue; ?>
+                        <li><i class="fa-solid fa-check"></i> <?= htmlspecialchars($bullet, ENT_QUOTES, 'UTF-8') ?></li>
                         <?php endforeach; ?>
                     </ul>
                 </article>
@@ -251,8 +269,8 @@ require_once 'includes/header.php';
                     <h3 class="mv-title"><?= htmlspecialchars($visionCard['title'], ENT_QUOTES, 'UTF-8') ?></h3>
                     <p class="mv-text"><?= nl2br(htmlspecialchars($visionCard['body'], ENT_QUOTES, 'UTF-8')) ?></p>
                     <ul class="mv-bullets">
-                        <?php foreach ($visionCard['bullets'] as $b): if (trim($b) === '') continue; ?>
-                        <li><i class="fa-solid fa-check"></i> <?= htmlspecialchars($b, ENT_QUOTES, 'UTF-8') ?></li>
+                        <?php foreach ($visionCard['bullets'] as $bullet): if (trim($bullet) === '') continue; ?>
+                        <li><i class="fa-solid fa-check"></i> <?= htmlspecialchars($bullet, ENT_QUOTES, 'UTF-8') ?></li>
                         <?php endforeach; ?>
                     </ul>
                 </article>
@@ -377,18 +395,22 @@ require_once 'includes/header.php';
         <h2 class="content-heading text-center mb-5">Meet Our Team</h2>
         <div class="row g-4">
             <?php foreach ($agents as $agent):
-                $agentImg = !empty($agent['avatar_url'])
-                    ? mediaUrl($agent['avatar_url'])
-                    : 'https://picsum.photos/id/' . (60 + ($agent['id'] % 10)) . '/200/200';
                 $roleLabel = ucwords(str_replace('_', ' ', $agent['role'] ?? 'agent'));
             ?>
             <div class="col-6 col-md-4 col-lg-3">
                 <div class="team-card reveal">
-                    <img src="<?= htmlspecialchars($agentImg, ENT_QUOTES, 'UTF-8') ?>"
-                         alt="<?= htmlspecialchars($agent['name'], ENT_QUOTES, 'UTF-8') ?>" class="team-card-img">
+                    <img src="<?= htmlspecialchars(userAvatarUrl($agent['avatar_url'] ?? null), ENT_QUOTES, 'UTF-8') ?>"
+                         alt="<?= htmlspecialchars($agent['name'], ENT_QUOTES, 'UTF-8') ?>"
+                         class="team-card-img"
+                         onerror="this.onerror=null;this.src='<?= htmlspecialchars(defaultAvatarUrl(), ENT_QUOTES, 'UTF-8') ?>';">
                     <div class="team-card-body">
                         <h4><?= htmlspecialchars($agent['name'], ENT_QUOTES, 'UTF-8') ?></h4>
                         <p><?= htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8') ?></p>
+                        <?php if (!empty($agent['email'])): ?>
+                        <div class="text-muted small mb-2 text-truncate" title="<?= htmlspecialchars($agent['email'], ENT_QUOTES, 'UTF-8') ?>">
+                            <i class="fa-regular fa-envelope me-1"></i><?= htmlspecialchars($agent['email'], ENT_QUOTES, 'UTF-8') ?>
+                        </div>
+                        <?php endif; ?>
                         <?php if (!empty($agent['phone'])): ?>
                         <a href="tel:<?= htmlspecialchars($agent['phone']) ?>" class="btn-navy" style="font-size:.75rem;padding:.3rem .75rem;">
                             <i class="fa-solid fa-phone"></i> Call
@@ -692,6 +714,243 @@ foreach ($aboutBranches as $br) {
         </div>
     </div>
 </section>
+
+<!-- ============================================================
+     CLIENT REVIEWS
+     ============================================================ -->
+<section id="reviews" style="background:#fff; padding:5rem 0;">
+    <div class="container">
+        <h2 class="content-heading text-center mb-2">What Our Clients Say</h2>
+        <p class="text-center text-muted mb-4">
+            <?php if ($reviewCount > 0): ?>
+                <strong><?= number_format($reviewAvg, 1) ?>/5</strong>
+                from <?= (int)$reviewCount ?> verified review<?= $reviewCount === 1 ? '' : 's' ?>
+            <?php else: ?>
+                Be the first to share your experience with Al-Riaz Associates
+            <?php endif; ?>
+        </p>
+
+        <style>
+          .review-card {
+            background: var(--navy-50, #f6f9fc);
+            border: 1px solid #e6ebf2;
+            border-radius: 12px;
+            padding: 1.5rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: .8rem;
+            transition: transform .15s ease, box-shadow .15s ease;
+          }
+          .review-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(10,22,40,.08);
+          }
+          .review-stars { color: #F5B301; font-size: 1rem; letter-spacing: 1px; }
+          .review-title { font-weight: 700; color: var(--navy-700, #0A1628); font-size: 1rem; }
+          .review-body  { color: #4a5568; font-size: .95rem; line-height: 1.55; flex: 1; white-space: pre-line; }
+          .review-meta  { display:flex; align-items:center; gap:.6rem; font-size:.85rem; color:#6c757d; }
+          .review-avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: var(--sidebar-bg, #0A1628); color: #F5B301;
+            display:flex; align-items:center; justify-content:center;
+            font-weight:700; flex-shrink:0;
+          }
+
+          .review-form-card {
+            background:#fff; border:1px solid #e6ebf2; border-radius:14px;
+            padding:2rem; box-shadow:0 4px 20px rgba(10,22,40,.04);
+          }
+          .review-form-card h3 { font-size:1.25rem; color:var(--navy-700,#0A1628); margin-bottom:1rem; }
+          .star-rating { display:inline-flex; flex-direction:row-reverse; gap:.25rem; }
+          .star-rating input { display:none; }
+          .star-rating label {
+            cursor:pointer; font-size:1.6rem; color:#cbd5e0; transition: color .1s ease;
+          }
+          .star-rating label:hover,
+          .star-rating label:hover ~ label,
+          .star-rating input:checked ~ label { color:#F5B301; }
+          .review-success {
+            display:none; padding:1.25rem; background:#d1e7dd; border-radius:10px;
+            color:#0a3622; text-align:center;
+          }
+          .review-success.is-visible { display:block; }
+        </style>
+
+        <?php if (!empty($clientReviews)): ?>
+        <div class="row g-3 mb-5">
+            <?php foreach ($clientReviews as $rv):
+                $initial = mb_strtoupper(mb_substr($rv['name'] ?? '?', 0, 1));
+                $stars   = max(1, min(5, (int)$rv['rating']));
+            ?>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="review-card">
+                    <div class="review-stars" aria-label="<?= $stars ?> out of 5 stars">
+                        <?php for ($i=1;$i<=5;$i++): ?>
+                            <i class="fa-<?= $i <= $stars ? 'solid' : 'regular' ?> fa-star"></i>
+                        <?php endfor; ?>
+                    </div>
+                    <?php if (!empty($rv['title'])): ?>
+                    <div class="review-title"><?= htmlspecialchars($rv['title'], ENT_QUOTES, 'UTF-8') ?></div>
+                    <?php endif; ?>
+                    <div class="review-body"><?= htmlspecialchars($rv['body'], ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="review-meta">
+                        <div class="review-avatar"><?= htmlspecialchars($initial, ENT_QUOTES, 'UTF-8') ?></div>
+                        <div>
+                            <div style="font-weight:600; color:var(--navy-700,#0A1628);">
+                                <?= htmlspecialchars($rv['name'], ENT_QUOTES, 'UTF-8') ?>
+                            </div>
+                            <div><?= htmlspecialchars(date('M Y', strtotime($rv['created_at'])), ENT_QUOTES, 'UTF-8') ?></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- Submission form -->
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-8">
+                <div class="review-form-card">
+                    <h3><i class="fa-solid fa-pen-to-square me-2" style="color:var(--gold,#F5B301);"></i>Share Your Experience</h3>
+                    <p class="text-muted mb-4" style="font-size:.92rem;">
+                        Your review helps us improve and helps others find a trusted real-estate partner.
+                        Submissions appear publicly after a quick check by our team.
+                    </p>
+
+                    <div class="review-success" id="reviewSuccess" role="status" aria-live="polite">
+                        <i class="fa-solid fa-circle-check fa-lg me-2"></i>
+                        <span id="reviewSuccessMsg">Thank you! Your review has been submitted.</span>
+                    </div>
+
+                    <form id="reviewForm" method="POST" action="<?= $b ?>/api/v1/reviews.php" novalidate>
+                        <!-- Honeypot (hidden from users; bots fill it) -->
+                        <input type="text" name="website" tabindex="-1" autocomplete="off"
+                               style="position:absolute; left:-9999px; opacity:0;" aria-hidden="true">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-600">Your Rating *</label>
+                            <div class="star-rating" id="starRating">
+                                <?php for ($i=5; $i>=1; $i--): ?>
+                                    <input type="radio" name="rating" id="star<?= $i ?>" value="<?= $i ?>" required>
+                                    <label for="star<?= $i ?>" title="<?= $i ?> star<?= $i === 1 ? '' : 's' ?>"><i class="fa-solid fa-star"></i></label>
+                                <?php endfor; ?>
+                            </div>
+                            <div class="invalid-feedback d-block" id="err_rating"></div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-600">Your Name *</label>
+                                <input type="text" name="name" class="form-control" required maxlength="120"
+                                       placeholder="e.g. Ahmed Raza">
+                                <div class="invalid-feedback d-block" id="err_name"></div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-600">Email <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="email" name="email" class="form-control" maxlength="160"
+                                       placeholder="you@example.com">
+                                <div class="invalid-feedback d-block" id="err_email"></div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-600">Headline <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="text" name="title" class="form-control" maxlength="160"
+                                       placeholder="A short summary of your experience">
+                                <div class="invalid-feedback d-block" id="err_title"></div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-600">Your Review *</label>
+                                <textarea name="body" class="form-control" rows="4" required
+                                          minlength="10" maxlength="2000"
+                                          placeholder="Tell us about your experience working with Al-Riaz Associates..."></textarea>
+                                <div class="invalid-feedback d-block" id="err_body"></div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="submit" class="btn-gold" id="reviewSubmitBtn">
+                                <i class="fa-solid fa-paper-plane me-1"></i> Submit Review
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+(function () {
+    var form    = document.getElementById('reviewForm');
+    if (!form) return;
+    var btn     = document.getElementById('reviewSubmitBtn');
+    var success = document.getElementById('reviewSuccess');
+    var successMsg = document.getElementById('reviewSuccessMsg');
+    var errorFields = ['rating','name','email','title','body'];
+
+    function clearErrors() {
+        errorFields.forEach(function (k) {
+            var el = document.getElementById('err_' + k);
+            if (el) el.textContent = '';
+        });
+    }
+    function showErrors(errors) {
+        Object.keys(errors).forEach(function (k) {
+            var el = document.getElementById('err_' + k);
+            if (el) el.textContent = errors[k];
+        });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearErrors();
+        btn.disabled = true;
+        var origLabel = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Submitting...';
+
+        var fd = new FormData(form);
+        var lastStatus = 0;
+        fetch(form.action, {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (res) {
+            lastStatus = res.status;
+            return res.text().then(function (text) {
+                try {
+                    return { status: res.status, body: JSON.parse(text), raw: text };
+                } catch (err) {
+                    // Surface a useful preview of whatever the server actually returned.
+                    var preview = (text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+                    throw new Error('Server returned non-JSON (HTTP ' + res.status + '): ' + (preview || 'empty response'));
+                }
+            });
+        })
+        .then(function (r) {
+            if (r.body && r.body.success) {
+                successMsg.textContent = r.body.message || 'Thank you! Your review has been submitted.';
+                success.classList.add('is-visible');
+                form.reset();
+                success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else if (r.body && r.body.errors) {
+                showErrors(r.body.errors);
+            } else {
+                showErrors({ body: (r.body && r.body.message) || 'Could not submit review. Please try again.' });
+            }
+        })
+        .catch(function (err) {
+            console.error('[reviews] submit failed:', err);
+            showErrors({ body: (err && err.message) || ('Network error (HTTP ' + lastStatus + '). Please try again.') });
+        })
+        .finally(function () {
+            btn.disabled = false;
+            btn.innerHTML = origLabel;
+        });
+    });
+})();
+</script>
 
 <!-- ============================================================
      CTA

@@ -12,9 +12,11 @@ $pageTitle = $pageTitle ?? 'Admin Panel';
 $flash = !empty($_SESSION['flash']) ? $_SESSION['flash'] : null;
 if ($flash) unset($_SESSION['flash']);
 
-// Lazy-load avatar URL into the session for older sessions that pre-date the
-// avatar feature, so the header circle picks it up without a re-login.
-if (!isset($_SESSION['admin_avatar']) && !empty($_SESSION['admin_id'])) {
+// Always refresh avatar URL from the DB on each admin page load so the top-
+// right circle stays in sync — e.g. when an admin updates this user's avatar
+// from /admin/user-form.php, the user sees it without having to log out.
+// One indexed PK lookup per page; trivial cost.
+if (!empty($_SESSION['admin_id'])) {
     try {
         require_once __DIR__ . '/../../includes/db.php';
         $hdrDb = Database::getInstance();
@@ -22,13 +24,13 @@ if (!isset($_SESSION['admin_avatar']) && !empty($_SESSION['admin_id'])) {
         $hdrStmt->execute([(int)$_SESSION['admin_id']]);
         $_SESSION['admin_avatar'] = (string)($hdrStmt->fetchColumn() ?: '');
     } catch (Exception $e) {
-        $_SESSION['admin_avatar'] = '';
+        if (!isset($_SESSION['admin_avatar'])) $_SESSION['admin_avatar'] = '';
     }
 }
 $adminAvatar = (string)($_SESSION['admin_avatar'] ?? '');
-$adminAvatarUrl = $adminAvatar !== ''
-    ? (function_exists('mediaUrl') ? mediaUrl($adminAvatar) : $adminAvatar)
-    : '';
+$adminAvatarUrl = function_exists('userAvatarUrl')
+    ? userAvatarUrl($adminAvatar)
+    : ($adminAvatar !== '' ? (function_exists('mediaUrl') ? mediaUrl($adminAvatar) : $adminAvatar) : '');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -107,15 +109,11 @@ $adminAvatarUrl = $adminAvatar !== ''
       <button class="btn btn-sm d-flex align-items-center gap-2 px-2 py-1"
               data-bs-toggle="dropdown" aria-expanded="false"
               style="border:1px solid #dee2e6; border-radius:8px; background:#fff;">
-        <?php if ($adminAvatarUrl): ?>
-          <img src="<?= htmlspecialchars($adminAvatarUrl, ENT_QUOTES, 'UTF-8') ?>"
-               alt="<?= htmlspecialchars($_SESSION['admin_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-               style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">
-        <?php else: ?>
-          <div style="width:32px;height:32px;border-radius:50%;background:var(--sidebar-bg);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:0.85rem;font-weight:700;">
-            <?= strtoupper(substr($_SESSION['admin_name'] ?? 'A', 0, 1)) ?>
-          </div>
-        <?php endif; ?>
+        <img src="<?= htmlspecialchars($adminAvatarUrl, ENT_QUOTES, 'UTF-8') ?>"
+             alt="<?= htmlspecialchars($_SESSION['admin_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+             style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;background:#0A1628;"
+             onerror="this.onerror=null;this.src='<?= htmlspecialchars(defaultAvatarUrl(), ENT_QUOTES, 'UTF-8') ?>';">
+
         <div class="text-start d-none d-lg-block">
           <div style="font-size:0.82rem;font-weight:600;color:#1a1a2e;line-height:1.1;">
             <?= htmlspecialchars($_SESSION['admin_name'] ?? 'Admin', ENT_QUOTES, 'UTF-8') ?>

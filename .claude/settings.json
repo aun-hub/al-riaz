@@ -223,11 +223,20 @@
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/projects.php)",
       "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/index.php)",
       "Bash(grep -n 'elseif \\($activeTab\\\\|endif; \\\\?>$' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/settings.php)",
-      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/includes/_icon_picker.php)"
+      "Bash(/Applications/XAMPP/xamppfiles/bin/php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/includes/_icon_picker.php)",
+      "Bash(grep -n 'BASE_PATH\\\\|$b =' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/about.php)",
+      "Bash(grep -n '$b\\\\|BASE_PATH' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/includes/header.php)",
+      "Bash(php -l /Applications/XAMPP/xamppfiles/htdocs/al-riaz/about.php /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/reviews.php /Applications/XAMPP/xamppfiles/htdocs/al-riaz/api/v1/reviews.php /Applications/XAMPP/xamppfiles/htdocs/al-riaz/database/migrations/010_reviews.php /Applications/XAMPP/xamppfiles/htdocs/al-riaz/admin/includes/admin-sidebar.php)",
+      "Read(//Users/applevalley/**)",
+      "Bash(curl -i -X POST 'http://localhost/al-riaz/api/v1/reviews.php' -H 'Content-Type: application/x-www-form-urlencoded' -H 'X-Requested-With: XMLHttpRequest' --data 'name=Test&rating=5&body=This is a long enough review body for testing purposes.')",
+      "Bash(curl -s 'http://localhost/al-riaz/about.php')",
+      "Bash(grep -n 'as $[a-z_]* => $b\\\\b\\\\|foreach.*$b\\\\b' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/about.php)",
+      "Bash(grep -n '\\\\$b\\\\b' /Applications/XAMPP/xamppfiles/htdocs/al-riaz/about.php)"
     ],
     "additionalDirectories": [
       "/tmp",
-      "/private/tmp"
+      "/private/tmp",
+      "/Users/applevalley"
     ]
   }
 }

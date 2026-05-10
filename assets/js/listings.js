@@ -49,6 +49,41 @@
         if (y > 0) { window.scrollTo(0, y); sessionStorage.removeItem(key); }
     }
 
+    /* ─── preserve focus + caret across the auto-submit reload ────────── */
+    var FOCUS_KEY = 'alriaz_filter_focus_' + window.location.pathname;
+    function saveFocus() {
+        var el = document.activeElement;
+        if (!el || !el.name) return;
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea') return;
+        // Only meaningful for typeable inputs.
+        var t = (el.type || '').toLowerCase();
+        if (['text','search','number','email','tel','url','password','textarea'].indexOf(t) === -1) return;
+        var caret = -1;
+        try { caret = el.selectionStart; } catch (e) { /* some types don't support selection */ }
+        sessionStorage.setItem(FOCUS_KEY, JSON.stringify({
+            name:   el.name,
+            formId: el.form ? el.form.id : '',
+            caret:  caret,
+        }));
+    }
+    function restoreFocus() {
+        var raw = sessionStorage.getItem(FOCUS_KEY);
+        if (!raw) return;
+        sessionStorage.removeItem(FOCUS_KEY);
+        var data;
+        try { data = JSON.parse(raw); } catch (e) { return; }
+        if (!data || !data.name) return;
+        var sel = '[name="' + data.name.replace(/"/g, '\\"') + '"]';
+        if (data.formId) sel = '#' + data.formId + ' ' + sel;
+        var el = document.querySelector(sel);
+        if (!el) return;
+        el.focus();
+        if (typeof data.caret === 'number' && data.caret >= 0) {
+            try { el.setSelectionRange(data.caret, data.caret); } catch (e) { /* not supported */ }
+        }
+    }
+
     /* ─── build query from ANY filter form on the page ───────────────── */
     function formURL($form) {
         if (!$form || !$form.length) return window.location.pathname;
@@ -86,6 +121,7 @@
         var go = function () {
             showBusy();
             saveScroll();
+            saveFocus();
             window.location.href = formURL($form);
         };
         var goDebounced = debounce(go, DEBOUNCE_MS);
@@ -93,8 +129,32 @@
         // Immediate: selects, checkboxes, radios
         $form.on('change', 'select, input[type="checkbox"], input[type="radio"]', go);
 
-        // Debounced: text / number inputs — input fires on every keystroke
-        $form.on('input', 'input[type="text"], input[type="number"], input[type="search"]', goDebounced);
+        // Datalist-backed inputs (e.g. city): only submit when the typed value
+        // matches a datalist option exactly (user picked a suggestion) or is
+        // cleared. Prevents partial typing like "Lah" from triggering a search
+        // that returns zero results before the user finishes selecting "Lahore".
+        function datalistMatches($input) {
+            var value = $.trim($input.val() || '');
+            if (value === '') return true;
+            var listId = $input.attr('list');
+            if (!listId) return true;
+            var matched = false;
+            $('#' + listId).find('option').each(function () {
+                if (this.value === value) { matched = true; return false; }
+            });
+            return matched;
+        }
+
+        $form.on('input', 'input[list]', function () {
+            if (datalistMatches($(this))) go();
+        });
+        $form.on('change', 'input[list]', function () {
+            if (datalistMatches($(this))) go();
+        });
+
+        // Debounced: text / number inputs — input fires on every keystroke.
+        // Excludes datalist-backed inputs (handled above).
+        $form.on('input', 'input[type="text"]:not([list]), input[type="number"], input[type="search"]:not([list])', goDebounced);
 
         // Visual chip state
         $form.on('change', '.filter-chip input[type="checkbox"], .filter-chip input[type="radio"], .filter-chip-sm input[type="radio"]', function () {
@@ -301,6 +361,7 @@
     /* ─── init ───────────────────────────────────────────────────────── */
     $(function () {
         restoreScroll();
+        restoreFocus();
         initFilterForm($('#filterForm'));
         initFilterForm($('#filterFormMobile'));
         initSort();

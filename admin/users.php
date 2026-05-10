@@ -233,15 +233,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
         <tr>
           <td>
             <div class="d-flex align-items-center gap-2">
-              <?php if (!empty($u['avatar_url'])): ?>
-                <img src="<?= htmlspecialchars(mediaUrl($u['avatar_url']), ENT_QUOTES, 'UTF-8') ?>"
-                     alt="<?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>"
-                     style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;">
-              <?php else: ?>
-              <div style="width:34px;height:34px;border-radius:50%;background:var(--sidebar-bg);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;flex-shrink:0;">
-                <?= strtoupper(substr($u['name'], 0, 1)) ?>
-              </div>
-              <?php endif; ?>
+              <?= renderUserAvatar($u, 34) ?>
               <div>
                 <div class="fw-600" style="font-size:0.88rem;"><?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?></div>
                 <?php if ((int)$u['id'] === (int)$_SESSION['admin_id']): ?>
@@ -289,12 +281,9 @@ include __DIR__ . '/includes/admin-sidebar.php';
           </td>
           <td class="text-end">
             <?php
-              // Edit eligibility: super_admin can edit anyone; admin can only
-              // edit users they created.
-              $canEdit = (int)$u['id'] !== (int)$_SESSION['admin_id'] && (
-                  hasRole('super_admin')
-                  || (hasRole('admin') && (int)($u['created_by'] ?? 0) === (int)$_SESSION['admin_id'])
-              );
+              // Edit eligibility: super_admin and admin can edit any user
+              // (other than themselves — self-edit happens in /admin/profile.php).
+              $canEdit = (int)$u['id'] !== (int)$_SESSION['admin_id'] && hasRole('admin');
             ?>
             <?php if ((int)$u['id'] !== (int)$_SESSION['admin_id']): ?>
             <div class="d-inline-flex gap-1">

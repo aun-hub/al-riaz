@@ -38,6 +38,51 @@ if (!function_exists('mediaUrl')) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// User avatar helpers — single source of truth so a fresh upload reflects
+// everywhere the user appears (lists, agent cards, inquiry/listing assignments).
+// ─────────────────────────────────────────────────────────────────────────────
+
+if (!function_exists('defaultAvatarUrl')) {
+    function defaultAvatarUrl(): string {
+        return mediaUrl('/assets/images/default-avatar.svg');
+    }
+}
+
+if (!function_exists('userAvatarUrl')) {
+    /**
+     * Resolve an avatar URL with a default fallback.
+     * Accepts either a raw avatar_url string or a user row array.
+     */
+    function userAvatarUrl(string|array|null $userOrUrl): string {
+        if (is_array($userOrUrl)) {
+            $userOrUrl = $userOrUrl['avatar_url'] ?? null;
+        }
+        $url = trim((string)($userOrUrl ?? ''));
+        return $url !== '' ? mediaUrl($url) : defaultAvatarUrl();
+    }
+}
+
+if (!function_exists('renderUserAvatar')) {
+    /**
+     * Render an <img> tag for a user's avatar with the brand default as
+     * fallback (also via onerror, so a broken upload never leaves a blank).
+     *
+     * $user must be array-like with 'name' (for alt) and 'avatar_url'.
+     * $size is the CSS px width/height (rendered as a perfect circle).
+     */
+    function renderUserAvatar(?array $user, int $size = 40, string $extraClass = ''): string {
+        $name = htmlspecialchars((string)($user['name'] ?? 'User'), ENT_QUOTES, 'UTF-8');
+        $src  = htmlspecialchars(userAvatarUrl($user['avatar_url'] ?? null), ENT_QUOTES, 'UTF-8');
+        $fall = htmlspecialchars(defaultAvatarUrl(), ENT_QUOTES, 'UTF-8');
+        $cls  = trim('user-avatar ' . $extraClass);
+        $s    = (int)$size;
+        return '<img src="' . $src . '" alt="' . $name . '" class="' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8') . '"'
+             . ' style="width:' . $s . 'px;height:' . $s . 'px;border-radius:50%;object-fit:cover;flex-shrink:0;background:#0A1628;"'
+             . ' onerror="this.onerror=null;this.src=\'' . $fall . '\';" loading="lazy">';
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SMTP (DB-backed)
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 {
-    "agency_name": "Al-Riaz Associates",
+    "agency_name": "Al Riaz Associates",
     "agency_tagline": "Your Trusted Real Estate Partner in Pakistan",
     "phone": "+92 300 123 4567",
     "whatsapp": "923001234567",
@@ -14,7 +14,7 @@
     "notify_on_inquiry": "1",
     "notify_on_listing": "1",
     "default_city": "islamabad",
-    "watermark": "0",
+    "watermark": "1",
     "currency_format": "pakistan",
     "logo_path": "\/assets\/images\/logo.jpeg",
     "about_story_label": "Our Story",
