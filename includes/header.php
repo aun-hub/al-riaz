@@ -78,6 +78,48 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
     ?>
     <link rel="stylesheet" href="<?= $b ?>/assets/css/style.css?v=<?= $cssVer ?>">
 
+    <?php
+        // ── Dynamic theme overrides ─────────────────────────────────────
+        // Admin sets these in /admin/settings.php → Theme. We override the
+        // two base brand vars (--gold accent, --navy-700 brand) and derive
+        // the rest of the gold / navy scale from them via color-mix().
+        $themeSettings  = function_exists('getSettings') ? getSettings() : [];
+        $themePrimary   = $themeSettings['theme_primary']   ?? '#F5B301';
+        $themeSecondary = $themeSettings['theme_secondary'] ?? '#0F2044';
+        // Defensive: must be a 6-digit hex; ignore anything else.
+        if (!preg_match('/^#[0-9a-fA-F]{6}$/', (string)$themePrimary))   $themePrimary   = '#F5B301';
+        if (!preg_match('/^#[0-9a-fA-F]{6}$/', (string)$themeSecondary)) $themeSecondary = '#0F2044';
+    ?>
+    <style id="dynamicTheme">
+      :root {
+        /* Admin-picked brand colors */
+        --gold:     <?= $themePrimary ?>;
+        --navy-700: <?= $themeSecondary ?>;
+
+        /* Gold shades derived from --gold */
+        --gold-light: color-mix(in srgb, var(--gold) 70%, white);
+        --gold-dark:  color-mix(in srgb, var(--gold) 75%, black);
+        --gold-soft:  color-mix(in srgb, var(--gold) 15%, white);
+
+        /* Navy shades lighter than --navy-700 */
+        --navy-600: color-mix(in srgb, var(--navy-700) 85%, white);
+        --navy-500: color-mix(in srgb, var(--navy-700) 75%, white);
+        --navy-400: color-mix(in srgb, var(--navy-700) 60%, white);
+        --navy-300: color-mix(in srgb, var(--navy-700) 45%, white);
+        --navy-200: color-mix(in srgb, var(--navy-700) 30%, white);
+        --navy-100: color-mix(in srgb, var(--navy-700) 15%, white);
+        --navy-50:  color-mix(in srgb, var(--navy-700)  5%, white);
+
+        /* Navy shades darker than --navy-700 */
+        --navy-800: color-mix(in srgb, var(--navy-700) 80%, black);
+        --navy-900: color-mix(in srgb, var(--navy-700) 50%, black);
+        --navy-950: color-mix(in srgb, var(--navy-700) 25%, black);
+
+        /* Focus ring */
+        --ring-gold: 0 0 0 3px color-mix(in srgb, var(--gold) 25%, transparent);
+      }
+    </style>
+
     <!-- Open Graph -->
     <meta property="og:title"       content="<?= $pageTitle ? $pageTitle . ' | ' . SITE_NAME : SITE_NAME ?>">
     <meta property="og:description" content="<?= $metaDesc ?>">

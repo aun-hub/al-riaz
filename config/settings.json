@@ -17,9 +17,11 @@
     "watermark": "1",
     "currency_format": "pakistan",
     "logo_path": "\/assets\/images\/logo.jpeg",
+    "about_header_title": "About Al Riaz Associates",
+    "about_header_sub": "Pakistan's trusted real estate partner since 2013",
     "about_story_label": "Our Story",
     "about_story_heading": "Built on Trust & Transparency",
-    "about_story_body": "Al-Riaz Associates was founded with a clear mission: to bring transparency, integrity, and professionalism to Pakistan's real estate market. Based in the heart of Islamabad, we began as a small consultancy helping families find their dream homes in Rawalpindi and Islamabad.\r\n\r\nOver the years, we have grown into a full-service real estate agency, becoming an **authorised dealer** for Pakistan's most prestigious developments including Bahria Town, DHA, Capital Smart City, Gulberg Greens, and Blue World City.\r\n\r\nToday, our team of experienced property consultants serves clients across Islamabad, Rawalpindi, Lahore, and Karachi — offering verified listings, transparent pricing, and end-to-end support from property search to final possession.",
+    "about_story_body": "Al Riaz Associates was founded with a clear mission: to bring transparency, integrity, and professionalism to Pakistan's real estate market. Based in the heart of Islamabad, we began as a small consultancy helping families find their dream homes in Rawalpindi and Islamabad.\r\n\r\nOver the years, we have grown into a full-service real estate agency, becoming an **authorised dealer** for Pakistan's most prestigious developments including Bahria Town, DHA, Capital Smart City, Gulberg Greens, and Blue World City.\r\n\r\nToday, our team of experienced property consultants serves clients across Islamabad, Rawalpindi, Lahore, and Karachi — offering verified listings, transparent pricing, and end-to-end support from property search to final possession.",
     "about_story_image": "",
     "about_story_badge_value": "5+ Years",
     "about_story_badge_label": "In Real Estate",
@@ -37,7 +39,7 @@
             "label": "Happy Clients"
         },
         {
-            "value": "5",
+            "value": "13",
             "label": "Years Active"
         }
     ],
@@ -59,7 +61,7 @@
         "icon": "fa-eye",
         "tag": "02 — Vision",
         "title": "Becoming Pakistan's most trusted real estate partner.",
-        "body": "We want \"Al-Riaz\" to mean the same thing in Islamabad as it does in Karachi — integrity, expertise, and client-first service at every step. Built on relationships that outlast a single transaction.",
+        "body": "We want \"Al Riaz\" to mean the same thing in Islamabad as it does in Karachi — integrity, expertise, and client-first service at every step. Built on relationships that outlast a single transaction.",
         "bullets": [
             "Authorised dealer for Pakistan's top developments",
             "Data-driven investment guidance",
@@ -95,6 +97,28 @@
             "desc": "Your satisfaction is our top priority."
         }
     ],
+    "about_cta_label": "Let's Talk",
+    "about_cta_heading": "Start your property journey today\/ tomorrow.",
+    "about_cta_sub": "Speak to an expert consultant — no obligation, completely free advice. A real person will reply within minutes during business hours 12.",
+    "about_cta_primary_label": "Chat on WhatsApp",
+    "about_cta_primary_url": "",
+    "about_cta_secondary_label": "Send a Message",
+    "about_cta_secondary_url": "",
+    "about_cta_hours": "Mon–Sat 9am–7pm · Sun 11am–4pm",
+    "about_cta_badge_value": "",
+    "about_cta_badge_label": "Years Trusted",
+    "theme_primary": "#f5b301",
+    "theme_secondary": "#0f2044",
+    "hero_badge": "Pakistan's Trusted Real Estate Agency",
+    "hero_heading": "Smart real estate",
+    "hero_heading_accent": "starts here.",
+    "hero_sub": "Authorised dealer for Bahria Town, DHA, Capital Smart City and Pakistan's leading developments. Verified listings across Islamabad, Rawalpindi, Lahore and Karachi.",
+    "hero_cta_primary_label": "Browse Properties",
+    "hero_cta_primary_url": "",
+    "hero_cta_secondary_label": "WhatsApp Us",
+    "hero_cta_secondary_url": "",
+    "cta_heading": "Ready to buy, sell, or rent?",
+    "cta_sub": "Message us. A real person will reply within minutes during business hours — no bots, no templates, no fluff.",
     "smtp_host": "sandbox.smtp.mailtrap.io",
     "smtp_port": "587",
     "smtp_user": "e209a868c7f3fb",
@@ -144,6 +168,88 @@
             "open": true,
             "from": "11:00",
             "to": "16:00"
+        }
+    ],
+    "nav_header": [
+        {
+            "label": "Home",
+            "url": "\/"
+        },
+        {
+            "label": "Projects",
+            "url": "\/projects.php"
+        },
+        {
+            "label": "Properties",
+            "url": "\/listings.php"
+        },
+        {
+            "label": "About",
+            "url": "\/about.php"
+        },
+        {
+            "label": "Contact",
+            "url": "\/contact.php"
+        }
+    ],
+    "nav_footer_quick": [
+        {
+            "label": "Home",
+            "url": "\/"
+        },
+        {
+            "label": "Projects",
+            "url": "\/projects.php"
+        },
+        {
+            "label": "All Properties",
+            "url": "\/listings.php"
+        },
+        {
+            "label": "Residential",
+            "url": "\/listings.php?category=residential"
+        },
+        {
+            "label": "Commercial",
+            "url": "\/listings.php?category=commercial"
+        },
+        {
+            "label": "For Rent",
+            "url": "\/listings.php?purpose=rent"
+        },
+        {
+            "label": "About Us",
+            "url": "\/about.php"
+        },
+        {
+            "label": "Contact",
+            "url": "\/contact.php"
+        }
+    ],
+    "nav_footer_property_types": [
+        {
+            "label": "Houses",
+            "url": "\/listings.php?category=residential&type[]=house"
+        },
+        {
+            "label": "Plots",
+            "url": "\/listings.php?category=residential&type[]=plot"
+        },
+        {
+            "label": "Apartments",
+            "url": "\/listings.php?category=residential&type[]=flat"
+        },
+        {
+            "label": "Farmhouses",
+            "url": "\/listings.php?category=residential&type[]=farmhouse"
+        },
+        {
+            "label": "Penthouses",
+            "url": "\/listings.php?category=residential&type[]=penthouse"
+        },
+        {
+            "label": "Commercial",
+            "url": "\/listings.php?category=commercial"
         }
     ]
 }

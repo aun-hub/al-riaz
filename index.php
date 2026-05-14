@@ -77,6 +77,23 @@ try {
 $pageTitle = 'Al-Riaz Associates — Islamabad & Rawalpindi Real Estate';
 $metaDesc  = 'Al-Riaz Associates — Authorised dealer for top real estate projects in Islamabad, Rawalpindi, Lahore & Karachi. Buy, sell, or rent with Pakistan\'s trusted agency.';
 
+// Editable banner copy (admin sets in /admin/settings.php → Banners).
+$homeSettings = getSettings();
+
+// Resolve a hero CTA URL. Admin can enter either a site-relative path
+// (e.g. "/contact.php") or a full URL (https://, mailto:, tel:, wa.me/...).
+// Empty → fall back to $default. Returns [href, isExternal].
+$resolveCtaUrl = static function (string $value, string $default): array {
+    $v = trim($value) !== '' ? trim($value) : $default;
+    $isExternal = (bool)preg_match('#^(https?:|mailto:|tel:|//)#i', $v);
+    if (!$isExternal && str_starts_with($v, '/')) {
+        $v = BASE_PATH . $v;
+    }
+    return [$v, $isExternal];
+};
+[$heroPrimaryHref,   $heroPrimaryExt]   = $resolveCtaUrl($homeSettings['hero_cta_primary_url']   ?? '', '/listings.php');
+[$heroSecondaryHref, $heroSecondaryExt] = $resolveCtaUrl($homeSettings['hero_cta_secondary_url'] ?? '', waLink(SITE_WHATSAPP, "Hi, I'm interested in a property. Can you help?"));
+
 require_once 'includes/header.php';
 
 // Stock hero images — replace once you upload real ones
@@ -102,27 +119,24 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
             <div class="col-lg-6 hero-content">
                 <div class="hero-badge">
                     <span class="hero-badge-dot"></span>
-                    Pakistan's Trusted Real Estate Agency
+                    <?= htmlspecialchars($homeSettings['hero_badge'] ?? '', ENT_QUOTES, 'UTF-8') ?>
                 </div>
 
                 <h1 class="hero-heading">
-                    Smart real estate<br>
-                    <span class="accent">starts here.</span>
+                    <?= htmlspecialchars($homeSettings['hero_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?><br>
+                    <span class="accent"><?= htmlspecialchars($homeSettings['hero_heading_accent'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
                 </h1>
 
                 <p class="hero-sub">
-                    Authorised dealer for Bahria Town, DHA, Capital Smart City and Pakistan's leading developments.
-                    Verified listings across Islamabad, Rawalpindi, Lahore and Karachi.
+                    <?= htmlspecialchars($homeSettings['hero_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>
                 </p>
 
                 <div class="hero-cta">
-                    <a href="<?= $b ?>/listings.php" class="btn-gold">
-                        <i class="fa-solid fa-search"></i> Browse Properties
+                    <a href="<?= htmlspecialchars($heroPrimaryHref, ENT_QUOTES, 'UTF-8') ?>" class="btn-gold"<?= $heroPrimaryExt ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
+                        <i class="fa-solid fa-search"></i> <?= htmlspecialchars($homeSettings['hero_cta_primary_label'] ?? 'Browse Properties', ENT_QUOTES, 'UTF-8') ?>
                     </a>
-                    <a href="<?= waLink(SITE_WHATSAPP, 'Hi, I\'m interested in a property. Can you help?') ?>"
-                       target="_blank" rel="noopener noreferrer"
-                       class="btn-outline-white">
-                        <i class="fa-brands fa-whatsapp"></i> WhatsApp Us
+                    <a href="<?= htmlspecialchars($heroSecondaryHref, ENT_QUOTES, 'UTF-8') ?>" class="btn-outline-white"<?= $heroSecondaryExt ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
+                        <i class="fa-brands fa-whatsapp"></i> <?= htmlspecialchars($homeSettings['hero_cta_secondary_label'] ?? 'WhatsApp Us', ENT_QUOTES, 'UTF-8') ?>
                     </a>
                 </div>
 
@@ -737,10 +751,9 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
             <div class="final-cta-inner">
                 <div class="final-cta-left">
                     <div class="section-label on-dark" style="justify-content:flex-start;">Let's Talk</div>
-                    <h2 class="final-cta-heading">Ready to buy, sell, or rent?</h2>
+                    <h2 class="final-cta-heading"><?= htmlspecialchars($homeSettings['cta_heading'] ?? 'Ready to buy, sell, or rent?', ENT_QUOTES, 'UTF-8') ?></h2>
                     <p class="final-cta-sub">
-                        Message us. A real person will reply within minutes during business hours —
-                        no bots, no templates, no fluff.
+                        <?= htmlspecialchars($homeSettings['cta_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>
                     </p>
                     <div class="final-cta-actions">
                         <a href="<?= waLink(SITE_WHATSAPP, "Hello! I'm interested in buying/renting a property. Can you help?") ?>"

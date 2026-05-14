@@ -52,6 +52,9 @@ $defaults = [
     'currency_format'=> 'pakistan', // pakistan = Lakh/Crore, raw = number
     'logo_path'      => '',
     // About-page "Our Story" section (editable on Settings → About Page)
+    // Top page-header banner (title + subtitle that appear above breadcrumbs)
+    'about_header_title'      => 'About Al-Riaz Associates',
+    'about_header_sub'        => '',
     'about_story_label'       => 'Our Story',
     'about_story_heading'     => 'Built on Trust & Transparency',
     'about_story_body'        => "Al-Riaz Associates was founded with a clear mission: to bring transparency, integrity, and professionalism to Pakistan's real estate market. Based in the heart of Islamabad, we began as a small consultancy helping families find their dream homes in Rawalpindi and Islamabad.\n\nOver the years, we have grown into a full-service real estate agency, becoming an **authorised dealer** for Pakistan's most prestigious developments including Bahria Town, DHA, Capital Smart City, Gulberg Greens, and Blue World City.\n\nToday, our team of experienced property consultants serves clients across Islamabad, Rawalpindi, Lahore, and Karachi — offering verified listings, transparent pricing, and end-to-end support from property search to final possession.",
@@ -115,6 +118,34 @@ $defaults = [
         ['icon' => 'fa-user-tie',     'title' => 'Expertise',    'desc' => 'Seasoned consultants with deep market knowledge.'],
         ['icon' => 'fa-headset',      'title' => 'Client First', 'desc' => 'Your satisfaction is our top priority, always.'],
     ],
+
+    // Bottom CTA card on /about.php (navy gradient panel above the footer).
+    'about_cta_label'           => "Let's Talk",
+    'about_cta_heading'         => 'Start your property journey today.',
+    'about_cta_sub'             => 'Speak to an expert consultant — no obligation, completely free advice. A real person will reply within minutes during business hours.',
+    'about_cta_primary_label'   => 'Chat on WhatsApp',
+    'about_cta_primary_url'     => '',
+    'about_cta_secondary_label' => 'Send a Message',
+    'about_cta_secondary_url'   => '',
+    'about_cta_hours'           => 'Mon–Sat 9am–7pm · Sun 11am–4pm',
+    'about_cta_badge_value'     => '',
+    'about_cta_badge_label'     => 'Years Trusted',
+
+    // ── Theme (live colour picker; injected as inline CSS in header.php) ──
+    'theme_primary'   => '#F5B301',   // gold accent (overrides --gold)
+    'theme_secondary' => '#0F2044',   // brand navy (overrides --navy-700)
+
+    // ── Homepage banners (hero + final CTA) ──
+    'hero_badge'      => "Pakistan's Trusted Real Estate Agency",
+    'hero_heading'    => "Smart real estate",
+    'hero_heading_accent' => "starts here.",
+    'hero_sub'        => "Authorised dealer for Bahria Town, DHA, Capital Smart City and Pakistan's leading developments. Verified listings across Islamabad, Rawalpindi, Lahore and Karachi.",
+    'hero_cta_primary_label'   => 'Browse Properties',
+    'hero_cta_primary_url'     => '',
+    'hero_cta_secondary_label' => 'WhatsApp Us',
+    'hero_cta_secondary_url'   => '',
+    'cta_heading'     => 'Ready to buy, sell, or rent?',
+    'cta_sub'         => "Message us. A real person will reply within minutes during business hours — no bots, no templates, no fluff.",
 ];
 
 $settings = array_merge($defaults, $settings);
@@ -279,9 +310,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . BASE_PATH . '/admin/settings.php?tab=preferences'); exit;
     }
 
+    if ($tab === 'theme') {
+        $isHex = static fn(string $v): bool => (bool)preg_match('/^#[0-9a-fA-F]{6}$/', $v);
+        $primary   = trim((string)($_POST['theme_primary']   ?? ''));
+        $secondary = trim((string)($_POST['theme_secondary'] ?? ''));
+        if (isset($_POST['reset_defaults'])) {
+            $primary   = '#F5B301';
+            $secondary = '#0F2044';
+        }
+        if (!$isHex($primary))   $primary   = $settings['theme_primary']   ?? '#F5B301';
+        if (!$isHex($secondary)) $secondary = $settings['theme_secondary'] ?? '#0F2044';
+        $settings['theme_primary']   = strtolower($primary);
+        $settings['theme_secondary'] = strtolower($secondary);
+        saveSettings($settingsFile, $settings);
+        auditLog('update','settings',0,'Updated theme colors');
+        setFlash('success', isset($_POST['reset_defaults']) ? 'Theme reset to defaults.' : 'Theme saved.');
+        header('Location: ' . BASE_PATH . '/admin/settings.php?tab=theme'); exit;
+    }
+
+    if ($tab === 'banners') {
+        $fields = [
+            'hero_badge','hero_heading','hero_heading_accent','hero_sub',
+            'hero_cta_primary_label','hero_cta_primary_url',
+            'hero_cta_secondary_label','hero_cta_secondary_url',
+            'cta_heading','cta_sub',
+        ];
+        foreach ($fields as $f) {
+            if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
+        }
+        saveSettings($settingsFile, $settings);
+        auditLog('update','settings',0,'Updated homepage banners');
+        setFlash('success', 'Banners saved.');
+        header('Location: ' . BASE_PATH . '/admin/settings.php?tab=banners'); exit;
+    }
+
     if ($tab === 'about') {
         // ── Story sub-section ───────────────────────────────────────
-        foreach (['about_story_label','about_story_heading','about_story_body','about_story_badge_value','about_story_badge_label'] as $f) {
+        foreach ([
+            'about_header_title','about_header_sub',
+            'about_story_label','about_story_heading','about_story_body','about_story_badge_value','about_story_badge_label',
+            'about_cta_label','about_cta_heading','about_cta_sub',
+            'about_cta_primary_label','about_cta_primary_url',
+            'about_cta_secondary_label','about_cta_secondary_url',
+            'about_cta_hours','about_cta_badge_value','about_cta_badge_label',
+        ] as $f) {
             if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
         }
 
@@ -490,6 +562,8 @@ include __DIR__ . '/includes/admin-sidebar.php';
       $tabs = [
         'agency'        => ['icon'=>'fa-building','label'=>'Agency Profile'],
         'about'         => ['icon'=>'fa-circle-info','label'=>'About Page'],
+        'banners'       => ['icon'=>'fa-flag','label'=>'Banners'],
+        'theme'         => ['icon'=>'fa-palette','label'=>'Theme'],
         'navigation'    => ['icon'=>'fa-bars','label'=>'Navigation'],
         'smtp'          => ['icon'=>'fa-envelope','label'=>'SMTP Config'],
         'notifications' => ['icon'=>'fa-bell','label'=>'Notifications'],
@@ -762,6 +836,29 @@ include __DIR__ . '/includes/admin-sidebar.php';
       <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="tab" value="about">
+
+        <!-- ─────────────── Page Header Banner ─────────────── -->
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-heading me-2" style="color:var(--gold);"></i>Page Header Banner
+        </h5>
+        <p class="text-muted small mb-3">The navy banner at the very top of <code>/about.php</code> (above the breadcrumb area).</p>
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Banner Title</label>
+            <input type="text" name="about_header_title" class="form-control" maxlength="160"
+                   placeholder="About Al-Riaz Associates"
+                   value="<?= htmlspecialchars($settings['about_header_title'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Banner Subtitle</label>
+            <input type="text" name="about_header_sub" class="form-control" maxlength="240"
+                   placeholder="Pakistan's trusted real estate partner since 2021"
+                   value="<?= htmlspecialchars($settings['about_header_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Leave empty to auto-generate "Pakistan's trusted real estate partner since &lt;year&gt;".</div>
+          </div>
+        </div>
+
+        <hr class="my-4">
 
         <div class="alert alert-info d-flex align-items-start gap-2 mb-4" role="alert">
           <i class="fa-solid fa-circle-info mt-1"></i>
@@ -1040,6 +1137,82 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <?php endfor; ?>
         </div>
 
+        <!-- ─────────────── Bottom CTA Card ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-bullhorn me-2" style="color:var(--gold);"></i>Bottom CTA Card
+        </h5>
+        <p class="text-muted small mb-3">The navy "Let's Talk" panel that sits above the footer on <code>/about.php</code>.</p>
+        <div class="row g-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">Eyebrow Label</label>
+            <input type="text" name="about_cta_label" class="form-control" maxlength="60"
+                   placeholder="Let's Talk"
+                   value="<?= htmlspecialchars($settings['about_cta_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-8">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="about_cta_heading" class="form-control" maxlength="160"
+                   placeholder="Start your property journey today."
+                   value="<?= htmlspecialchars($settings['about_cta_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-600">Sub-heading</label>
+            <textarea name="about_cta_sub" class="form-control" rows="2" maxlength="400"
+                      placeholder="Speak to an expert consultant..."><?= htmlspecialchars($settings['about_cta_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Primary Button Label</label>
+            <input type="text" name="about_cta_primary_label" class="form-control" maxlength="80"
+                   placeholder="Chat on WhatsApp"
+                   value="<?= htmlspecialchars($settings['about_cta_primary_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Primary Button URL</label>
+            <input type="text" name="about_cta_primary_url" class="form-control"
+                   placeholder="https://wa.me/..."
+                   value="<?= htmlspecialchars($settings['about_cta_primary_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Internal path or full URL. Leave empty for the default WhatsApp link.</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Secondary Button Label</label>
+            <input type="text" name="about_cta_secondary_label" class="form-control" maxlength="80"
+                   placeholder="Send a Message"
+                   value="<?= htmlspecialchars($settings['about_cta_secondary_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Secondary Button URL</label>
+            <input type="text" name="about_cta_secondary_url" class="form-control"
+                   placeholder="/contact.php"
+                   value="<?= htmlspecialchars($settings['about_cta_secondary_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Internal path or full URL. Leave empty for the default contact page.</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Hours line</label>
+            <input type="text" name="about_cta_hours" class="form-control" maxlength="160"
+                   placeholder="Mon–Sat 9am–7pm · Sun 11am–4pm"
+                   value="<?= htmlspecialchars($settings['about_cta_hours'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Short blurb shown under the buttons. Leave empty to hide.</div>
+          </div>
+
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-600">Badge Value</label>
+            <input type="text" name="about_cta_badge_value" class="form-control" maxlength="20"
+                   placeholder="auto"
+                   value="<?= htmlspecialchars($settings['about_cta_badge_value'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Big number in the gold circle. Leave empty to auto-fill from "Years Active".</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-600">Badge Label</label>
+            <input type="text" name="about_cta_badge_label" class="form-control" maxlength="40"
+                   placeholder="Years Trusted"
+                   value="<?= htmlspecialchars($settings['about_cta_badge_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+        </div>
+
         <div class="d-flex justify-content-end mt-4 pb-2">
           <button type="submit" class="btn btn-gold">
             <i class="fa-solid fa-floppy-disk me-1"></i> Save About Page
@@ -1297,6 +1470,198 @@ include __DIR__ . '/includes/admin-sidebar.php';
           </div>
         </div>
       </form>
+
+      <?php elseif ($activeTab === 'banners'): ?>
+      <!-- Banners Tab -->
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES,'UTF-8') ?>">
+        <input type="hidden" name="tab" value="banners">
+
+        <h5 class="fw-700 mb-3"><i class="fa-solid fa-house me-2" style="color:var(--gold)"></i>Homepage Hero</h5>
+        <div class="row g-3 mb-4">
+          <div class="col-12">
+            <label class="form-label fw-600">Badge text</label>
+            <input type="text" name="hero_badge" class="form-control"
+                   value="<?= htmlspecialchars($settings['hero_badge'], ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Small pill above the headline.</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Heading (line 1)</label>
+            <input type="text" name="hero_heading" class="form-control"
+                   value="<?= htmlspecialchars($settings['hero_heading'], ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Heading (accent line)</label>
+            <input type="text" name="hero_heading_accent" class="form-control"
+                   value="<?= htmlspecialchars($settings['hero_heading_accent'], ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Styled in the primary theme colour.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-600">Sub-heading</label>
+            <textarea name="hero_sub" class="form-control" rows="3"><?= htmlspecialchars($settings['hero_sub'], ENT_QUOTES, 'UTF-8') ?></textarea>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Primary CTA label</label>
+            <input type="text" name="hero_cta_primary_label" class="form-control"
+                   value="<?= htmlspecialchars($settings['hero_cta_primary_label'], ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Primary CTA URL</label>
+            <input type="text" name="hero_cta_primary_url" class="form-control"
+                   value="<?= htmlspecialchars($settings['hero_cta_primary_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                   placeholder="/listings.php">
+            <div class="form-text">Internal path (e.g. <code>/contact.php</code>) or full URL. Leave empty for the default listings page.</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Secondary CTA label</label>
+            <input type="text" name="hero_cta_secondary_label" class="form-control"
+                   value="<?= htmlspecialchars($settings['hero_cta_secondary_label'], ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Secondary CTA URL</label>
+            <input type="text" name="hero_cta_secondary_url" class="form-control"
+                   value="<?= htmlspecialchars($settings['hero_cta_secondary_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                   placeholder="https://wa.me/...">
+            <div class="form-text">Internal path or full URL. Leave empty for the default WhatsApp link.</div>
+          </div>
+        </div>
+
+        <h5 class="fw-700 mb-3"><i class="fa-solid fa-bullhorn me-2" style="color:var(--gold)"></i>Bottom Call-to-Action</h5>
+        <div class="row g-3 mb-4">
+          <div class="col-12">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="cta_heading" class="form-control"
+                   value="<?= htmlspecialchars($settings['cta_heading'], ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-600">Sub-heading</label>
+            <textarea name="cta_sub" class="form-control" rows="3"><?= htmlspecialchars($settings['cta_sub'], ENT_QUOTES, 'UTF-8') ?></textarea>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end">
+          <button type="submit" class="btn btn-gold px-4">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Save Banners
+          </button>
+        </div>
+      </form>
+
+      <?php elseif ($activeTab === 'theme'): ?>
+      <!-- Theme Tab -->
+      <form method="POST" id="themeForm">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES,'UTF-8') ?>">
+        <input type="hidden" name="tab" value="theme">
+
+        <p class="text-muted mb-4" style="font-size:0.92rem;">
+          Pick the two brand colours. The preview below updates instantly, and the change applies site-wide as soon as you click <strong>Save Theme</strong>.
+        </p>
+
+        <div class="row g-4 mb-4">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Primary (accent) colour</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="color" id="themePrimaryPicker" name="theme_primary"
+                     value="<?= htmlspecialchars($settings['theme_primary'], ENT_QUOTES, 'UTF-8') ?>"
+                     style="width:60px; height:46px; padding:0; border:1px solid #dee2e6; border-radius:8px; cursor:pointer;">
+              <input type="text" id="themePrimaryHex" class="form-control font-monospace"
+                     value="<?= htmlspecialchars($settings['theme_primary'], ENT_QUOTES, 'UTF-8') ?>"
+                     pattern="^#[0-9a-fA-F]{6}$" maxlength="7" style="max-width:140px;">
+            </div>
+            <div class="form-text">Replaces <code>--gold</code> across the site (buttons, accents, links).</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Secondary (brand) colour</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="color" id="themeSecondaryPicker" name="theme_secondary"
+                     value="<?= htmlspecialchars($settings['theme_secondary'], ENT_QUOTES, 'UTF-8') ?>"
+                     style="width:60px; height:46px; padding:0; border:1px solid #dee2e6; border-radius:8px; cursor:pointer;">
+              <input type="text" id="themeSecondaryHex" class="form-control font-monospace"
+                     value="<?= htmlspecialchars($settings['theme_secondary'], ENT_QUOTES, 'UTF-8') ?>"
+                     pattern="^#[0-9a-fA-F]{6}$" maxlength="7" style="max-width:140px;">
+            </div>
+            <div class="form-text">Replaces <code>--navy-700</code> (dark backgrounds, headings).</div>
+          </div>
+        </div>
+
+        <!-- Live preview -->
+        <div id="themePreviewWrap" class="mb-4" style="border:1px solid #e6ebf2; border-radius:12px; overflow:hidden;">
+          <div style="background: var(--preview-secondary); color:#fff; padding:1.5rem 2rem;">
+            <div style="font-size:0.78rem; opacity:.7; letter-spacing:.08em; text-transform:uppercase;">Preview</div>
+            <h3 style="margin:0; color:#fff;">
+              <span style="color:#fff;">Smart real estate </span>
+              <span style="color: var(--preview-primary);">starts here.</span>
+            </h3>
+            <p style="opacity:.75; margin:.5rem 0 1rem 0; font-size:.92rem;">
+              This is how the homepage hero will look with your chosen colours.
+            </p>
+            <div style="display:inline-flex; gap:.5rem;">
+              <button type="button"
+                      style="background: var(--preview-primary); color: var(--preview-secondary); border:none; padding:.5rem 1rem; border-radius:8px; font-weight:700; cursor:default;">
+                Primary CTA
+              </button>
+              <button type="button"
+                      style="background:transparent; color:#fff; border:1px solid #fff; padding:.5rem 1rem; border-radius:8px; cursor:default;">
+                Secondary CTA
+              </button>
+            </div>
+          </div>
+          <div style="background:#fff; padding:1.5rem 2rem;">
+            <div style="font-weight:700; color: var(--preview-secondary);">Featured Listing</div>
+            <div style="color: var(--preview-primary); font-weight:700; font-size:1.4rem;">PKR 1.5 Crore</div>
+            <a href="#" onclick="return false;" style="color: var(--preview-primary); text-decoration:none; font-weight:600;">
+              View details &rarr;
+            </a>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between gap-2">
+          <button type="submit" name="reset_defaults" value="1" class="btn btn-outline-secondary"
+                  data-confirm="Reset theme colours to the brand defaults?"
+                  data-confirm-title="Reset theme"
+                  data-confirm-ok="Reset"
+                  data-confirm-variant="warning">
+            <i class="fa-solid fa-rotate-left me-1"></i> Reset to defaults
+          </button>
+          <button type="submit" class="btn btn-gold px-4">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Save Theme
+          </button>
+        </div>
+      </form>
+
+      <script>
+      (function () {
+        var wrap = document.getElementById('themePreviewWrap');
+        if (!wrap) return;
+        var primaryPicker = document.getElementById('themePrimaryPicker');
+        var primaryHex    = document.getElementById('themePrimaryHex');
+        var secondaryPicker = document.getElementById('themeSecondaryPicker');
+        var secondaryHex    = document.getElementById('themeSecondaryHex');
+
+        function apply() {
+          wrap.style.setProperty('--preview-primary',   primaryPicker.value);
+          wrap.style.setProperty('--preview-secondary', secondaryPicker.value);
+        }
+        function syncFromPicker(picker, hex) {
+          hex.value = picker.value.toLowerCase();
+          apply();
+        }
+        function syncFromHex(picker, hex) {
+          var v = hex.value.trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+            picker.value = v;
+            apply();
+          }
+        }
+
+        primaryPicker.addEventListener('input',   function () { syncFromPicker(primaryPicker, primaryHex); });
+        primaryHex.addEventListener('input',      function () { syncFromHex(primaryPicker, primaryHex); });
+        secondaryPicker.addEventListener('input', function () { syncFromPicker(secondaryPicker, secondaryHex); });
+        secondaryHex.addEventListener('input',    function () { syncFromHex(secondaryPicker, secondaryHex); });
+
+        apply();
+      })();
+      </script>
 
       <?php elseif ($activeTab === 'preferences'): ?>
       <!-- Preferences Tab -->

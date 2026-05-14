@@ -71,11 +71,17 @@ require_once 'includes/header.php';
 <!-- ============================================================
      PAGE HEADER
      ============================================================ -->
+<?php
+    $headerSettings = function_exists('getSettings') ? getSettings() : [];
+    $headerTitle = trim((string)($headerSettings['about_header_title'] ?? '')) ?: 'About Al-Riaz Associates';
+    $headerSub   = trim((string)($headerSettings['about_header_sub']   ?? ''))
+                 ?: "Pakistan's trusted real estate partner since " . (date('Y') - $yearsActive);
+?>
 <div class="page-header">
     <div class="container">
         <?= generateBreadcrumb([['label'=>'Home','url'=>'/'],['label'=>'About Us']]) ?>
-        <h1 class="page-header-title">About Al-Riaz Associates</h1>
-        <p class="page-header-sub">Pakistan's trusted real estate partner since <?= date('Y') - $yearsActive ?></p>
+        <h1 class="page-header-title"><?= htmlspecialchars($headerTitle, ENT_QUOTES, 'UTF-8') ?></h1>
+        <p class="page-header-sub"><?= htmlspecialchars($headerSub, ENT_QUOTES, 'UTF-8') ?></p>
     </div>
 </div>
 
@@ -955,37 +961,72 @@ foreach ($aboutBranches as $br) {
 <!-- ============================================================
      CTA
      ============================================================ -->
+<?php
+    $cta = function_exists('getSettings') ? getSettings() : [];
+
+    $ctaLabel   = trim((string)($cta['about_cta_label']   ?? '')) ?: "Let's Talk";
+    $ctaHeading = trim((string)($cta['about_cta_heading'] ?? '')) ?: 'Start your property journey today.';
+    $ctaSub     = trim((string)($cta['about_cta_sub']     ?? ''))
+                ?: 'Speak to an expert consultant — no obligation, completely free advice. A real person will reply within minutes during business hours.';
+
+    $ctaPrimaryLbl   = trim((string)($cta['about_cta_primary_label']   ?? '')) ?: 'Chat on WhatsApp';
+    $ctaSecondaryLbl = trim((string)($cta['about_cta_secondary_label'] ?? '')) ?: 'Send a Message';
+
+    $ctaHours   = trim((string)($cta['about_cta_hours'] ?? 'Mon–Sat 9am–7pm · Sun 11am–4pm'));
+
+    $ctaBadgeVal = trim((string)($cta['about_cta_badge_value'] ?? '')) ?: ($yearsActive . '+');
+    $ctaBadgeLbl = trim((string)($cta['about_cta_badge_label'] ?? '')) ?: 'Years Trusted';
+
+    // Same URL-resolver pattern as the homepage: empty → default, absolute path
+    // gets BASE_PATH prepended, external schemes open in a new tab.
+    $resolveCtaUrl = static function (string $value, string $default): array {
+        $v = trim($value) !== '' ? trim($value) : $default;
+        $isExternal = (bool)preg_match('#^(https?:|mailto:|tel:|//)#i', $v);
+        if (!$isExternal && str_starts_with($v, '/')) {
+            $v = BASE_PATH . $v;
+        }
+        return [$v, $isExternal];
+    };
+    [$ctaPrimaryHref,   $ctaPrimaryExt]   = $resolveCtaUrl(
+        (string)($cta['about_cta_primary_url']   ?? ''),
+        waLink(SITE_WHATSAPP, 'Hello! I visited your website and would like to discuss a property.')
+    );
+    [$ctaSecondaryHref, $ctaSecondaryExt] = $resolveCtaUrl(
+        (string)($cta['about_cta_secondary_url'] ?? ''),
+        '/contact.php'
+    );
+?>
 <section class="final-cta-section">
     <div class="container">
         <div class="final-cta-card reveal">
             <div class="final-cta-backdrop" aria-hidden="true"></div>
             <div class="final-cta-inner">
                 <div class="final-cta-left">
-                    <div class="section-label on-dark" style="justify-content:flex-start;">Let's Talk</div>
-                    <h2 class="final-cta-heading">Start your property journey today.</h2>
+                    <div class="section-label on-dark" style="justify-content:flex-start;"><?= htmlspecialchars($ctaLabel, ENT_QUOTES, 'UTF-8') ?></div>
+                    <h2 class="final-cta-heading"><?= htmlspecialchars($ctaHeading, ENT_QUOTES, 'UTF-8') ?></h2>
                     <p class="final-cta-sub">
-                        Speak to an expert consultant — no obligation, completely free advice. A real person
-                        will reply within minutes during business hours.
+                        <?= htmlspecialchars($ctaSub, ENT_QUOTES, 'UTF-8') ?>
                     </p>
                     <div class="final-cta-actions">
-                        <a href="<?= waLink(SITE_WHATSAPP, "Hello! I visited your website and would like to discuss a property.") ?>"
-                           target="_blank" rel="noopener noreferrer" class="btn-gold">
-                            <i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp
+                        <a href="<?= htmlspecialchars($ctaPrimaryHref, ENT_QUOTES, 'UTF-8') ?>" class="btn-gold"<?= $ctaPrimaryExt ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
+                            <i class="fa-brands fa-whatsapp"></i> <?= htmlspecialchars($ctaPrimaryLbl, ENT_QUOTES, 'UTF-8') ?>
                         </a>
-                        <a href="<?= $b ?>/contact.php" class="btn-outline-white">
-                            <i class="fa-solid fa-envelope"></i> Send a Message
+                        <a href="<?= htmlspecialchars($ctaSecondaryHref, ENT_QUOTES, 'UTF-8') ?>" class="btn-outline-white"<?= $ctaSecondaryExt ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
+                            <i class="fa-solid fa-envelope"></i> <?= htmlspecialchars($ctaSecondaryLbl, ENT_QUOTES, 'UTF-8') ?>
                         </a>
                     </div>
+                    <?php if ($ctaHours !== ''): ?>
                     <div class="final-cta-hours">
                         <i class="fa-solid fa-clock"></i>
-                        Mon–Sat 9am–7pm · Sun 11am–4pm
+                        <?= htmlspecialchars($ctaHours, ENT_QUOTES, 'UTF-8') ?>
                     </div>
+                    <?php endif; ?>
                 </div>
                 <div class="final-cta-right" aria-hidden="true">
                     <div class="final-cta-orb"></div>
                     <div class="final-cta-badge">
-                        <div class="final-cta-badge-num"><?= $yearsActive ?>+</div>
-                        <div class="final-cta-badge-lbl">Years<br>Trusted</div>
+                        <div class="final-cta-badge-num"><?= htmlspecialchars($ctaBadgeVal, ENT_QUOTES, 'UTF-8') ?></div>
+                        <div class="final-cta-badge-lbl"><?= nl2br(htmlspecialchars($ctaBadgeLbl, ENT_QUOTES, 'UTF-8')) ?></div>
                     </div>
                 </div>
             </div>
