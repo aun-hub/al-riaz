@@ -1,8 +1,8 @@
 {
     "agency_name": "Al Riaz Associates",
     "agency_tagline": "Your Trusted Real Estate Partner in Pakistan",
-    "phone": "+92 300 123 4567",
-    "whatsapp": "923001234567",
+    "phone": "+92 333 9776371",
+    "whatsapp": "923009776371",
     "email": "info@alriazassociates.pk",
     "address": "Islamabad, Pakistan",
     "business_hours": "Mon–Sat: 9:00 AM – 7:00 PM\nSunday: 11:00 AM – 4:00 PM",
@@ -23,7 +23,7 @@
     "about_story_heading": "Built on Trust & Transparency",
     "about_story_body": "Al Riaz Associates was founded with a clear mission: to bring transparency, integrity, and professionalism to Pakistan's real estate market. Based in the heart of Islamabad, we began as a small consultancy helping families find their dream homes in Rawalpindi and Islamabad.\r\n\r\nOver the years, we have grown into a full-service real estate agency, becoming an **authorised dealer** for Pakistan's most prestigious developments including Bahria Town, DHA, Capital Smart City, Gulberg Greens, and Blue World City.\r\n\r\nToday, our team of experienced property consultants serves clients across Islamabad, Rawalpindi, Lahore, and Karachi — offering verified listings, transparent pricing, and end-to-end support from property search to final possession.",
     "about_story_image": "",
-    "about_story_badge_value": "5+ Years",
+    "about_story_badge_value": "13+ Years",
     "about_story_badge_label": "In Real Estate",
     "about_stats": [
         {
@@ -105,7 +105,7 @@
     "about_cta_secondary_label": "Send a Message",
     "about_cta_secondary_url": "",
     "about_cta_hours": "Mon–Sat 9am–7pm · Sun 11am–4pm",
-    "about_cta_badge_value": "",
+    "about_cta_badge_value": "13+",
     "about_cta_badge_label": "Years Trusted",
     "theme_primary": "#f5b301",
     "theme_secondary": "#0f2044",
@@ -117,8 +117,124 @@
     "hero_cta_primary_url": "",
     "hero_cta_secondary_label": "WhatsApp Us",
     "hero_cta_secondary_url": "",
+    "cta_label": "Let's Talk",
     "cta_heading": "Ready to buy, sell, or rent?",
     "cta_sub": "Message us. A real person will reply within minutes during business hours — no bots, no templates, no fluff.",
+    "cta_primary_label": "Chat on WhatsApp",
+    "cta_primary_url": "",
+    "cta_secondary_label": "Contact Form",
+    "cta_secondary_url": "",
+    "cta_hours": "Mon–Sat 9am–7pm · Sun 11am–4pm",
+    "cta_badge_value": "13+",
+    "cta_badge_label": "Years Trusted",
+    "home_stats": [
+        {
+            "value": "50+",
+            "label": "Properties"
+        },
+        {
+            "value": "500+",
+            "label": "Happy Clients"
+        },
+        {
+            "value": "13+",
+            "label": "Years Active"
+        }
+    ],
+    "home_strip_stats": [
+        {
+            "value": "50",
+            "label": "Properties Listed"
+        },
+        {
+            "value": "500",
+            "label": "Happy Clients"
+        },
+        {
+            "value": "10",
+            "label": "Projects Authorised"
+        },
+        {
+            "value": "13",
+            "label": "Years in Business"
+        }
+    ],
+    "hero_mosaic_main": "",
+    "hero_mosaic_tile1": "",
+    "hero_mosaic_tile2": "",
+    "hero_rating_score": "",
+    "hero_rating_caption": "From {count}+ happy clients",
+    "hero_dev_tags": [
+        "LSC",
+        "DHA",
+        "CSC"
+    ],
+    "hero_dev_count_override": "",
+    "hero_dev_label": "Authorized property consultant",
+    "intent_label": "Get Started",
+    "intent_heading": "What are you looking for?",
+    "intent_sub": "Pick your path — we'll take it from there.",
+    "intent_cards": [
+        {
+            "icon": "fa-house-chimney",
+            "title": "Buy a Property",
+            "desc": "Verified houses, flats, plots, and commercial units across Pakistan's top cities.",
+            "cta_label": "Browse to buy",
+            "cta_url": "\/listings.php?purpose=sale",
+            "highlight": "1"
+        },
+        {
+            "icon": "fa-key",
+            "title": "Rent a Place",
+            "desc": "Monthly rentals — apartments, offices, shops, and more with verified owners.",
+            "cta_label": "Browse rentals",
+            "cta_url": "\/listings.php?purpose=rent",
+            "highlight": "1"
+        },
+        {
+            "icon": "fa-chart-line",
+            "title": "Invest in Projects",
+            "desc": "Authorised launches from Bahria, DHA, Capital Smart City, and more — file-level entry points.",
+            "cta_label": "View projects",
+            "cta_url": "\/projects.php",
+            "highlight": "1"
+        }
+    ],
+    "why_label": "Why Us",
+    "why_heading": "Why Choose Al Riaz Associates?",
+    "why_sub": "2013",
+    "why_cards": [
+        {
+            "icon": "fa-certificate",
+            "title": "Authorized Dealer",
+            "desc": "Officially authorised for Bahria Town, DHA, Capital Smart City, Blue World City, Gulberg Greens, and more. All listings are verified and legitimate."
+        },
+        {
+            "icon": "fa-brands fa-whatsapp",
+            "title": "WhatsApp-First Support",
+            "desc": "Reach us instantly via WhatsApp for inquiries, site visits, and payment plans. Our team responds within minutes during business hours."
+        },
+        {
+            "icon": "fa-shield-halved",
+            "title": "Verified Listings",
+            "desc": "Every property undergoes thorough verification. We ensure accurate pricing, legal status, and ownership documentation before listing."
+        },
+        {
+            "icon": "fa-handshake",
+            "title": "Expert Negotiation",
+            "desc": "Our seasoned agents negotiate the best deals on your behalf — whether you're buying, selling, or renting. We protect your investment."
+        },
+        {
+            "icon": "fa-file-contract",
+            "title": "Legal Documentation",
+            "desc": "We guide you through all paperwork — registry, NOC, transfer letters, and payment receipts — ensuring a smooth, stress-free transaction."
+        },
+        {
+            "icon": "fa-chart-line",
+            "title": "Investment Advice",
+            "desc": "Get expert guidance on high-yield investment opportunities, upcoming projects, and market trends to maximise your returns."
+        }
+    ],
     "smtp_host": "sandbox.smtp.mailtrap.io",
     "smtp_port": "587",
     "smtp_user": "e209a868c7f3fb",

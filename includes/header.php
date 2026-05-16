@@ -27,6 +27,15 @@ foreach (getNavItems('header') as $item) {
     $navLinks[] = ['href' => $item['url'], 'label' => $item['label']];
 }
 
+// Auto-append Notices if the admin hasn't added it themselves yet.
+$hasNotices = false;
+foreach ($navLinks as $link) {
+    if (preg_match('~/?notices\.php$~', (string)$link['href'])) { $hasNotices = true; break; }
+}
+if (!$hasNotices) {
+    $navLinks[] = ['href' => '/notices.php', 'label' => 'Notices'];
+}
+
 // Legacy single-category entry points should still light up the Properties nav.
 $propertiesAliases = ['/listings.php', '/residential.php', '/commercial.php', '/rent.php'];
 
@@ -57,8 +66,10 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
 
     <title><?= $pageTitle ? $pageTitle . ' | ' . SITE_NAME : SITE_NAME ?></title>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="<?= $b ?>/assets/images/favicon.png">
+    <!-- Favicon (admin logo when configured, bundled default otherwise) -->
+    <?php $fav = faviconAsset(); ?>
+    <link rel="icon" type="<?= htmlspecialchars($fav['mime'], ENT_QUOTES, 'UTF-8') ?>" href="<?= htmlspecialchars($fav['url'], ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars($fav['url'], ENT_QUOTES, 'UTF-8') ?>">
 
     <!-- Google Fonts: Plus Jakarta Sans + Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

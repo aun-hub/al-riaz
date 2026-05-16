@@ -13,7 +13,7 @@ $db = Database::getInstance();
 $featuredProjects = [];
 try {
     $stmt = $db->prepare(
-        'SELECT id, slug, name, developer, city, status, hero_image_url, area_locality
+        'SELECT id, slug, name, developer, city, status, hero_image_url, area_locality, website_url
          FROM projects
          WHERE is_featured = 1 AND is_published = 1
          ORDER BY created_at DESC
@@ -74,6 +74,16 @@ try {
     if ($c > 0) $totalProjects = $c;
 } catch (Exception $e) {}
 
+// Live review aggregate for the hero rating card (degrades silently if the
+// reviews table doesn't exist yet).
+$reviewAvg   = 0.0;
+$reviewCount = 0;
+try {
+    $stat = $db->query("SELECT COUNT(*) AS c, AVG(rating) AS avg_rating FROM reviews WHERE status='approved'")->fetch();
+    $reviewCount = (int)($stat['c'] ?? 0);
+    $reviewAvg   = $reviewCount > 0 ? (float)$stat['avg_rating'] : 0.0;
+} catch (Exception $e) {}
+
 $pageTitle = 'Al-Riaz Associates — Islamabad & Rawalpindi Real Estate';
 $metaDesc  = 'Al-Riaz Associates — Authorised dealer for top real estate projects in Islamabad, Rawalpindi, Lahore & Karachi. Buy, sell, or rent with Pakistan\'s trusted agency.';
 
@@ -94,13 +104,114 @@ $resolveCtaUrl = static function (string $value, string $default): array {
 [$heroPrimaryHref,   $heroPrimaryExt]   = $resolveCtaUrl($homeSettings['hero_cta_primary_url']   ?? '', '/listings.php');
 [$heroSecondaryHref, $heroSecondaryExt] = $resolveCtaUrl($homeSettings['hero_cta_secondary_url'] ?? '', waLink(SITE_WHATSAPP, "Hi, I'm interested in a property. Can you help?"));
 
+// Helper: pick value at $idx from a settings array; fall back to $default if blank.
+$pickStat = static function (array $rows, int $idx, string $key, string $default): string {
+    $row = $rows[$idx] ?? [];
+    $v   = trim((string)($row[$key] ?? ''));
+    return $v !== '' ? $v : $default;
+};
+
+// Hero stats strip (3 cells).
+$homeStatsCfg     = $homeSettings['home_stats'] ?? [];
+$heroStatDefaults = [
+    ['value' => $totalListings . '+', 'label' => 'Properties'],
+    ['value' => $happyClients  . '+', 'label' => 'Happy Clients'],
+    ['value' => $yearsActive   . '+', 'label' => 'Years Active'],
+];
+$heroStats = [];
+for ($i = 0; $i < 3; $i++) {
+    $heroStats[] = [
+        'value' => $pickStat($homeStatsCfg, $i, 'value', $heroStatDefaults[$i]['value']),
+        'label' => $pickStat($homeStatsCfg, $i, 'label', $heroStatDefaults[$i]['label']),
+    ];
+}
+
+// Wide stats band (4 cells, animated counters).
+$stripCfg     = $homeSettings['home_strip_stats'] ?? [];
+$stripDefaults = [
+    ['value' => (string)$totalListings, 'label' => 'Properties Listed'],
+    ['value' => (string)$happyClients,  'label' => 'Happy Clients'],
+    ['value' => (string)$totalProjects, 'label' => 'Projects Authorised'],
+    ['value' => (string)$yearsActive,   'label' => 'Years in Business'],
+];
+$stripStats = [];
+for ($i = 0; $i < 4; $i++) {
+    $stripStats[] = [
+        'value' => $pickStat($stripCfg, $i, 'value', $stripDefaults[$i]['value']),
+        'label' => $pickStat($stripCfg, $i, 'label', $stripDefaults[$i]['label']),
+    ];
+}
+
+// Hero floating rating card.
+$ratingScore = trim((string)($homeSettings['hero_rating_score'] ?? ''));
+if ($ratingScore === '') {
+    $ratingScore = $reviewCount > 0
+        ? number_format($reviewAvg, 1) . '/5'
+        : '4.9/5';
+}
+$ratingCaptionTpl = trim((string)($homeSettings['hero_rating_caption'] ?? '')) ?: 'From {count}+ happy clients';
+$ratingCaption   = strtr($ratingCaptionTpl, [
+    '{count}'   => (string)($reviewCount > 0 ? $reviewCount : $happyClients),
+    '{clients}' => (string)$happyClients,
+]);
+
+// Hero floating developers card.
+$devTagsCfg = (array)($homeSettings['hero_dev_tags'] ?? []);
+$devTagsDef = ['BT','DHA','CSC'];
+$devTags    = [];
+for ($i = 0; $i < 3; $i++) {
+    $t = trim((string)($devTagsCfg[$i] ?? ''));
+    $devTags[] = $t !== '' ? $t : $devTagsDef[$i];
+}
+$devCountOverride = trim((string)($homeSettings['hero_dev_count_override'] ?? ''));
+$devCount         = $devCountOverride !== '' ? $devCountOverride : (string)$totalProjects;
+$devLabel         = trim((string)($homeSettings['hero_dev_label'] ?? '')) ?: 'Authorised Developers';
+
+// Intent cards section.
+$intentLabel   = trim((string)($homeSettings['intent_label']   ?? '')) ?: 'Get Started';
+$intentHeading = trim((string)($homeSettings['intent_heading'] ?? '')) ?: 'What are you looking for?';
+$intentSub     = trim((string)($homeSettings['intent_sub']     ?? '')) ?: "Pick your path — we'll take it from there.";
+$intentCards   = (array)($homeSettings['intent_cards'] ?? []);
+
+// Why-choose section.
+$whyLabel   = trim((string)($homeSettings['why_label']   ?? '')) ?: 'Why Us';
+$whyHeading = trim((string)($homeSettings['why_heading'] ?? '')) ?: 'Why Choose Al-Riaz Associates?';
+$whySub     = trim((string)($homeSettings['why_sub']     ?? ''))
+            ?: 'Your trusted real estate partner in Pakistan since ' . (date('Y') - $yearsActive);
+$whyCards   = (array)($homeSettings['why_cards'] ?? []);
+
+// Bottom CTA banner.
+$homeCtaLabel        = trim((string)($homeSettings['cta_label']           ?? '')) ?: "Let's Talk";
+$homeCtaHeading      = trim((string)($homeSettings['cta_heading']         ?? '')) ?: 'Ready to buy, sell, or rent?';
+$homeCtaSub          = trim((string)($homeSettings['cta_sub']             ?? ''))
+                     ?: "Message us. A real person will reply within minutes during business hours — no bots, no templates, no fluff.";
+$homeCtaPrimaryLbl   = trim((string)($homeSettings['cta_primary_label']   ?? '')) ?: 'Chat on WhatsApp';
+$homeCtaSecondaryLbl = trim((string)($homeSettings['cta_secondary_label'] ?? '')) ?: 'Contact Form';
+$homeCtaHours        = trim((string)($homeSettings['cta_hours']           ?? 'Mon–Sat 9am–7pm · Sun 11am–4pm'));
+$homeCtaBadgeVal     = trim((string)($homeSettings['cta_badge_value']     ?? '')) ?: ($yearsActive . '+');
+$homeCtaBadgeLbl     = trim((string)($homeSettings['cta_badge_label']     ?? '')) ?: 'Years Trusted';
+[$homeCtaPrimaryHref,   $homeCtaPrimaryExt]   = $resolveCtaUrl(
+    (string)($homeSettings['cta_primary_url']   ?? ''),
+    waLink(SITE_WHATSAPP, "Hello! I'm interested in buying/renting a property. Can you help?")
+);
+[$homeCtaSecondaryHref, $homeCtaSecondaryExt] = $resolveCtaUrl(
+    (string)($homeSettings['cta_secondary_url'] ?? ''),
+    '/contact.php'
+);
+
 require_once 'includes/header.php';
 
-// Stock hero images — replace once you upload real ones
-$heroHero   = 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80';
-$heroTile1  = 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
-$heroTile2  = 'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=600&q=80';
-$heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80';
+// Hero mosaic — uploaded image overrides the stock fallback.
+$heroHero  = !empty($homeSettings['hero_mosaic_main'])
+    ? mediaUrl($homeSettings['hero_mosaic_main'])
+    : 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80';
+$heroTile1 = !empty($homeSettings['hero_mosaic_tile1'])
+    ? mediaUrl($homeSettings['hero_mosaic_tile1'])
+    : 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=600&q=80';
+$heroTile2 = !empty($homeSettings['hero_mosaic_tile2'])
+    ? mediaUrl($homeSettings['hero_mosaic_tile2'])
+    : 'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=600&q=80';
+$heroTile3 = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80';
 ?>
 
 <!-- ════════════════════════════════════════════════════════════
@@ -141,18 +252,12 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
                 </div>
 
                 <div class="hero-stats">
+                    <?php foreach ($heroStats as $s): ?>
                     <div>
-                        <div class="hero-stat-value"><?= $totalListings ?>+</div>
-                        <div class="hero-stat-label">Properties</div>
+                        <div class="hero-stat-value"><?= htmlspecialchars($s['value'], ENT_QUOTES, 'UTF-8') ?></div>
+                        <div class="hero-stat-label"><?= htmlspecialchars($s['label'], ENT_QUOTES, 'UTF-8') ?></div>
                     </div>
-                    <div>
-                        <div class="hero-stat-value"><?= $happyClients ?>+</div>
-                        <div class="hero-stat-label">Happy Clients</div>
-                    </div>
-                    <div>
-                        <div class="hero-stat-value"><?= $yearsActive ?>+</div>
-                        <div class="hero-stat-label">Years Active</div>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
 
@@ -174,20 +279,20 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
                     <div class="hero-float-card hero-float-card-rating">
                         <div class="hero-float-rating">
                             <div class="stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                            <div class="hero-float-rating-score">4.9/5</div>
+                            <div class="hero-float-rating-score"><?= htmlspecialchars($ratingScore, ENT_QUOTES, 'UTF-8') ?></div>
                         </div>
-                        <div class="hero-float-rating-sub">From <strong><?= $happyClients ?>+</strong> happy clients</div>
+                        <div class="hero-float-rating-sub"><?= htmlspecialchars($ratingCaption, ENT_QUOTES, 'UTF-8') ?></div>
                     </div>
 
                     <!-- floating developers card -->
                     <div class="hero-float-card hero-float-card-devs">
                         <div class="hero-float-devs-row">
-                            <div class="hero-float-dev">BT</div>
-                            <div class="hero-float-dev">DHA</div>
-                            <div class="hero-float-dev">CSC</div>
-                            <div class="hero-float-dev">+<?= $totalProjects ?></div>
+                            <?php foreach ($devTags as $tag): ?>
+                            <div class="hero-float-dev"><?= htmlspecialchars($tag, ENT_QUOTES, 'UTF-8') ?></div>
+                            <?php endforeach; ?>
+                            <div class="hero-float-dev">+<?= htmlspecialchars($devCount, ENT_QUOTES, 'UTF-8') ?></div>
                         </div>
-                        <div class="hero-float-devs-label">Authorised Developers</div>
+                        <div class="hero-float-devs-label"><?= htmlspecialchars($devLabel, ENT_QUOTES, 'UTF-8') ?></div>
                     </div>
                 </div>
             </div>
@@ -275,42 +380,34 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
 <section class="section">
     <div class="container">
         <div class="section-header center reveal">
-            <div class="section-label">Get Started</div>
-            <h2 class="section-title">What are you looking for?</h2>
-            <p class="section-subtitle">Pick your path — we'll take it from there.</p>
+            <div class="section-label"><?= htmlspecialchars($intentLabel, ENT_QUOTES, 'UTF-8') ?></div>
+            <h2 class="section-title"><?= htmlspecialchars($intentHeading, ENT_QUOTES, 'UTF-8') ?></h2>
+            <p class="section-subtitle"><?= htmlspecialchars($intentSub, ENT_QUOTES, 'UTF-8') ?></p>
         </div>
 
         <div class="row g-4 reveal-stagger">
+            <?php foreach ($intentCards as $card):
+                $icon      = trim((string)($card['icon']      ?? 'fa-house'));
+                $title     = trim((string)($card['title']     ?? ''));
+                $desc      = trim((string)($card['desc']      ?? ''));
+                $ctaLabel  = trim((string)($card['cta_label'] ?? ''));
+                $highlight = (string)($card['highlight'] ?? '0') === '1';
+                [$cardHref, $cardExt] = $resolveCtaUrl((string)($card['cta_url'] ?? ''), '/listings.php');
+                $cls = 'intent-card' . ($highlight ? ' intent-card-gold' : '');
+            ?>
             <div class="col-12 col-md-4">
-                <a href="<?= $b ?>/listings.php?purpose=sale" class="intent-card">
-                    <div class="intent-icon"><i class="fa-solid fa-house-chimney"></i></div>
+                <a href="<?= htmlspecialchars($cardHref, ENT_QUOTES, 'UTF-8') ?>" class="<?= $cls ?>"<?= $cardExt ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
+                    <div class="intent-icon"><i class="fa-solid <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i></div>
                     <div class="intent-body">
-                        <div class="intent-title">Buy a Property</div>
-                        <p class="intent-desc">Verified houses, flats, plots, and commercial units across Pakistan's top cities.</p>
-                        <span class="intent-arrow">Browse to buy <i class="fa-solid fa-arrow-right"></i></span>
+                        <div class="intent-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></div>
+                        <p class="intent-desc"><?= htmlspecialchars($desc, ENT_QUOTES, 'UTF-8') ?></p>
+                        <?php if ($ctaLabel !== ''): ?>
+                        <span class="intent-arrow"><?= htmlspecialchars($ctaLabel, ENT_QUOTES, 'UTF-8') ?> <i class="fa-solid fa-arrow-right"></i></span>
+                        <?php endif; ?>
                     </div>
                 </a>
             </div>
-            <div class="col-12 col-md-4">
-                <a href="<?= $b ?>/listings.php?purpose=rent" class="intent-card intent-card-gold">
-                    <div class="intent-icon"><i class="fa-solid fa-key"></i></div>
-                    <div class="intent-body">
-                        <div class="intent-title">Rent a Place</div>
-                        <p class="intent-desc">Monthly rentals — apartments, offices, shops, and more with verified owners.</p>
-                        <span class="intent-arrow">Browse rentals <i class="fa-solid fa-arrow-right"></i></span>
-                    </div>
-                </a>
-            </div>
-            <div class="col-12 col-md-4">
-                <a href="<?= $b ?>/projects.php" class="intent-card">
-                    <div class="intent-icon"><i class="fa-solid fa-chart-line"></i></div>
-                    <div class="intent-body">
-                        <div class="intent-title">Invest in Projects</div>
-                        <p class="intent-desc">Authorised launches from Bahria, DHA, Capital Smart City, and more — file-level entry points.</p>
-                        <span class="intent-arrow">View projects <i class="fa-solid fa-arrow-right"></i></span>
-                    </div>
-                </a>
-            </div>
+            <?php endforeach; ?>
         </div>
     </div>
 </section>
@@ -484,11 +581,14 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
                     'sold_out'          => ['Sold Out',         'project-status-sold'],
                 ];
                 [$statusLabel, $statusClass] = $statusMap[$status] ?? [ucfirst(str_replace('_',' ',$status)), 'project-status-upcoming'];
+                $pvl = projectViewLink($project, $b);
+                $linkAttr = htmlspecialchars($pvl['href'], ENT_QUOTES, 'UTF-8')
+                          . ($pvl['target'] ? '" target="'.$pvl['target'].'" rel="'.$pvl['rel'] : '');
             ?>
             <div class="col-12 col-sm-6 col-lg-4">
                 <div class="project-card">
                     <div class="project-card-img">
-                        <a href="<?= $b ?>/project.php?slug=<?= $slug ?>" aria-label="<?= $name ?>">
+                        <a href="<?= $linkAttr ?>" aria-label="<?= $name ?>">
                             <img src="<?= $imgUrl ?>" alt="<?= $name ?>" loading="lazy" onerror="this.src='https://picsum.photos/id/1029/600/380'">
                         </a>
                     </div>
@@ -498,7 +598,7 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
                             <?= $statusLabel ?>
                         </div>
                         <div class="project-title">
-                            <a href="<?= $b ?>/project.php?slug=<?= $slug ?>" style="color:inherit;"><?= $name ?></a>
+                            <a href="<?= $linkAttr ?>" style="color:inherit;"><?= $name ?><?= $pvl['external'] ? ' <i class="fa-solid fa-arrow-up-right-from-square fa-2xs ms-1" style="color:var(--text-secondary);" aria-label="opens external site"></i>' : '' ?></a>
                         </div>
                         <?php if ($dev): ?>
                         <div class="project-location" style="color:var(--navy-400); font-weight:600;">
@@ -512,8 +612,8 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
                         </div>
                         <?php endif; ?>
                         <div style="margin-top:1rem;">
-                            <a href="<?= $b ?>/project.php?slug=<?= $slug ?>" class="btn-navy" style="font-size:0.8rem; padding:0.55rem 1.25rem;">
-                                View Project <i class="fa-solid fa-arrow-right"></i>
+                            <a href="<?= $linkAttr ?>" class="btn-navy" style="font-size:0.8rem; padding:0.55rem 1.25rem;">
+                                View Project <i class="fa-solid <?= $pvl['external'] ? 'fa-arrow-up-right-from-square' : 'fa-arrow-right' ?>"></i>
                             </a>
                         </div>
                     </div>
@@ -537,38 +637,24 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
 <section class="stats-section">
     <div class="container">
         <div class="row g-4 text-center reveal-stagger">
+            <?php foreach ($stripStats as $s):
+                // If the value is a pure number the JS counter animates from 0; otherwise we
+                // just print it verbatim (e.g. admin entered "10K" or "Top 5").
+                $isNumeric = preg_match('/^\d+$/', $s['value']) === 1;
+            ?>
             <div class="col-6 col-lg-3">
                 <div class="stat-card">
                     <div class="stat-number">
-                        <span data-count-to="<?= $totalListings ?>">0</span><span class="suffix">+</span>
+                        <?php if ($isNumeric): ?>
+                            <span data-count-to="<?= (int)$s['value'] ?>">0</span><span class="suffix">+</span>
+                        <?php else: ?>
+                            <span><?= htmlspecialchars($s['value'], ENT_QUOTES, 'UTF-8') ?></span><span class="suffix">+</span>
+                        <?php endif; ?>
                     </div>
-                    <div class="stat-label">Properties Listed</div>
+                    <div class="stat-label"><?= htmlspecialchars($s['label'], ENT_QUOTES, 'UTF-8') ?></div>
                 </div>
             </div>
-            <div class="col-6 col-lg-3">
-                <div class="stat-card">
-                    <div class="stat-number">
-                        <span data-count-to="<?= $happyClients ?>">0</span><span class="suffix">+</span>
-                    </div>
-                    <div class="stat-label">Happy Clients</div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-3">
-                <div class="stat-card">
-                    <div class="stat-number">
-                        <span data-count-to="<?= $totalProjects ?>">0</span><span class="suffix">+</span>
-                    </div>
-                    <div class="stat-label">Projects Authorised</div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-3">
-                <div class="stat-card">
-                    <div class="stat-number">
-                        <span data-count-to="<?= $yearsActive ?>">0</span><span class="suffix">+</span>
-                    </div>
-                    <div class="stat-label">Years in Business</div>
-                </div>
-            </div>
+            <?php endforeach; ?>
         </div>
     </div>
 </section>
@@ -622,31 +708,32 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
 <section class="section" style="background:var(--gray-50);">
     <div class="container">
         <div class="section-header center reveal">
-            <div class="section-label">Why Us</div>
-            <h2 class="section-title">Why Choose Al-Riaz Associates?</h2>
-            <p class="section-subtitle">Your trusted real estate partner in Pakistan since <?= date('Y') - $yearsActive ?></p>
+            <div class="section-label"><?= htmlspecialchars($whyLabel, ENT_QUOTES, 'UTF-8') ?></div>
+            <h2 class="section-title"><?= htmlspecialchars($whyHeading, ENT_QUOTES, 'UTF-8') ?></h2>
+            <p class="section-subtitle"><?= htmlspecialchars($whySub, ENT_QUOTES, 'UTF-8') ?></p>
         </div>
 
         <div class="row g-4 reveal-stagger">
-            <?php
-            $reasons = [
-                ['certificate',      'Authorised Dealer',         'Officially authorised for Bahria Town, DHA, Capital Smart City, Blue World City, Gulberg Greens, and more. All listings are verified and legitimate.'],
-                ['brands whatsapp',  'WhatsApp-First Support',    'Reach us instantly via WhatsApp for inquiries, site visits, and payment plans. Our team responds within minutes during business hours.'],
-                ['shield-halved',    'Verified Listings',         'Every property undergoes thorough verification. We ensure accurate pricing, legal status, and ownership documentation before listing.'],
-                ['handshake',        'Expert Negotiation',        'Our seasoned agents negotiate the best deals on your behalf — whether you\'re buying, selling, or renting. We protect your investment.'],
-                ['file-contract',    'Legal Documentation',       'We guide you through all paperwork — registry, NOC, transfer letters, and payment receipts — ensuring a smooth, stress-free transaction.'],
-                ['chart-line',       'Investment Advice',         'Get expert guidance on high-yield investment opportunities, upcoming projects, and market trends to maximise your returns.'],
-            ];
-            foreach ($reasons as $idx => [$icon, $title, $text]):
-                $prefix = str_contains($icon, 'brands') ? 'fa-brands' : 'fa-solid';
-                $cls    = preg_replace('/^brands /', '', $icon);
+            <?php foreach ($whyCards as $idx => $w):
+                $title = trim((string)($w['title'] ?? ''));
+                $text  = trim((string)($w['desc']  ?? ''));
+                // Admin can enter "fa-foo" (solid) or "fa-brands fa-foo".
+                $rawIcon = trim((string)($w['icon'] ?? 'fa-circle'));
+                if (str_contains($rawIcon, 'fa-brands') || str_contains($rawIcon, 'brands')) {
+                    $prefix = 'fa-brands';
+                    $iconCls = trim(preg_replace('/\bfa-brands\b/', '', $rawIcon)) ?: 'fa-circle';
+                } else {
+                    $prefix = 'fa-solid';
+                    $iconCls = $rawIcon;
+                }
+                if (!str_starts_with($iconCls, 'fa-')) $iconCls = 'fa-' . $iconCls;
             ?>
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="reason-card">
                     <div class="reason-number"><?= str_pad((string)($idx + 1), 2, '0', STR_PAD_LEFT) ?></div>
-                    <div class="reason-icon"><i class="<?= $prefix ?> fa-<?= $cls ?>"></i></div>
-                    <div class="reason-title"><?= $title ?></div>
-                    <p class="reason-text"><?= $text ?></p>
+                    <div class="reason-icon"><i class="<?= $prefix ?> <?= htmlspecialchars($iconCls, ENT_QUOTES, 'UTF-8') ?>"></i></div>
+                    <div class="reason-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></div>
+                    <p class="reason-text"><?= htmlspecialchars($text, ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -750,30 +837,31 @@ $heroTile3  = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto
             <div class="final-cta-backdrop" aria-hidden="true"></div>
             <div class="final-cta-inner">
                 <div class="final-cta-left">
-                    <div class="section-label on-dark" style="justify-content:flex-start;">Let's Talk</div>
-                    <h2 class="final-cta-heading"><?= htmlspecialchars($homeSettings['cta_heading'] ?? 'Ready to buy, sell, or rent?', ENT_QUOTES, 'UTF-8') ?></h2>
+                    <div class="section-label on-dark" style="justify-content:flex-start;"><?= htmlspecialchars($homeCtaLabel, ENT_QUOTES, 'UTF-8') ?></div>
+                    <h2 class="final-cta-heading"><?= htmlspecialchars($homeCtaHeading, ENT_QUOTES, 'UTF-8') ?></h2>
                     <p class="final-cta-sub">
-                        <?= htmlspecialchars($homeSettings['cta_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>
+                        <?= htmlspecialchars($homeCtaSub, ENT_QUOTES, 'UTF-8') ?>
                     </p>
                     <div class="final-cta-actions">
-                        <a href="<?= waLink(SITE_WHATSAPP, "Hello! I'm interested in buying/renting a property. Can you help?") ?>"
-                           target="_blank" rel="noopener noreferrer" class="btn-gold">
-                            <i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp
+                        <a href="<?= htmlspecialchars($homeCtaPrimaryHref, ENT_QUOTES, 'UTF-8') ?>" class="btn-gold"<?= $homeCtaPrimaryExt ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
+                            <i class="fa-brands fa-whatsapp"></i> <?= htmlspecialchars($homeCtaPrimaryLbl, ENT_QUOTES, 'UTF-8') ?>
                         </a>
-                        <a href="<?= $b ?>/contact.php" class="btn-outline-white">
-                            <i class="fa-solid fa-envelope"></i> Contact Form
+                        <a href="<?= htmlspecialchars($homeCtaSecondaryHref, ENT_QUOTES, 'UTF-8') ?>" class="btn-outline-white"<?= $homeCtaSecondaryExt ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
+                            <i class="fa-solid fa-envelope"></i> <?= htmlspecialchars($homeCtaSecondaryLbl, ENT_QUOTES, 'UTF-8') ?>
                         </a>
                     </div>
+                    <?php if ($homeCtaHours !== ''): ?>
                     <div class="final-cta-hours">
                         <i class="fa-solid fa-clock"></i>
-                        Mon–Sat 9am–7pm · Sun 11am–4pm
+                        <?= htmlspecialchars($homeCtaHours, ENT_QUOTES, 'UTF-8') ?>
                     </div>
+                    <?php endif; ?>
                 </div>
                 <div class="final-cta-right" aria-hidden="true">
                     <div class="final-cta-orb"></div>
                     <div class="final-cta-badge">
-                        <div class="final-cta-badge-num"><?= $yearsActive ?>+</div>
-                        <div class="final-cta-badge-lbl">Years<br>Trusted</div>
+                        <div class="final-cta-badge-num"><?= htmlspecialchars($homeCtaBadgeVal, ENT_QUOTES, 'UTF-8') ?></div>
+                        <div class="final-cta-badge-lbl"><?= nl2br(htmlspecialchars($homeCtaBadgeLbl, ENT_QUOTES, 'UTF-8')) ?></div>
                     </div>
                 </div>
             </div>

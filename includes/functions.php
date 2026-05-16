@@ -745,6 +745,93 @@ function getWhatsAppLink(string $phone, string $message = ''): string
     return $url;
 }
 
+/**
+ * Resolve the favicon to render in <head>. When the admin has uploaded a
+ * logo (Settings → Brand), use it directly; otherwise fall back to the
+ * bundled /assets/images/favicon.png.
+ *
+ * Returns ['url' => '/full/path?v=...', 'mime' => 'image/png|jpeg|svg+xml|webp'].
+ * The cache-buster query string forces browsers to refetch when the admin
+ * uploads a new logo.
+ */
+function faviconAsset(): array
+{
+    $b       = defined('BASE_PATH') ? BASE_PATH : '';
+    $default = ['url' => $b . '/assets/images/favicon.png?v=1', 'mime' => 'image/png'];
+
+    if (!function_exists('getSettings')) return $default;
+
+    $logoPath = trim((string)(getSettings()['logo_path'] ?? ''));
+    if ($logoPath === '') return $default;
+
+    // logo_path is stored as a public URL (e.g. /assets/uploads/branding/logo.png).
+    // Only use it as a favicon when the file actually exists on disk.
+    $fsPath = __DIR__ . '/..' . $logoPath;
+    if (!is_file($fsPath)) return $default;
+
+    $extMime = [
+        'png'  => 'image/png',
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'svg'  => 'image/svg+xml',
+        'ico'  => 'image/x-icon',
+        'gif'  => 'image/gif',
+    ];
+    $ext  = strtolower(pathinfo($fsPath, PATHINFO_EXTENSION));
+    $mime = $extMime[$ext] ?? 'image/png';
+
+    return [
+        'url'  => $b . $logoPath . '?v=' . filemtime($fsPath),
+        'mime' => $mime,
+    ];
+}
+
+/**
+ * Decide where a "View Project" link should point. When the project has a
+ * developer website URL configured, the public site routes visitors there
+ * (opens in a new tab). Otherwise we fall back to the internal project page.
+ *
+ * Accepts either an explicit slug + URL string, or a project row array with
+ * `slug` / `website_url` (or aliased `project_slug` / `project_website_url`)
+ * fields — whichever the caller already has on hand.
+ */
+function projectViewLink(array $project, string $basePath = ''): array
+{
+    $slug    = $project['slug']        ?? $project['project_slug']        ?? '';
+    $website = trim((string)($project['website_url'] ?? $project['project_website_url'] ?? ''));
+
+    if ($website !== '' && preg_match('~^https?://~i', $website)) {
+        return [
+            'href'   => $website,
+            'target' => '_blank',
+            'rel'    => 'noopener noreferrer',
+            'external' => true,
+        ];
+    }
+    return [
+        'href'   => $basePath . '/project.php?slug=' . urlencode($slug),
+        'target' => '',
+        'rel'    => '',
+        'external' => false,
+    ];
+}
+
+/**
+ * Extract the 11-character YouTube video ID from any of the URL forms admins
+ * paste in. Returns '' when the input is empty or not recognisable.
+ */
+function youtubeVideoId(?string $url): string
+{
+    if (!$url) return '';
+    $url = trim($url);
+    if ($url === '') return '';
+    if (preg_match('~(?:youtube\.com/(?:watch\?v=|shorts/|embed/)|youtu\.be/)([A-Za-z0-9_\-]{6,})~i', $url, $m)) {
+        return $m[1];
+    }
+    return '';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HTML Builders
 // ─────────────────────────────────────────────────────────────────────────────
@@ -838,5 +925,96 @@ if (!function_exists('requireLogin')) {
         if (!isLoggedIn()) {
             redirect('/admin/login.php');
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Image watermarking — uses the agency logo as a faded badge on uploaded
+// property photos when Settings → Preferences → Watermark is enabled.
+// Requires the GD extension (standard on most PHP builds).
+// ─────────────────────────────────────────────────────────────────────────────
+
+if (!function_exists('imagecopymerge_alpha')) {
+    /**
+     * Alpha-aware drop-in for imagecopymerge(). Standard imagecopymerge()
+     * discards PNG transparency; this version preserves it so a transparent
+     * logo composites correctly over the photo.
+     */
+    function imagecopymerge_alpha($dst, $src, int $dx, int $dy, int $sx, int $sy, int $sw, int $sh, int $pct): bool
+    {
+        $cut = imagecreatetruecolor($sw, $sh);
+        if (!$cut) return false;
+        imagecopy($cut, $dst, 0, 0, $dx, $dy, $sw, $sh);
+        imagecopy($cut, $src, 0, 0, $sx, $sy, $sw, $sh);
+        $ok = imagecopymerge($dst, $cut, $dx, $dy, 0, 0, $sw, $sh, $pct);
+        imagedestroy($cut);
+        return $ok;
+    }
+}
+
+if (!function_exists('applyLogoWatermark')) {
+    /**
+     * Composite the agency logo onto an uploaded image in-place. Renders the
+     * logo at ~18% of image width, bottom-right, at ~35% opacity. Returns
+     * true on success; silently no-ops (returns false) if GD is missing,
+     * the logo file is unreadable, or the image format isn't supported.
+     */
+    function applyLogoWatermark(string $imgPath, string $logoPath): bool
+    {
+        if (!function_exists('imagecreatetruecolor')) return false; // no GD
+        if (!is_file($imgPath) || !is_file($logoPath)) return false;
+
+        $info = @getimagesize($imgPath);
+        if (!$info) return false;
+        $logoInfo = @getimagesize($logoPath);
+        if (!$logoInfo) return false;
+
+        $loaders = [
+            IMAGETYPE_JPEG => 'imagecreatefromjpeg',
+            IMAGETYPE_PNG  => 'imagecreatefrompng',
+            IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? 'imagecreatefromwebp' : null,
+            IMAGETYPE_GIF  => 'imagecreatefromgif',
+        ];
+        if (empty($loaders[$info[2]]) || empty($loaders[$logoInfo[2]])) return false;
+
+        $base = @($loaders[$info[2]])($imgPath);
+        $logo = @($loaders[$logoInfo[2]])($logoPath);
+        if (!$base || !$logo) {
+            if ($base) imagedestroy($base);
+            if ($logo) imagedestroy($logo);
+            return false;
+        }
+
+        $baseW = imagesx($base); $baseH = imagesy($base);
+        $logoW = imagesx($logo); $logoH = imagesy($logo);
+
+        // Resize logo to 18% of image width (clamped to a sane min).
+        $targetW = max(64, (int) round($baseW * 0.18));
+        $targetH = max(1,  (int) round($logoH * $targetW / max(1, $logoW)));
+
+        $scaledLogo = imagecreatetruecolor($targetW, $targetH);
+        imagealphablending($scaledLogo, false);
+        imagesavealpha($scaledLogo, true);
+        $transparent = imagecolorallocatealpha($scaledLogo, 0, 0, 0, 127);
+        imagefilledrectangle($scaledLogo, 0, 0, $targetW, $targetH, $transparent);
+        imagecopyresampled($scaledLogo, $logo, 0, 0, 0, 0, $targetW, $targetH, $logoW, $logoH);
+        imagedestroy($logo);
+
+        // Center the watermark on the image.
+        $x = (int) round(($baseW - $targetW) / 2);
+        $y = (int) round(($baseH - $targetH) / 2);
+
+        imagecopymerge_alpha($base, $scaledLogo, $x, $y, 0, 0, $targetW, $targetH, 35);
+        imagedestroy($scaledLogo);
+
+        $ok = false;
+        switch ($info[2]) {
+            case IMAGETYPE_JPEG: $ok = imagejpeg($base, $imgPath, 88); break;
+            case IMAGETYPE_PNG:  $ok = imagepng($base, $imgPath, 7); break;
+            case IMAGETYPE_WEBP: $ok = function_exists('imagewebp') ? imagewebp($base, $imgPath, 88) : false; break;
+            case IMAGETYPE_GIF:  $ok = imagegif($base, $imgPath); break;
+        }
+        imagedestroy($base);
+        return $ok;
     }
 }

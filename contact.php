@@ -243,7 +243,20 @@ require_once 'includes/header.php';
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($agencyWa): ?>
+                    <?php if ($agencyWa):
+                        // Show the actual WhatsApp number. If it matches the
+                        // phone (after stripping formatting) just reuse the
+                        // already-pretty Phone string; otherwise format the
+                        // digit-only WhatsApp value as +92 3xx xxxxxxx.
+                        $phoneDigits = preg_replace('/\D+/', '', (string)$agencyPhone);
+                        if ($phoneDigits !== '' && $phoneDigits === $agencyWa) {
+                            $waDisplay = $agencyPhone;
+                        } elseif (strlen($agencyWa) === 12 && str_starts_with($agencyWa, '92')) {
+                            $waDisplay = '+92 ' . substr($agencyWa, 2, 3) . ' ' . substr($agencyWa, 5);
+                        } else {
+                            $waDisplay = $agencyWa;
+                        }
+                    ?>
                     <!-- WhatsApp -->
                     <div class="d-flex align-items-start gap-3 mb-3">
                         <div style="width:2.5rem;height:2.5rem;background:rgba(37,211,102,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -253,7 +266,7 @@ require_once 'includes/header.php';
                             <div style="font-weight:600;font-size:.85rem;color:rgba(255,255,255,.6);">WhatsApp</div>
                             <a href="<?= 'https://wa.me/' . htmlspecialchars($agencyWa) . '?text=' . rawurlencode("Hello! I found your contact page.") ?>"
                                target="_blank" rel="noopener" style="color:#fff;font-weight:600;">
-                                <?= htmlspecialchars($agencyPhone ?: $agencyWa) ?>
+                                <?= htmlspecialchars($waDisplay) ?>
                             </a>
                         </div>
                     </div>

@@ -21,6 +21,7 @@ $data = [
     'lat'=>'', 'lng'=>'',
     'is_featured'=>0, 'is_published'=>0,
     'hero_image_url'=>'', 'brochure_url'=>'', 'master_plan_url'=>'',
+    'website_url'=>'',
     'gallery'=>'',
 ];
 $existingGallery = [];
@@ -56,11 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'status'          => $_POST['status'] ?? 'upcoming',
         'noc_status'      => $_POST['noc_status'] ?? 'pending',
         'noc_ref'         => trim($_POST['noc_ref'] ?? ''),
-        'authorised_since'=> $_POST['authorised_since'] ?? '',
+        'authorised_since'=> trim($_POST['authorised_since'] ?? '') ?: null,
         'authorisation_ref'=> trim($_POST['authorisation_ref'] ?? ''),
         'description'     => trim($_POST['description'] ?? ''),
         'lat'             => trim($_POST['latitude'] ?? '') ?: null,
         'lng'             => trim($_POST['longitude'] ?? '') ?: null,
+        'website_url'     => trim($_POST['website_url'] ?? '') ?: null,
         'is_featured'     => isset($_POST['is_featured']) ? 1 : 0,
         'is_published'    => isset($_POST['is_published']) ? 1 : 0,
     ];
@@ -363,6 +365,22 @@ include __DIR__ . '/includes/admin-sidebar.php';
             </div>
           <?php endif; ?>
           <input type="file" name="master_plan_url" class="form-control" accept="image/jpeg,image/png,image/webp">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label fw-600">
+            Official Project Website <span class="text-muted fw-normal fs-12">(optional)</span>
+          </label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="fa-solid fa-globe text-muted"></i></span>
+            <input type="url" name="website_url" class="form-control"
+                   maxlength="500"
+                   placeholder="https://capitalsmartcity.com.pk/"
+                   value="<?= htmlspecialchars((string)$data['website_url'], ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="form-text">
+            When set, the public "View Project" button redirects visitors to this URL (opens in a new tab) instead of the internal project page.
+          </div>
         </div>
       </div>
     </div>

@@ -176,10 +176,11 @@ require_once __DIR__ . '/includes/header.php';
                        ?: 'https://picsum.photos/id/'.(30 + ((int)($proj['id'] ?? 0) % 20)).'/600/400');
             $projImg = mediaUrl($projImgRaw);
         ?>
+        <?php $pvl = projectViewLink($proj, $b); ?>
         <div class="col-12 col-md-6 col-xl-4">
             <div class="project-card">
                 <div class="project-card-img">
-                    <a href="<?= $b ?>/project.php?slug=<?= urlencode($proj['slug']) ?>">
+                    <a href="<?= htmlspecialchars($pvl['href'], ENT_QUOTES, 'UTF-8') ?>"<?= $pvl['target'] ? ' target="'.$pvl['target'].'" rel="'.$pvl['rel'].'"' : '' ?>>
                         <img data-src="<?= htmlspecialchars($projImg) ?>"
                              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 10'%3E%3Crect fill='%23F0F4FF' width='16' height='10'/%3E%3C/svg%3E"
                              alt="<?= htmlspecialchars($proj['name']) ?>" class="lazy" loading="lazy">
@@ -205,8 +206,9 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="project-card-body">
                     <h3 class="project-card-title">
-                        <a href="<?= $b ?>/project.php?slug=<?= urlencode($proj['slug']) ?>" style="color:inherit;text-decoration:none;">
+                        <a href="<?= htmlspecialchars($pvl['href'], ENT_QUOTES, 'UTF-8') ?>"<?= $pvl['target'] ? ' target="'.$pvl['target'].'" rel="'.$pvl['rel'].'"' : '' ?> style="color:inherit;text-decoration:none;">
                             <?= htmlspecialchars($proj['name']) ?>
+                            <?php if ($pvl['external']): ?><i class="fa-solid fa-arrow-up-right-from-square fa-2xs ms-1" style="color:var(--text-secondary);" aria-label="opens external site"></i><?php endif; ?>
                         </a>
                     </h3>
                     <p class="project-card-location">
@@ -224,8 +226,8 @@ require_once __DIR__ . '/includes/header.php';
                         <?= htmlspecialchars(mb_strimwidth($proj['description'], 0, 100, '…')) ?>
                     </p>
                     <?php endif; ?>
-                    <a href="<?= $b ?>/project.php?slug=<?= urlencode($proj['slug']) ?>" class="btn-navy" style="font-size:.82rem;padding:.4rem 1rem;">
-                        View Project <i class="fa-solid fa-arrow-right ms-1"></i>
+                    <a href="<?= htmlspecialchars($pvl['href'], ENT_QUOTES, 'UTF-8') ?>"<?= $pvl['target'] ? ' target="'.$pvl['target'].'" rel="'.$pvl['rel'].'"' : '' ?> class="btn-navy" style="font-size:.82rem;padding:.4rem 1rem;">
+                        View Project <i class="fa-solid <?= $pvl['external'] ? 'fa-arrow-up-right-from-square' : 'fa-arrow-right' ?> ms-1"></i>
                     </a>
                 </div>
             </div>

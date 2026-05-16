@@ -58,11 +58,25 @@ function sideLink(string $href, string $icon, string $label, string $current, st
 <nav id="adminSidebar">
 
   <!-- Logo -->
+  <?php
+    // Role → panel label. Falls back to "Admin Panel" for unknown roles so
+    // a misconfigured account doesn't render an empty header.
+    $roleLabels = [
+        'super_admin' => 'Super Admin Panel',
+        'admin'       => 'Admin Panel',
+        'agent'       => 'Agent Panel',
+    ];
+    $currentRole = $_SESSION['admin_role'] ?? '';
+    $panelLabel  = $roleLabels[$currentRole] ?? 'Admin Panel';
+    // SITE_NAME is sourced from settings.json (Agency Profile) in config.php,
+    // so editing the agency name in admin updates this header automatically.
+    $brandName   = defined('SITE_NAME') ? SITE_NAME : 'Admin';
+  ?>
   <div class="sidebar-logo">
     <a href="<?= BASE_PATH ?>/admin/index.php" class="text-decoration-none">
       <div class="sidebar-logo-text">
-        <span class="sidebar-logo-main">Al-Riaz Associates</span>
-        <span class="sidebar-logo-sub">Admin Panel</span>
+        <span class="sidebar-logo-main"><?= htmlspecialchars($brandName, ENT_QUOTES, 'UTF-8') ?></span>
+        <span class="sidebar-logo-sub"><?= htmlspecialchars($panelLabel, ENT_QUOTES, 'UTF-8') ?></span>
       </div>
     </a>
   </div>
@@ -75,6 +89,7 @@ function sideLink(string $href, string $icon, string $label, string $current, st
     <?= sideLink('/admin/index.php',    'fa-gauge-high',     'Dashboard',     $currentPage) ?>
     <?= sideLink('/admin/listings.php', 'fa-house',          'Listings',      $currentPage) ?>
     <?= sideLink('/admin/projects.php', 'fa-building',       'Projects',      $currentPage) ?>
+    <?= sideLink('/admin/notices.php',  'fa-bullhorn',       'Notices',       $currentPage) ?>
     <?= sideLink('/admin/inquiries.php','fa-inbox',          'Inquiries',     $currentPage, $newInquiryCount > 0 ? (string)$newInquiryCount : '') ?>
     <?= sideLink('/admin/media.php',    'fa-images',         'Media Library', $currentPage) ?>
 

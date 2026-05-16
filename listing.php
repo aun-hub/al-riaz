@@ -26,8 +26,9 @@ try {
                u.phone     AS agent_phone,
                u.email     AS agent_email,
                u.avatar_url AS agent_avatar,
-               proj.name   AS project_name,
-               proj.slug   AS project_slug
+               proj.name        AS project_name,
+               proj.slug        AS project_slug,
+               proj.website_url AS project_website_url
         FROM   properties p
         LEFT JOIN users    u    ON u.id    = p.agent_id
         LEFT JOIN projects proj ON proj.id = p.project_id
@@ -178,10 +179,9 @@ $b = defined('BASE_PATH') ? BASE_PATH : '';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<!-- ── Page Header with hero background ─────────────────────────────────── -->
-<div class="page-header" style="background-image: url('<?= htmlspecialchars(mediaUrl($images[0]['url'] ?? '')) ?>'); background-size:cover; background-position:center; position:relative;">
-    <div style="position:absolute;inset:0;background:linear-gradient(to right,rgba(6,13,31,.85) 40%,rgba(6,13,31,.4));"></div>
-    <div class="container" style="position:relative;z-index:1;">
+<!-- ── Page Header (themed, static — does not reflect listing image) ────── -->
+<div class="page-header">
+    <div class="container">
         <?= generateBreadcrumb($breadcrumbItems) ?>
         <h1 class="page-header-title"><?= htmlspecialchars($property['title']) ?></h1>
         <p class="page-header-sub"><i class="fa-solid fa-location-dot me-1"></i><?= htmlspecialchars($property['area_locality']) ?>, <?= htmlspecialchars($property['city']) ?></p>
@@ -256,18 +256,50 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <?php endif; ?>
 
-        <!-- Video(s) below gallery -->
-        <?php if (!empty($videos)): ?>
+        <!-- Videos (uploaded + YouTube) — laid out horizontally, wrap on mobile -->
+        <?php
+            $ytId      = youtubeVideoId($property['youtube_url'] ?? '');
+            $hasVideos = !empty($videos) || $ytId !== '';
+            $totalTiles = count($videos) + ($ytId !== '' ? 1 : 0);
+            // Single tile gets a centered, half-width column; multiple tiles
+            // share the row equally up to 3-across on large screens.
+            if ($totalTiles === 1) {
+                $tileCol = 'col-12 col-md-8 col-lg-6 mx-auto';
+            } elseif ($totalTiles === 2) {
+                $tileCol = 'col-12 col-md-6';
+            } else {
+                $tileCol = 'col-12 col-md-6 col-lg-4';
+            }
+        ?>
+        <?php if ($hasVideos): ?>
         <div class="container py-3">
-            <?php foreach ($videos as $vid): ?>
-            <div class="ratio ratio-16x9 mb-3" style="max-width:700px; margin:0 auto;">
-                <video controls preload="metadata"
-                       src="<?= htmlspecialchars(mediaUrl($vid['url'])) ?>"
-                       poster="<?= htmlspecialchars(mediaUrl($images[0]['url'] ?? '')) ?>">
-                    Your browser does not support video playback.
-                </video>
+            <div class="row g-3 align-items-stretch">
+                <?php foreach ($videos as $vid): ?>
+                <div class="<?= $tileCol ?>">
+                    <div class="ratio ratio-16x9" style="border-radius:8px; overflow:hidden; background:#000;">
+                        <video controls preload="metadata"
+                               src="<?= htmlspecialchars(mediaUrl($vid['url'])) ?>"
+                               poster="<?= htmlspecialchars(mediaUrl($images[0]['url'] ?? '')) ?>">
+                            Your browser does not support video playback.
+                        </video>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+
+                <?php if ($ytId !== ''): ?>
+                <div class="<?= $tileCol ?>">
+                    <div class="ratio ratio-16x9" style="border-radius:8px; overflow:hidden;">
+                        <iframe src="https://www.youtube.com/embed/<?= htmlspecialchars($ytId, ENT_QUOTES, 'UTF-8') ?>"
+                                title="<?= htmlspecialchars($property['title'], ENT_QUOTES, 'UTF-8') ?> — YouTube video"
+                                loading="lazy"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                referrerpolicy="strict-origin-when-cross-origin"
+                                allowfullscreen
+                                style="border:0;"></iframe>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
-            <?php endforeach; ?>
         </div>
         <?php endif; ?>
 
@@ -369,11 +401,24 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <!-- Share + Action buttons -->
+            <?php
+                $shareTitle = $property['title'] ?? 'Property';
+                $sharePrice = !empty($property['price_on_demand'])
+                    ? 'Price on demand'
+                    : 'PKR ' . formatPKR((int)$property['price']);
+                $shareLoc   = trim(($property['area_locality'] ?? '') . ', ' . ucfirst($property['city'] ?? ''), ', ');
+                $shareText  = $sharePrice . ($shareLoc !== '' ? ' · ' . $shareLoc : '');
+            ?>
             <div class="d-flex flex-wrap gap-2">
-                <button id="shareBtn" class="btn btn-outline-secondary btn-sm">
+                <button id="shareBtn" class="btn btn-outline-secondary btn-sm"
+                        data-share-title="<?= htmlspecialchars($shareTitle, ENT_QUOTES, 'UTF-8') ?>"
+                        data-share-text="<?= htmlspecialchars($shareText, ENT_QUOTES, 'UTF-8') ?>"
+                        data-share-image="<?= htmlspecialchars($ogImage, ENT_QUOTES, 'UTF-8') ?>">
                     <i class="fas fa-share-nodes me-1"></i>Share
                 </button>
-                <button id="shareWaBtn" class="btn btn-outline-success btn-sm">
+                <button id="shareWaBtn" class="btn btn-outline-success btn-sm"
+                        data-share-title="<?= htmlspecialchars($shareTitle, ENT_QUOTES, 'UTF-8') ?>"
+                        data-share-text="<?= htmlspecialchars($shareText, ENT_QUOTES, 'UTF-8') ?>">
                     <i class="fa-brands fa-whatsapp me-1"></i>Share on WhatsApp
                 </button>
                 <a href="tel:<?= htmlspecialchars($property['agent_phone'] ?: SITE_PHONE) ?>"
@@ -395,15 +440,6 @@ require_once __DIR__ . '/includes/header.php';
                         <?= htmlspecialchars(formatArea((float)$property['area_value'], $property['area_unit'])) ?>
                     </span>
                     <span class="spec-label">Area</span>
-                    <?php if (in_array($property['area_unit'], ['marla', 'kanal'])): ?>
-                    <div class="mt-1">
-                        <a href="#" class="area-convert-toggle"
-                           data-area-value="<?= (float)$property['area_value'] ?>"
-                           data-area-unit="<?= htmlspecialchars($property['area_unit']) ?>"
-                           title="Convert to Sq Ft" style="color:var(--gold-500); cursor:pointer; text-decoration:underline dotted; font-size:.82rem;">(show in Sq Ft)</a>
-                        <span class="area-sqft-hint d-block" style="display:none!important; font-size:.82rem;"></span>
-                    </div>
-                    <?php endif; ?>
                 </div>
 
                 <?php if ($property['category'] === 'residential'): ?>
@@ -559,9 +595,10 @@ require_once __DIR__ . '/includes/header.php';
                         <?= htmlspecialchars($property['project_name']) ?>
                     </h5>
                 </div>
-                <a href="<?= $b ?>/project.php?slug=<?= urlencode($property['project_slug']) ?>"
+                <?php $pvl = projectViewLink($property, $b); ?>
+                <a href="<?= htmlspecialchars($pvl['href'], ENT_QUOTES, 'UTF-8') ?>"<?= $pvl['target'] ? ' target="'.$pvl['target'].'" rel="'.$pvl['rel'].'"' : '' ?>
                    class="btn btn-gold btn-sm text-nowrap">
-                    View Project
+                    View Project <i class="fa-solid <?= $pvl['external'] ? 'fa-arrow-up-right-from-square' : 'fa-arrow-right' ?> ms-1"></i>
                 </a>
             </div>
         </section>

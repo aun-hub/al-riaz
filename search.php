@@ -135,8 +135,9 @@ try {
             p.purpose, p.category, p.price, p.price_on_demand,
             p.area_value, p.area_unit, p.bedrooms, p.bathrooms,
             p.is_featured, p.published_at,
-            u.name AS agent_name,
-            pm.url AS thumbnail
+            u.name  AS agent_name,
+            u.phone AS agent_phone,
+            pm.url  AS thumbnail
         FROM properties p
         LEFT JOIN users u ON u.id = p.agent_id
         LEFT JOIN property_media pm
@@ -160,7 +161,8 @@ if ($q !== '') {
     try {
         $pjStmt = $db->prepare("
             SELECT pr.id, pr.slug, pr.name AS title, pr.city, pr.area_locality,
-                   pr.status, pr.developer, pr.hero_image_url AS thumbnail
+                   pr.status, pr.developer, pr.hero_image_url AS thumbnail,
+                   pr.website_url
             FROM projects pr
             WHERE pr.is_published = 1
               AND (pr.name LIKE ? OR pr.city LIKE ? OR pr.area_locality LIKE ? OR pr.description LIKE ?)
@@ -480,9 +482,10 @@ require_once 'includes/header.php';
                             </p>
                             <?php endif; ?>
                         </div>
+                        <?php $pvl = projectViewLink($proj, $b); ?>
                         <div class="card-footer bg-white border-top-0 pt-0 pb-3 px-3">
-                            <a href="<?= $b ?>/project.php?slug=<?= urlencode($proj['slug']) ?>" class="btn-navy d-block text-center" style="padding:.45rem 1rem; font-size:.85rem;">
-                                View Project <i class="fas fa-arrow-right ms-1"></i>
+                            <a href="<?= htmlspecialchars($pvl['href'], ENT_QUOTES, 'UTF-8') ?>"<?= $pvl['target'] ? ' target="'.$pvl['target'].'" rel="'.$pvl['rel'].'"' : '' ?> class="btn-navy d-block text-center" style="padding:.45rem 1rem; font-size:.85rem;">
+                                View Project <i class="fas <?= $pvl['external'] ? 'fa-arrow-up-right-from-square' : 'fa-arrow-right' ?> ms-1"></i>
                             </a>
                         </div>
                     </div>

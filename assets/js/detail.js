@@ -386,30 +386,58 @@
     var Share = {
         init: function () {
             $('#shareBtn').on('click', function () {
-                var title = $('h1.property-title').text().trim() ||
-                            document.title;
+                var $btn  = $(this);
+                var title = $btn.data('share-title') || $('h1.property-title').text().trim() || document.title;
+                var text  = $btn.data('share-text')  || '';
+                var image = $btn.data('share-image') || '';
                 var url   = window.location.href;
 
-                if (navigator.share) {
-                    navigator.share({ title: title, url: url }).catch(function () {});
-                } else {
-                    // Fallback — copy link
+                // Try native share with the listing image attached. Falls back
+                // to share-without-file, then to copy-link, depending on what
+                // the platform supports.
+                function copyFallback() {
                     var $tmp = $('<input>').val(url).appendTo('body').select();
                     document.execCommand('copy');
                     $tmp.remove();
-                    var $btn = $(this);
                     var orig = $btn.html();
                     $btn.html('<i class="fas fa-check me-1"></i>Link Copied!');
                     setTimeout(function () { $btn.html(orig); }, 2500);
                 }
+
+                function shareTextOnly() {
+                    if (!navigator.share) return copyFallback();
+                    navigator.share({ title: title, text: text, url: url }).catch(copyFallback);
+                }
+
+                if (image && navigator.canShare && window.fetch) {
+                    fetch(image)
+                        .then(function (r) { return r.ok ? r.blob() : Promise.reject(); })
+                        .then(function (blob) {
+                            var ext  = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+                            var file = new File([blob], 'listing.' + ext, { type: blob.type });
+                            var payload = { title: title, text: text + '\n' + url, url: url, files: [file] };
+                            if (navigator.canShare(payload)) {
+                                return navigator.share(payload).catch(function () {});
+                            }
+                            return shareTextOnly();
+                        })
+                        .catch(shareTextOnly);
+                } else {
+                    shareTextOnly();
+                }
             });
 
-            // WhatsApp share
+            // WhatsApp share — include title, short text, and URL. WhatsApp
+            // will fetch og:image from the URL to render the preview card.
             $('#shareWaBtn').on('click', function () {
-                var title = $('h1.property-title').text().trim() || document.title;
+                var $btn  = $(this);
+                var title = $btn.data('share-title') || $('h1.property-title').text().trim() || document.title;
+                var text  = $btn.data('share-text')  || '';
                 var url   = window.location.href;
-                var msg   = title + ' — ' + url;
-                window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+                var lines = [title];
+                if (text) lines.push(text);
+                lines.push(url);
+                window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank');
             });
         }
     };
@@ -443,58 +471,7 @@
     };
 
     /* =========================================================================
-       9. AREA UNIT CONVERTER (Marla ↔ Sq Ft)
-          Conversion: 1 Marla = 225 Sq Ft | 1 Kanal = 4500 Sq Ft (5 Marla kanal)
-          Standard Punjab: 1 Marla = 272.25 Sq Ft (used here)
-       ====================================================================== */
-
-    var AreaConverter = {
-
-        RATES: {
-            marla   : 272.25,
-            kanal   : 5445,
-            sq_yard : 9,
-            acre    : 43560,
-            sq_ft   : 1
-        },
-
-        init: function () {
-            var self = this;
-
-            $(document).on('click', '.area-convert-toggle', function (e) {
-                e.preventDefault();
-                var $el   = $(this);
-                var value = parseFloat($el.data('area-value'));
-                var unit  = ($el.data('area-unit') || '').toLowerCase();
-                var $hint = $el.siblings('.area-sqft-hint');
-
-                if ($hint.length && $hint.is(':visible')) {
-                    $hint.slideUp(200);
-                    $el.text('(show in Sq Ft)');
-                    return;
-                }
-
-                var sqFt = self.toSqFt(value, unit);
-                if (sqFt === null) return;
-
-                if (!$hint.length) {
-                    $hint = $('<span class="area-sqft-hint text-muted small ms-1"></span>')
-                        .hide()
-                        .insertAfter($el);
-                }
-                $hint.text('≈ ' + Number(sqFt.toFixed(0)).toLocaleString() + ' Sq Ft').slideDown(200);
-                $el.text('(hide)');
-            });
-        },
-
-        toSqFt: function (value, unit) {
-            var rate = this.RATES[unit];
-            return rate ? value * rate : null;
-        }
-    };
-
-    /* =========================================================================
-       10. FLOOR PLAN TAB
+       9. FLOOR PLAN TAB
        ====================================================================== */
 
     var FloorPlan = {
@@ -546,7 +523,6 @@
         MapToggle.init();
         Share.init();
         Tabs.init();
-        AreaConverter.init();
         FloorPlan.init();
         ListingFilter.init();
     });

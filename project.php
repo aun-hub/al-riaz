@@ -20,7 +20,18 @@ if ($slug === '') {
 
 /* ─── Fetch Project ─────────────────────────────────────────────────────── */
 try {
-    $stmt = $db->prepare('SELECT * FROM projects WHERE slug = ? AND is_published = 1 LIMIT 1');
+    $stmt = $db->prepare('
+        SELECT p.*,
+               u.name       AS owner_name,
+               u.phone      AS owner_phone,
+               u.email      AS owner_email,
+               u.avatar_url AS owner_avatar,
+               u.role       AS owner_role
+        FROM   projects p
+        LEFT JOIN users u ON u.id = p.created_by AND u.is_active = 1
+        WHERE  p.slug = ? AND p.is_published = 1
+        LIMIT  1
+    ');
     $stmt->execute([$slug]);
     $project = $stmt->fetch();
 } catch (Exception $e) {
@@ -38,6 +49,27 @@ if (!$project) {
 $gallery = [];
 if (!empty($project['gallery'])) {
     $gallery = json_decode($project['gallery'], true) ?? [];
+}
+
+/* ─── Fetch Active Notices for this Project ─────────────────────────────── */
+$projectNotices = [];
+try {
+    $now = date('Y-m-d H:i:s');
+    $stmtN = $db->prepare('
+        SELECT id, title, body, source_url, attachment_url, severity, starts_at, ends_at
+        FROM   project_notices
+        WHERE  project_id = ?
+          AND  is_published = 1
+          AND (starts_at IS NULL OR starts_at <= ?)
+          AND (ends_at   IS NULL OR ends_at   >= ?)
+        ORDER  BY FIELD(severity,"critical","warning","info"),
+                  COALESCE(starts_at, created_at) DESC
+        LIMIT  10
+    ');
+    $stmtN->execute([$project['id'], $now, $now]);
+    $projectNotices = $stmtN->fetchAll();
+} catch (Exception $e) {
+    error_log('[project.php] notices query: ' . $e->getMessage());
 }
 
 /* ─── Fetch Properties in this Project ──────────────────────────────────── */
@@ -191,6 +223,82 @@ require_once __DIR__ . '/includes/header.php';
                  TAB 1 — OVERVIEW
                  ════════════════════════════════════════════════════════ -->
             <section class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="tab-overview">
+
+                <?php if (!empty($projectNotices)):
+                    $sevStyle = [
+                        'info'     => ['icon' => 'fa-circle-info',          'bg' => '#eef4ff', 'fg' => '#1e40af', 'bar' => '#3b82f6'],
+                        'warning'  => ['icon' => 'fa-triangle-exclamation', 'bg' => '#fff7ed', 'fg' => '#92400e', 'bar' => '#f59e0b'],
+                        'critical' => ['icon' => 'fa-circle-exclamation',   'bg' => '#fef2f2', 'fg' => '#991b1b', 'bar' => '#dc2626'],
+                    ];
+                ?>
+                <div class="mb-4" aria-label="Active project notices">
+                  <?php foreach ($projectNotices as $n):
+                      $s = $sevStyle[$n['severity']] ?? $sevStyle['info'];
+                  ?>
+                  <div class="d-flex p-3 mb-2" style="background:<?= $s['bg'] ?>; border-left:4px solid <?= $s['bar'] ?>; border-radius:8px;">
+                    <i class="fa-solid <?= $s['icon'] ?> me-3 mt-1" style="color:<?= $s['bar'] ?>; font-size:1.1rem;"></i>
+                    <div style="flex:1; min-width:0;">
+                      <div class="fw-bold" style="color:<?= $s['fg'] ?>;"><?= htmlspecialchars($n['title'], ENT_QUOTES, 'UTF-8') ?></div>
+                      <div style="color:#444; font-size:.9rem; margin-top:.2rem;">
+                        <?php
+                          $body = trim($n['body']);
+                          if (strip_tags($body) === $body) {
+                              echo nl2br(htmlspecialchars(mb_strimwidth($body, 0, 280, '…'), ENT_QUOTES, 'UTF-8'));
+                          } else {
+                              echo $body;
+                          }
+                        ?>
+                      </div>
+                      <?php
+                        $attUrl  = (string)($n['attachment_url'] ?? '');
+                        $attExt  = $attUrl !== '' ? strtolower(pathinfo($attUrl, PATHINFO_EXTENSION)) : '';
+                        $attIsImg = in_array($attExt, ['jpg','jpeg','png','webp','gif'], true);
+                        $attIsPdf = $attExt === 'pdf';
+                      ?>
+                      <?php if ($attIsImg): ?>
+                        <a href="<?= htmlspecialchars(mediaUrl($attUrl), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="d-inline-block mt-2">
+                          <img src="<?= htmlspecialchars(mediaUrl($attUrl), ENT_QUOTES, 'UTF-8') ?>" alt=""
+                               loading="lazy"
+                               style="max-width:100%; max-height:240px; border-radius:6px; border:1px solid #e6ebf2;">
+                        </a>
+                      <?php elseif ($attIsPdf): ?>
+                        <a href="<?= htmlspecialchars(mediaUrl($attUrl), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer"
+                           class="btn btn-outline-danger btn-sm mt-2">
+                          <i class="fa-solid fa-file-pdf me-1"></i>Download PDF
+                        </a>
+                      <?php endif; ?>
+                      <?php if (!empty($n['source_url'])): ?>
+                      <a href="<?= htmlspecialchars($n['source_url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="fs-13 mt-1 d-inline-block text-decoration-none">
+                        <i class="fa-solid fa-arrow-up-right-from-square fa-2xs me-1"></i>View on developer site
+                      </a>
+                      <?php endif; ?>
+                    </div>
+                  </div>
+                  <?php endforeach; ?>
+                  <div class="text-end">
+                    <a href="<?= $b ?>/notices.php?project=<?= urlencode($project['slug']) ?>" class="fs-13 text-decoration-none">
+                      View all notices for this project <i class="fa-solid fa-arrow-right fa-2xs ms-1"></i>
+                    </a>
+                  </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($project['website_url'])): ?>
+                <div class="mb-4 d-flex align-items-center justify-content-between p-3" style="background:linear-gradient(135deg,#f8fafc,#eef2f7); border:1px solid #e6ebf2; border-radius:10px;">
+                  <div>
+                    <div class="small text-muted">Official Developer Website</div>
+                    <div class="fw-bold" style="color:var(--navy-800);">
+                      <i class="fa-solid fa-globe me-1" style="color:var(--gold-500);"></i>
+                      <?= htmlspecialchars(parse_url($project['website_url'], PHP_URL_HOST) ?: $project['website_url'], ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                  </div>
+                  <a href="<?= htmlspecialchars($project['website_url'], ENT_QUOTES, 'UTF-8') ?>"
+                     target="_blank" rel="noopener noreferrer"
+                     class="btn btn-gold btn-sm text-nowrap">
+                    Visit Site <i class="fa-solid fa-arrow-up-right-from-square ms-1"></i>
+                  </a>
+                </div>
+                <?php endif; ?>
 
                 <!-- Project Details Card -->
                 <div class="card mb-4 shadow-sm">
@@ -655,25 +763,53 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- Agent / Contact Card ─────────────────────────────────── -->
+            <!-- Owner / Contact Card — pulls the user who created the project,
+                 falls back to the agency-wide defaults when unassigned. ─── -->
+            <?php
+                $ownerName  = trim((string)($project['owner_name']  ?? ''));
+                $ownerPhone = trim((string)($project['owner_phone'] ?? ''));
+                $ownerEmail = trim((string)($project['owner_email'] ?? ''));
+                $ownerRole  = trim((string)($project['owner_role']  ?? ''));
+
+                $displayName  = $ownerName !== '' ? $ownerName : 'Al-Riaz Associates';
+                // Role line is only used as a public-facing tagline for the
+                // agency fallback; we don't expose internal roles like
+                // "Super Admin" / "Admin" on visitor pages.
+                $displayRole  = $ownerName === '' ? 'Authorised Sales Team' : '';
+                $displayPhone = $ownerPhone !== '' ? $ownerPhone : SITE_PHONE;
+                $waPhone      = $ownerPhone !== '' ? $ownerPhone : SITE_WHATSAPP;
+            ?>
             <div class="card mb-3 shadow-sm">
                 <div class="card-body text-center">
-                    <img src="https://picsum.photos/id/64/80/80"
-                         alt="Al-Riaz Associates Agent"
-                         class="rounded-circle mb-2"
-                         width="80" height="80" style="object-fit:cover;">
-                    <h4 class="h5 mb-0 fw-bold">Al-Riaz Associates</h4>
-                    <p class="text-muted mb-3 small">Authorised Sales Team</p>
+                    <?= renderUserAvatar(
+                        $ownerName !== ''
+                            ? ['name' => $displayName, 'avatar_url' => $project['owner_avatar'] ?? null]
+                            : null,
+                        80,
+                        'mb-2'
+                    ) ?>
+                    <h4 class="h5 mb-0 fw-bold"><?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?></h4>
+                    <?php if ($displayRole !== ''): ?>
+                    <p class="text-muted mb-2 small"><?= htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php else: ?>
+                    <div class="mb-2"></div>
+                    <?php endif; ?>
 
-                    <a href="tel:<?= SITE_PHONE ?>"
+                    <?php if ($ownerEmail !== ''): ?>
+                    <div class="text-muted small mb-2 text-truncate" title="<?= htmlspecialchars($ownerEmail, ENT_QUOTES, 'UTF-8') ?>">
+                        <i class="fa-regular fa-envelope me-1"></i><?= htmlspecialchars($ownerEmail, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                    <?php endif; ?>
+
+                    <a href="tel:<?= htmlspecialchars($displayPhone, ENT_QUOTES, 'UTF-8') ?>"
                        class="btn btn-outline-secondary btn-sm w-100 mb-2">
-                        <i class="fa-solid fa-phone me-1"></i><?= htmlspecialchars(SITE_PHONE) ?>
+                        <i class="fa-solid fa-phone me-1"></i><?= htmlspecialchars($displayPhone, ENT_QUOTES, 'UTF-8') ?>
                     </a>
 
-                    <a href="<?= htmlspecialchars(getWhatsAppLink(SITE_WHATSAPP, 'Hi, I\'m interested in ' . $project['name'] . '. Please share more details.')) ?>"
+                    <a href="<?= htmlspecialchars(getWhatsAppLink($waPhone, 'Hi, I\'m interested in ' . $project['name'] . '. Please share more details.')) ?>"
                        target="_blank" rel="noopener noreferrer"
                        class="btn-whatsapp w-100" style="display:block; text-align:center;">
-                        <i class="fa-brands fa-whatsapp me-1"></i>WhatsApp Us
+                        <i class="fa-brands fa-whatsapp me-1"></i>WhatsApp <?= $ownerName !== '' ? htmlspecialchars(explode(' ', $displayName)[0], ENT_QUOTES, 'UTF-8') : 'Us' ?>
                     </a>
                 </div>
             </div>

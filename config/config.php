@@ -65,12 +65,24 @@ define('APP_URL',   env('APP_URL',   'http://localhost/al-riaz'));
 // e.g. http://mysite.com         →  (empty string)
 define('BASE_PATH', rtrim(parse_url(APP_URL, PHP_URL_PATH) ?? '', '/'));
 
+// Admin-saved values from /admin/settings.php take precedence over the .env
+// fallbacks below — so updating WhatsApp / Phone / Email in the Agency Profile
+// page reflects everywhere on the site (including code that still references
+// these SITE_* constants directly).
+$_savedSettings = [];
+$_settingsFile  = __DIR__ . '/../config/settings.json';
+if (is_readable($_settingsFile)) {
+    $_parsed = json_decode((string)file_get_contents($_settingsFile), true);
+    if (is_array($_parsed)) $_savedSettings = $_parsed;
+}
+
 // ── Site Identity ─────────────────────────────────────────────────────────────
-define('SITE_NAME',      env('SITE_NAME',      'Al-Riaz Associates'));
-define('SITE_URL',       env('APP_URL',        'http://localhost/al-riaz'));
-define('SITE_PHONE',     env('SITE_PHONE',     '+92 300 123 4567'));
-define('SITE_WHATSAPP',  env('SITE_WHATSAPP',  '923001234567'));
-define('SITE_EMAIL',     env('SITE_EMAIL',     'info@alriazassociates.pk'));
+define('SITE_NAME',      !empty($_savedSettings['agency_name']) ? $_savedSettings['agency_name'] : env('SITE_NAME',     'Al-Riaz Associates'));
+define('SITE_URL',       !empty($_savedSettings['website'])     ? $_savedSettings['website']     : env('APP_URL',       'http://localhost/al-riaz'));
+define('SITE_PHONE',     !empty($_savedSettings['phone'])       ? $_savedSettings['phone']       : env('SITE_PHONE',    '+92 300 123 4567'));
+define('SITE_WHATSAPP',  !empty($_savedSettings['whatsapp'])    ? $_savedSettings['whatsapp']    : env('SITE_WHATSAPP', '923001234567'));
+define('SITE_EMAIL',     !empty($_savedSettings['email'])       ? $_savedSettings['email']       : env('SITE_EMAIL',    'info@alriazassociates.pk'));
+unset($_savedSettings, $_settingsFile, $_parsed);
 
 // ── Mail ──────────────────────────────────────────────────────────────────────
 define('MAIL_HOST',         env('MAIL_HOST',         'smtp.gmail.com'));
@@ -85,6 +97,8 @@ define('MAIL_REPLY_TO',     env('MAIL_REPLY_TO',     'info@alriazassociates.pk')
 define('UPLOAD_DIR',          __DIR__ . '/../assets/uploads/');
 define('MAX_FILE_SIZE',       (int) env('MAX_FILE_SIZE_MB', '5') * 1024 * 1024);
 define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+define('MAX_VIDEO_SIZE',      (int) env('MAX_VIDEO_SIZE_MB', '50') * 1024 * 1024);
+define('ALLOWED_VIDEO_TYPES', ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v']);
 
 // ── Error Handling ────────────────────────────────────────────────────────────
 if (APP_DEBUG) {

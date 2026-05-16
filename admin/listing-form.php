@@ -49,9 +49,11 @@ $data = [
     'bedrooms'        => 0,  'bathrooms'       => 0,
     'possession_status' => 'ready',
     'features'        => [], 'description'     => '',
+    'youtube_url'     => '',
     'is_published'    => 0,  'is_featured'     => 0,
 ];
 $existingPhotos = [];
+$existingVideos = [];
 
 if ($isEdit) {
     try {
@@ -66,6 +68,11 @@ if ($isEdit) {
         $pStmt = $db->prepare('SELECT * FROM property_media WHERE property_id=? AND kind="image" ORDER BY sort_order ASC');
         $pStmt->execute([$id]);
         $existingPhotos = $pStmt->fetchAll();
+
+        // Load videos
+        $vStmt = $db->prepare('SELECT * FROM property_media WHERE property_id=? AND kind="video" ORDER BY sort_order ASC');
+        $vStmt->execute([$id]);
+        $existingVideos = $vStmt->fetchAll();
     } catch(Exception $e) {
         setFlash('danger', 'Could not load listing: ' . $e->getMessage());
         redirect('/admin/listings.php');
@@ -85,9 +92,47 @@ try {
 $agentsById = [];
 foreach ($agents as $a) { $agentsById[(int)$a['id']] = $a; }
 
+// php.ini-style "40M" → bytes
+$iniBytes = function (string $val): int {
+    $val = trim($val);
+    if ($val === '') return 0;
+    $unit = strtolower(substr($val, -1));
+    $num  = (int)$val;
+    return match ($unit) {
+        'g'     => $num * 1024 * 1024 * 1024,
+        'm'     => $num * 1024 * 1024,
+        'k'     => $num * 1024,
+        default => (int)$val,
+    };
+};
+$postMaxBytes   = $iniBytes(ini_get('post_max_size'));
+$uploadMaxBytes = $iniBytes(ini_get('upload_max_filesize'));
+// Effective per-file video cap: lower of our app constant and the two php.ini
+// limits. Used both for display and to clamp the client-side validator.
+$effectiveVideoMaxBytes = min(
+    MAX_VIDEO_SIZE,
+    $postMaxBytes > 0 ? $postMaxBytes : MAX_VIDEO_SIZE,
+    $uploadMaxBytes > 0 ? $uploadMaxBytes : MAX_VIDEO_SIZE
+);
+
 // ── Handle Form Submission ────────────────────────────────────
 $formErrors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // When the request body exceeds post_max_size, PHP silently empties
+    // $_POST and $_FILES (Content-Length is still set). The CSRF check would
+    // then fail with a misleading "token mismatch" — detect and surface the
+    // real cause first.
+    $contentLen = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($contentLen > 0 && empty($_POST) && empty($_FILES)) {
+        setFlash(
+            'danger',
+            'Upload too large: the request (' . number_format($contentLen / 1024 / 1024, 1) . ' MB) '
+            . 'exceeds the server limit of ' . ini_get('post_max_size') . '. '
+            . 'Increase post_max_size and upload_max_filesize in php.ini, then restart Apache.'
+        );
+        redirect('/admin/listing-form.php' . ($isEdit ? '?id=' . $id : ''));
+    }
+
     verifyCsrf();
 
     // Collect fields
@@ -113,6 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                               ? $_POST['possession_status']
                               : 'ready',
         'description'      => trim($_POST['description']  ?? ''),
+        'youtube_url'      => trim($_POST['youtube_url']  ?? ''),
         'is_published'     => isset($_POST['is_published']) ? 1 : 0,
         'is_featured'      => isset($_POST['is_featured'])  ? 1 : 0,
     ];
@@ -134,6 +180,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($fields['area_value'] === '') $formErrors[] = 'Area value is required.';
     if (!$fields['price_on_demand'] && ($fields['price'] === '' || (float)$fields['price'] <= 0)) {
         $formErrors[] = 'Price is required (or check Price on Demand).';
+    }
+    if ($fields['youtube_url'] !== '') {
+        // Accept watch / youtu.be / shorts / embed URLs; reject anything else.
+        if (!preg_match('~^https?://(www\.|m\.)?(youtube\.com/(watch\?v=|shorts/|embed/)|youtu\.be/)[A-Za-z0-9_\-]{6,}~i', $fields['youtube_url'])) {
+            $formErrors[] = 'YouTube URL is not a valid YouTube link.';
+        }
+    } else {
+        $fields['youtube_url'] = null;
     }
 
     // Auto-generate a unique slug from the title. On edit, only regenerate
@@ -190,6 +244,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $maxStmt->execute([$propId]);
                 $sortOrder = (int)$maxStmt->fetchColumn();
 
+                // Watermark prep — only resolved if the toggle is on AND a logo
+                // is configured. Looked up once per request, not per photo.
+                $wmEnabled  = false;
+                $wmLogoPath = '';
+                if (function_exists('getSettings')) {
+                    $wmSettings = getSettings();
+                    if (($wmSettings['watermark'] ?? '0') === '1' && !empty($wmSettings['logo_path'])) {
+                        $candidate = __DIR__ . '/..' . $wmSettings['logo_path'];
+                        if (is_file($candidate)) {
+                            $wmEnabled  = true;
+                            $wmLogoPath = $candidate;
+                        }
+                    }
+                }
+
                 foreach ($_FILES['photos']['error'] as $idx => $err) {
                     if ($err !== UPLOAD_ERR_OK) continue;
                     $tmpName = $_FILES['photos']['tmp_name'][$idx];
@@ -202,6 +271,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $fname= 'photo_' . uniqid() . '.' . $ext;
                     $localPath = $uploadDir . $fname;
                     if (move_uploaded_file($tmpName, $localPath)) {
+                        if ($wmEnabled && function_exists('applyLogoWatermark')) {
+                            // Best-effort — if GD is missing or the format is
+                            // unsupported, the original photo stays in place.
+                            @applyLogoWatermark($localPath, $wmLogoPath);
+                        }
                         $publicUrl = '/assets/uploads/properties/' . $propId . '/' . $fname;
                         $db->prepare(
                             'INSERT INTO property_media (property_id, url, thumbnail_url, alt_text, kind, sort_order)
@@ -212,12 +286,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // Delete individual photos
-            if (!empty($_POST['delete_photo'])) {
-                foreach ((array)$_POST['delete_photo'] as $photoId) {
-                    $photoId = (int)$photoId;
+            // Handle video uploads
+            if (!empty($_FILES['videos']['name'][0])) {
+                $uploadDir = __DIR__ . '/../assets/uploads/properties/' . $propId . '/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                // Video sort_order is tracked independently of images so each
+                // kind keeps its own ordering when filtered on the public page.
+                $maxStmt = $db->prepare("SELECT COALESCE(MAX(sort_order) + 1, 0) FROM property_media WHERE property_id = ? AND kind = 'video'");
+                $maxStmt->execute([$propId]);
+                $vSortOrder = (int)$maxStmt->fetchColumn();
+
+                foreach ($_FILES['videos']['error'] as $idx => $err) {
+                    if ($err !== UPLOAD_ERR_OK) continue;
+                    $tmpName  = $_FILES['videos']['tmp_name'][$idx];
+                    $origName = $_FILES['videos']['name'][$idx];
+                    $mime     = mime_content_type($tmpName);
+                    if (!in_array($mime, ALLOWED_VIDEO_TYPES, true)) continue;
+                    if ($_FILES['videos']['size'][$idx] > MAX_VIDEO_SIZE) continue;
+
+                    $ext   = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+                    $fname = 'video_' . uniqid() . '.' . $ext;
+                    $localPath = $uploadDir . $fname;
+                    if (move_uploaded_file($tmpName, $localPath)) {
+                        $publicUrl = '/assets/uploads/properties/' . $propId . '/' . $fname;
+                        $db->prepare(
+                            'INSERT INTO property_media (property_id, url, thumbnail_url, alt_text, kind, sort_order)
+                             VALUES (?, ?, NULL, ?, "video", ?)'
+                        )->execute([$propId, $publicUrl, $origName, $vSortOrder]);
+                        $vSortOrder++;
+                    }
+                }
+            }
+
+            // Delete individual photos or videos (both queued as media IDs)
+            $deleteMediaIds = array_merge(
+                (array)($_POST['delete_photo'] ?? []),
+                (array)($_POST['delete_video'] ?? [])
+            );
+            if (!empty($deleteMediaIds)) {
+                foreach ($deleteMediaIds as $mediaId) {
+                    $mediaId = (int)$mediaId;
+                    if ($mediaId <= 0) continue;
                     $pRow = $db->prepare('SELECT url FROM property_media WHERE id=? AND property_id=?');
-                    $pRow->execute([$photoId, $propId]);
+                    $pRow->execute([$mediaId, $propId]);
                     $pData = $pRow->fetch();
                     if ($pData) {
                         // Only unlink if it's a local file (not external URL)
@@ -225,7 +336,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $fullPath = __DIR__ . '/..' . $pData['url'];
                             if (file_exists($fullPath)) @unlink($fullPath);
                         }
-                        $db->prepare('DELETE FROM property_media WHERE id=?')->execute([$photoId]);
+                        $db->prepare('DELETE FROM property_media WHERE id=?')->execute([$mediaId]);
                     }
                 }
             }
@@ -295,7 +406,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
   <div class="step-line" id="stepLine3"></div>
   <div class="d-flex flex-column align-items-center" style="flex:1;max-width:160px;">
     <div class="step-num" id="stepNum4">4</div>
-    <div class="step-label" id="stepLbl4">Photos</div>
+    <div class="step-label" id="stepLbl4">Media</div>
   </div>
   <div class="step-line" id="stepLine4"></div>
   <div class="d-flex flex-column align-items-center" style="flex:1;max-width:160px;">
@@ -609,12 +720,12 @@ include __DIR__ . '/includes/admin-sidebar.php';
         <i class="fa-solid fa-arrow-left me-1"></i> Previous
       </button>
       <button type="button" class="btn btn-gold btn-next" data-next="4">
-        Next: Photos <i class="fa-solid fa-arrow-right ms-1"></i>
+        Next: Media <i class="fa-solid fa-arrow-right ms-1"></i>
       </button>
     </div>
   </div>
 
-  <!-- ── Step 4: Photos ────────────────────────────────────── -->
+  <!-- ── Step 4: Media (Photos + Videos) ───────────────────── -->
   <div class="step-panel d-none" id="panel4">
     <div class="form-section-card">
       <div class="card-header">
@@ -653,7 +764,74 @@ include __DIR__ . '/includes/admin-sidebar.php';
         <div class="photo-preview-grid mt-3" id="newPhotoGrid"></div>
       </div>
     </div>
-    <div class="d-flex justify-content-between">
+
+    <!-- ── Videos ─────────────────────────────────────────── -->
+    <div class="form-section-card mt-3">
+      <div class="card-header">
+        <i class="fa-solid fa-video" style="color:var(--gold)"></i> Property Videos
+      </div>
+      <div class="card-body">
+        <!-- Existing videos -->
+        <?php if (!empty($existingVideos)): ?>
+        <div class="mb-3">
+          <label class="form-label fw-600">Current Videos</label>
+          <div class="photo-preview-grid" id="existingVideoGrid">
+            <?php foreach ($existingVideos as $vid): ?>
+            <div class="photo-preview-item" id="existing_vid_<?= (int)$vid['id'] ?>" style="background:#0A1628;">
+              <video src="<?= htmlspecialchars(mediaUrl($vid['url']), ENT_QUOTES, 'UTF-8') ?>"
+                     preload="metadata" muted playsinline
+                     style="width:100%;height:100%;object-fit:cover;background:#0A1628;"></video>
+              <button type="button" class="btn-remove-photo"
+                      onclick="removeExistingVideo(<?= (int)$vid['id'] ?>, this)">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <hr>
+        <?php endif; ?>
+
+        <!-- New video uploads -->
+        <?php $effMB = (int)floor($effectiveVideoMaxBytes / 1024 / 1024); ?>
+        <label class="form-label fw-600">Upload New Videos <span class="text-muted fw-normal fs-12">(MP4 / WebM / MOV, max <?= $effMB ?>MB each)</span></label>
+        <div class="drop-zone" id="videoDropZone">
+          <i class="fa-solid fa-film d-block mb-2"></i>
+          <p class="mb-1">Drag & drop videos here or <strong>click to browse</strong></p>
+          <small>Supported: MP4, WebM, MOV — Max <?= $effMB ?>MB per file</small>
+          <input type="file" id="videoInput" name="videos[]" multiple
+                 accept="video/mp4,video/quicktime,video/webm,video/x-m4v" class="d-none">
+        </div>
+        <div class="photo-preview-grid mt-3" id="newVideoGrid"></div>
+        <p class="text-muted fs-12 mb-0 mt-2">
+          <i class="fa-solid fa-circle-info me-1"></i>
+          Effective limit is the lower of the app cap (<?= (int)(MAX_VIDEO_SIZE / 1024 / 1024) ?>MB)
+          and php.ini's <code>post_max_size</code> (<?= htmlspecialchars(ini_get('post_max_size'), ENT_QUOTES, 'UTF-8') ?>)
+          / <code>upload_max_filesize</code> (<?= htmlspecialchars(ini_get('upload_max_filesize'), ENT_QUOTES, 'UTF-8') ?>).
+          Raise the php.ini values and restart Apache to allow larger uploads.
+        </p>
+
+        <hr class="my-3">
+
+        <label class="form-label fw-600">
+          YouTube Video Link <span class="text-muted fw-normal fs-12">(optional)</span>
+        </label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="fa-brands fa-youtube text-danger"></i></span>
+          <input type="url" name="youtube_url" class="form-control"
+                 placeholder="https://www.youtube.com/watch?v=…  or  https://youtu.be/…"
+                 maxlength="500"
+                 pattern="https?://(www\.|m\.)?(youtube\.com/(watch\?v=|shorts/|embed/)|youtu\.be/).+"
+                 value="<?= htmlspecialchars((string)$data['youtube_url'], ENT_QUOTES, 'UTF-8') ?>">
+        </div>
+        <p class="text-muted fs-12 mb-0 mt-1">
+          Accepts <code>youtube.com/watch?v=…</code>, <code>youtu.be/…</code>, <code>youtube.com/shorts/…</code> or <code>youtube.com/embed/…</code>.
+          Leave blank to hide the YouTube section on the public page.
+        </p>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-3">
       <button type="button" class="btn btn-outline-secondary btn-prev" data-prev="3">
         <i class="fa-solid fa-arrow-left me-1"></i> Previous
       </button>
@@ -952,6 +1130,95 @@ function removeExistingPhoto(photoId, btn) {
   inp.type = 'hidden';
   inp.name = 'delete_photo[]';
   inp.value = photoId;
+  document.getElementById('listingForm').appendChild(inp);
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+}
+
+// ── Video upload drag & drop ────────────────────────────────
+var videoDropZone   = document.getElementById('videoDropZone');
+var videoInput      = document.getElementById('videoInput');
+var videoPreviewGrid= document.getElementById('newVideoGrid');
+var MAX_VIDEO_BYTES = <?= (int)$effectiveVideoMaxBytes ?>;
+var ALLOWED_VIDEO_MIMES = <?= json_encode(ALLOWED_VIDEO_TYPES) ?>;
+
+var videoBuffer = new DataTransfer();
+var videoUid    = 0;
+
+if (videoDropZone && videoInput) {
+  videoDropZone.addEventListener('click', function() { videoInput.click(); });
+  videoDropZone.addEventListener('dragover',  function(e) { e.preventDefault(); videoDropZone.classList.add('dragover'); });
+  videoDropZone.addEventListener('dragleave', function()  { videoDropZone.classList.remove('dragover'); });
+  videoDropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    videoDropZone.classList.remove('dragover');
+    addVideoFiles(e.dataTransfer.files);
+  });
+  videoInput.addEventListener('change', function() {
+    addVideoFiles(this.files);
+    videoInput.files = videoBuffer.files;
+  });
+}
+
+function addVideoFiles(files) {
+  Array.from(files).forEach(function(file) {
+    if (ALLOWED_VIDEO_MIMES.indexOf(file.type) === -1) {
+      alert('Skipped "' + file.name + '" — unsupported video format.');
+      return;
+    }
+    if (file.size > MAX_VIDEO_BYTES) {
+      alert('Skipped "' + file.name + '" — exceeds max video size of ' + (MAX_VIDEO_BYTES/1024/1024) + 'MB.');
+      return;
+    }
+    // Skip exact duplicates
+    for (var i = 0; i < videoBuffer.files.length; i++) {
+      var f = videoBuffer.files[i];
+      if (f.name === file.name && f.size === file.size && f.lastModified === file.lastModified) return;
+    }
+
+    videoBuffer.items.add(file);
+    var uid = ++videoUid;
+    file.__previewUid = uid;
+
+    var objectUrl = URL.createObjectURL(file);
+    var div = document.createElement('div');
+    div.className = 'photo-preview-item';
+    div.dataset.uid = uid;
+    div.style.background = '#0A1628';
+    div.innerHTML =
+      '<video src="' + objectUrl + '" preload="metadata" muted playsinline ' +
+        'style="width:100%;height:100%;object-fit:cover;background:#0A1628;"></video>' +
+      '<button type="button" class="btn-remove-photo" onclick="removeBufferedVideo(' + uid + ', this)">' +
+      '<i class="fa-solid fa-xmark"></i></button>';
+    videoPreviewGrid.appendChild(div);
+  });
+
+  videoInput.files = videoBuffer.files;
+}
+
+function removeBufferedVideo(uid, btn) {
+  var keep = new DataTransfer();
+  for (var i = 0; i < videoBuffer.files.length; i++) {
+    var f = videoBuffer.files[i];
+    if (f.__previewUid !== uid) keep.items.add(f);
+  }
+  videoBuffer = keep;
+  videoInput.files = videoBuffer.files;
+  var tile = btn.closest('.photo-preview-item');
+  if (tile) {
+    var v = tile.querySelector('video');
+    if (v && v.src) { try { URL.revokeObjectURL(v.src); } catch(e){} }
+    tile.remove();
+  }
+}
+
+function removeExistingVideo(videoId, btn) {
+  var container = btn.closest('.photo-preview-item');
+  container.style.opacity = '0.3';
+  var inp = document.createElement('input');
+  inp.type = 'hidden';
+  inp.name = 'delete_video[]';
+  inp.value = videoId;
   document.getElementById('listingForm').appendChild(inp);
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-check"></i>';

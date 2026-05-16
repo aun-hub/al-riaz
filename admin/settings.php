@@ -144,8 +144,68 @@ $defaults = [
     'hero_cta_primary_url'     => '',
     'hero_cta_secondary_label' => 'WhatsApp Us',
     'hero_cta_secondary_url'   => '',
-    'cta_heading'     => 'Ready to buy, sell, or rent?',
-    'cta_sub'         => "Message us. A real person will reply within minutes during business hours — no bots, no templates, no fluff.",
+    'cta_label'             => "Let's Talk",
+    'cta_heading'           => 'Ready to buy, sell, or rent?',
+    'cta_sub'               => "Message us. A real person will reply within minutes during business hours — no bots, no templates, no fluff.",
+    'cta_primary_label'     => 'Chat on WhatsApp',
+    'cta_primary_url'       => '',
+    'cta_secondary_label'   => 'Contact Form',
+    'cta_secondary_url'     => '',
+    'cta_hours'             => 'Mon–Sat 9am–7pm · Sun 11am–4pm',
+    'cta_badge_value'       => '',
+    'cta_badge_label'       => 'Years Trusted',
+
+    // Hero stats strip (3 cells below the CTA). Empty value → auto-derived.
+    'home_stats' => [
+        ['value' => '', 'label' => 'Properties'],
+        ['value' => '', 'label' => 'Happy Clients'],
+        ['value' => '', 'label' => 'Years Active'],
+    ],
+
+    // Wide stats band lower on the page (4 cells). Empty value → auto-derived.
+    'home_strip_stats' => [
+        ['value' => '', 'label' => 'Properties Listed'],
+        ['value' => '', 'label' => 'Happy Clients'],
+        ['value' => '', 'label' => 'Projects Authorised'],
+        ['value' => '', 'label' => 'Years in Business'],
+    ],
+
+    // Hero mosaic — three photos on the right of the hero. Empty falls back to stock.
+    'hero_mosaic_main'  => '',
+    'hero_mosaic_tile1' => '',
+    'hero_mosaic_tile2' => '',
+
+    // Floating rating card (overlays the mosaic).
+    'hero_rating_score'   => '',                          // empty → average from reviews
+    'hero_rating_caption' => 'From {count}+ happy clients', // {count} → review count, {clients} → happy_clients
+
+    // Floating "Authorised Developers" card.
+    'hero_dev_tags'           => ['BT', 'DHA', 'CSC'],
+    'hero_dev_count_override' => '', // empty → use total published projects
+    'hero_dev_label'          => 'Authorised Developers',
+
+    // Intent tiles section ("What are you looking for?")
+    'intent_label'   => 'Get Started',
+    'intent_heading' => 'What are you looking for?',
+    'intent_sub'     => "Pick your path — we'll take it from there.",
+    'intent_cards' => [
+        ['icon'=>'fa-house-chimney', 'title'=>'Buy a Property',     'desc'=>"Verified houses, flats, plots, and commercial units across Pakistan's top cities.",                                       'cta_label'=>'Browse to buy',  'cta_url'=>'/listings.php?purpose=sale', 'highlight'=>'0'],
+        ['icon'=>'fa-key',           'title'=>'Rent a Place',       'desc'=>'Monthly rentals — apartments, offices, shops, and more with verified owners.',                                            'cta_label'=>'Browse rentals', 'cta_url'=>'/listings.php?purpose=rent', 'highlight'=>'1'],
+        ['icon'=>'fa-chart-line',    'title'=>'Invest in Projects', 'desc'=>'Authorised launches from Bahria, DHA, Capital Smart City, and more — file-level entry points.',                          'cta_label'=>'View projects',  'cta_url'=>'/projects.php',              'highlight'=>'0'],
+    ],
+
+    // "Why Choose ..." section.
+    'why_label'   => 'Why Us',
+    'why_heading' => 'Why Choose Al-Riaz Associates?',
+    'why_sub'     => '', // empty → auto "Your trusted real estate partner in Pakistan since {YEAR}"
+    'why_cards' => [
+        ['icon'=>'fa-certificate',     'title'=>'Authorised Dealer',      'desc'=>'Officially authorised for Bahria Town, DHA, Capital Smart City, Blue World City, Gulberg Greens, and more. All listings are verified and legitimate.'],
+        ['icon'=>'fa-brands fa-whatsapp','title'=>'WhatsApp-First Support', 'desc'=>'Reach us instantly via WhatsApp for inquiries, site visits, and payment plans. Our team responds within minutes during business hours.'],
+        ['icon'=>'fa-shield-halved',   'title'=>'Verified Listings',      'desc'=>'Every property undergoes thorough verification. We ensure accurate pricing, legal status, and ownership documentation before listing.'],
+        ['icon'=>'fa-handshake',       'title'=>'Expert Negotiation',     'desc'=>"Our seasoned agents negotiate the best deals on your behalf — whether you're buying, selling, or renting. We protect your investment."],
+        ['icon'=>'fa-file-contract',   'title'=>'Legal Documentation',    'desc'=>'We guide you through all paperwork — registry, NOC, transfer letters, and payment receipts — ensuring a smooth, stress-free transaction.'],
+        ['icon'=>'fa-chart-line',      'title'=>'Investment Advice',      'desc'=>'Get expert guidance on high-yield investment opportunities, upcoming projects, and market trends to maximise your returns.'],
+    ],
 ];
 
 $settings = array_merge($defaults, $settings);
@@ -162,6 +222,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($fields as $f) {
             $settings[$f] = trim($_POST[$f] ?? $settings[$f]);
         }
+
+        // WhatsApp number: if admin left it empty, auto-derive from the phone
+        // (strip non-digits; normalise a leading "0" to Pakistan country code
+        // 92 so "0300 123 4567" still produces a working wa.me link).
+        // If admin entered a value, keep it as-is but still strip non-digits
+        // because wa.me only accepts digits. Branch phones are unaffected.
+        $waRaw = preg_replace('/\D+/', '', (string)($settings['whatsapp'] ?? ''));
+        if ($waRaw === '') {
+            $waRaw = preg_replace('/\D+/', '', (string)($settings['phone'] ?? ''));
+            if ($waRaw !== '' && str_starts_with($waRaw, '0')) {
+                $waRaw = '92' . substr($waRaw, 1);
+            }
+        }
+        $settings['whatsapp'] = $waRaw;
 
         // Business hours — 7-day structured schedule.
         $schedule = parsePostedSchedule($_POST['hours'] ?? null);
@@ -333,14 +407,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'hero_badge','hero_heading','hero_heading_accent','hero_sub',
             'hero_cta_primary_label','hero_cta_primary_url',
             'hero_cta_secondary_label','hero_cta_secondary_url',
-            'cta_heading','cta_sub',
+            'cta_label','cta_heading','cta_sub',
+            'cta_primary_label','cta_primary_url',
+            'cta_secondary_label','cta_secondary_url',
+            'cta_hours','cta_badge_value','cta_badge_label',
+            'hero_rating_score','hero_rating_caption',
+            'hero_dev_label','hero_dev_count_override',
+            'intent_label','intent_heading','intent_sub',
+            'why_label','why_heading','why_sub',
         ];
         foreach ($fields as $f) {
             if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
         }
+
+        // Hero stats strip (3 cells).
+        $statsIn = $_POST['home_stats'] ?? [];
+        $homeStats = [];
+        for ($i = 0; $i < 3; $i++) {
+            $row = is_array($statsIn[$i] ?? null) ? $statsIn[$i] : [];
+            $homeStats[] = [
+                'value' => trim((string)($row['value'] ?? '')),
+                'label' => trim((string)($row['label'] ?? '')),
+            ];
+        }
+        $settings['home_stats'] = $homeStats;
+
+        // Wide stats band (4 cells).
+        $stripIn = $_POST['home_strip_stats'] ?? [];
+        $stripStats = [];
+        for ($i = 0; $i < 4; $i++) {
+            $row = is_array($stripIn[$i] ?? null) ? $stripIn[$i] : [];
+            $stripStats[] = [
+                'value' => trim((string)($row['value'] ?? '')),
+                'label' => trim((string)($row['label'] ?? '')),
+            ];
+        }
+        $settings['home_strip_stats'] = $stripStats;
+
+        // Hero floating dev pills (3 tags).
+        $tagsIn = $_POST['hero_dev_tags'] ?? [];
+        $devTags = [];
+        for ($i = 0; $i < 3; $i++) {
+            $devTags[] = trim((string)($tagsIn[$i] ?? ''));
+        }
+        $settings['hero_dev_tags'] = $devTags;
+
+        // Intent cards (3 items).
+        $intentIn = $_POST['intent_cards'] ?? [];
+        $intent = [];
+        for ($i = 0; $i < 3; $i++) {
+            $row = is_array($intentIn[$i] ?? null) ? $intentIn[$i] : [];
+            $intent[] = [
+                'icon'      => preg_replace('/[^a-z0-9_-]/i', '', trim((string)($row['icon']  ?? ''))) ?: 'fa-house',
+                'title'     => trim((string)($row['title']     ?? '')),
+                'desc'      => trim((string)($row['desc']      ?? '')),
+                'cta_label' => trim((string)($row['cta_label'] ?? '')),
+                'cta_url'   => trim((string)($row['cta_url']   ?? '')),
+                'highlight' => isset($row['highlight']) ? '1' : '0',
+            ];
+        }
+        $settings['intent_cards'] = $intent;
+
+        // Why-choose cards (6 items).
+        $whyIn = $_POST['why_cards'] ?? [];
+        $why = [];
+        for ($i = 0; $i < 6; $i++) {
+            $row = is_array($whyIn[$i] ?? null) ? $whyIn[$i] : [];
+            $rawIcon = trim((string)($row['icon'] ?? ''));
+            // Accept "fa-foo" or "fa-brands fa-foo" — only sanitise the icon name parts.
+            $iconParts = preg_split('/\s+/', $rawIcon);
+            $iconClean = implode(' ', array_filter(array_map(static fn($p) => preg_replace('/[^a-z0-9_-]/i', '', $p), $iconParts)));
+            $why[] = [
+                'icon'  => $iconClean ?: 'fa-circle',
+                'title' => trim((string)($row['title'] ?? '')),
+                'desc'  => trim((string)($row['desc']  ?? '')),
+            ];
+        }
+        $settings['why_cards'] = $why;
+
+        // Clear-image checkboxes — admin can remove an uploaded mosaic image
+        // to revert that slot to the stock fallback. Runs before upload so a
+        // simultaneous "clear + new upload" replaces cleanly.
+        foreach (['hero_mosaic_main','hero_mosaic_tile1','hero_mosaic_tile2'] as $slot) {
+            if (empty($_POST[$slot . '_clear'])) continue;
+            $old = (string)($settings[$slot] ?? '');
+            if ($old && str_starts_with($old, '/assets/images/' . $slot . '_')) {
+                $oldFs = __DIR__ . '/..' . $old;
+                if (is_file($oldFs)) @unlink($oldFs);
+            }
+            $settings[$slot] = '';
+        }
+
+        // Optional mosaic image uploads (3 slots).
+        foreach (['hero_mosaic_main','hero_mosaic_tile1','hero_mosaic_tile2'] as $slot) {
+            if (empty($_FILES[$slot]['tmp_name']) || $_FILES[$slot]['error'] !== UPLOAD_ERR_OK) continue;
+            if ($_FILES[$slot]['size'] > MAX_FILE_SIZE) {
+                setFlash('danger', ucwords(str_replace('_',' ',$slot)) . ' exceeds the file size limit.');
+                continue;
+            }
+            $mime = mime_content_type($_FILES[$slot]['tmp_name']);
+            if (!in_array($mime, ALLOWED_IMAGE_TYPES)) {
+                setFlash('danger', ucwords(str_replace('_',' ',$slot)) . ' must be JPEG, PNG, WebP, or GIF.');
+                continue;
+            }
+            $ext   = strtolower(pathinfo($_FILES[$slot]['name'], PATHINFO_EXTENSION));
+            $fname = $slot . '_' . uniqid() . '.' . $ext;
+            $dir   = __DIR__ . '/../assets/images/';
+            if (!is_dir($dir)) @mkdir($dir, 0755, true);
+            if (move_uploaded_file($_FILES[$slot]['tmp_name'], $dir . $fname)) {
+                $old = (string)($settings[$slot] ?? '');
+                if ($old && str_starts_with($old, '/assets/images/' . $slot . '_')) {
+                    $oldFs = __DIR__ . '/..' . $old;
+                    if (is_file($oldFs)) @unlink($oldFs);
+                }
+                $settings[$slot] = '/assets/images/' . $fname;
+            }
+        }
+
         saveSettings($settingsFile, $settings);
         auditLog('update','settings',0,'Updated homepage banners');
-        setFlash('success', 'Banners saved.');
+        setFlash('success', 'Homepage content saved.');
         header('Location: ' . BASE_PATH . '/admin/settings.php?tab=banners'); exit;
     }
 
@@ -562,7 +748,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
       $tabs = [
         'agency'        => ['icon'=>'fa-building','label'=>'Agency Profile'],
         'about'         => ['icon'=>'fa-circle-info','label'=>'About Page'],
-        'banners'       => ['icon'=>'fa-flag','label'=>'Banners'],
+        'banners'       => ['icon'=>'fa-house','label'=>'Home Page'],
         'theme'         => ['icon'=>'fa-palette','label'=>'Theme'],
         'navigation'    => ['icon'=>'fa-bars','label'=>'Navigation'],
         'smtp'          => ['icon'=>'fa-envelope','label'=>'SMTP Config'],
@@ -617,6 +803,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
             <label class="form-label fw-600">WhatsApp Number <span class="text-muted fw-normal fs-12">(digits only)</span></label>
             <input type="text" name="whatsapp" class="form-control"
                    value="<?= htmlspecialchars($settings['whatsapp'], ENT_QUOTES,'UTF-8') ?>" placeholder="923001234567">
+            <div class="form-text">Leave empty to auto-derive from Phone. Per-branch numbers are managed separately below.</div>
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label fw-600">Website URL</label>
@@ -1473,7 +1660,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
 
       <?php elseif ($activeTab === 'banners'): ?>
       <!-- Banners Tab -->
-      <form method="POST">
+      <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES,'UTF-8') ?>">
         <input type="hidden" name="tab" value="banners">
 
@@ -1526,9 +1713,250 @@ include __DIR__ . '/includes/admin-sidebar.php';
           </div>
         </div>
 
-        <h5 class="fw-700 mb-3"><i class="fa-solid fa-bullhorn me-2" style="color:var(--gold)"></i>Bottom Call-to-Action</h5>
+        <!-- ─────────────── Hero stats strip (3 cells under the CTA) ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-chart-simple me-2" style="color:var(--gold)"></i>Hero Stats Strip</h5>
+        <p class="text-muted small mb-3">The three small stats directly below the hero CTA buttons. Leave value blank to auto-fill from the database / default.</p>
         <div class="row g-3 mb-4">
-          <div class="col-12">
+          <?php for ($i = 0; $i < 3; $i++):
+            $s = $settings['home_stats'][$i] ?? ['value'=>'', 'label'=>''];
+          ?>
+          <div class="col-12 col-md-4">
+            <div class="form-section-card mb-0" style="height:100%;">
+              <div class="card-body">
+                <label class="form-label fw-600 small">Stat <?= $i+1 ?> Value</label>
+                <input type="text" name="home_stats[<?= $i ?>][value]" class="form-control form-control-sm mb-2" maxlength="20"
+                       placeholder="auto"
+                       value="<?= htmlspecialchars($s['value'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">Stat <?= $i+1 ?> Label</label>
+                <input type="text" name="home_stats[<?= $i ?>][label]" class="form-control form-control-sm" maxlength="60"
+                       value="<?= htmlspecialchars($s['label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+
+        <!-- ─────────────── Hero Mosaic (right-side images) ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-images me-2" style="color:var(--gold)"></i>Hero Mosaic Images</h5>
+        <p class="text-muted small mb-3">Three photos on the right of the hero. Leave empty to use the stock fallback. Max 5MB each, JPEG/PNG/WebP/GIF.</p>
+        <div class="row g-3 mb-4">
+          <?php foreach ([
+            ['hero_mosaic_main',  'Main Image',  'Largest tile.'],
+            ['hero_mosaic_tile1', 'Tile 1',      'Upper-left floating tile.'],
+            ['hero_mosaic_tile2', 'Tile 2',      'Lower-right floating tile.'],
+          ] as [$slot, $lbl, $help]): ?>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600"><?= $lbl ?></label>
+            <?php if (!empty($settings[$slot])): ?>
+              <div class="mb-2">
+                <img src="<?= htmlspecialchars(BASE_PATH . $settings[$slot], ENT_QUOTES, 'UTF-8') ?>?v=<?= @filemtime(__DIR__ . '/..' . $settings[$slot]) ?: '' ?>"
+                     alt="" style="max-height:120px;border-radius:8px;border:1px solid #dee2e6;">
+              </div>
+            <?php endif; ?>
+            <input type="file" name="<?= $slot ?>" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp,image/gif">
+            <div class="form-text"><?= $help ?></div>
+            <?php if (!empty($settings[$slot])): ?>
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox"
+                       name="<?= $slot ?>_clear" id="<?= $slot ?>_clear" value="1">
+                <label class="form-check-label small text-muted" for="<?= $slot ?>_clear">
+                  Remove this image (revert to stock default)
+                </label>
+              </div>
+            <?php endif; ?>
+          </div>
+          <?php endforeach; ?>
+        </div>
+
+        <!-- ─────────────── Hero Floating Cards ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-id-card me-2" style="color:var(--gold)"></i>Hero Floating Cards</h5>
+        <p class="text-muted small mb-3">The two small white cards that overlap the mosaic (rating + developers).</p>
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">Rating Score</label>
+            <input type="text" name="hero_rating_score" class="form-control" maxlength="10"
+                   placeholder="auto"
+                   value="<?= htmlspecialchars($settings['hero_rating_score'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Empty → averaged from approved reviews. Example: <code>4.9/5</code>.</div>
+          </div>
+          <div class="col-12 col-md-8">
+            <label class="form-label fw-600">Rating Caption</label>
+            <input type="text" name="hero_rating_caption" class="form-control" maxlength="120"
+                   placeholder="From {count}+ happy clients"
+                   value="<?= htmlspecialchars($settings['hero_rating_caption'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Use <code>{count}</code> for live review count or <code>{clients}</code> for the configured Happy Clients value.</div>
+          </div>
+
+          <?php $devTags = $settings['hero_dev_tags'] ?? ['','','']; ?>
+          <div class="col-12 col-md-2">
+            <label class="form-label fw-600 small">Dev Tag 1</label>
+            <input type="text" name="hero_dev_tags[0]" class="form-control" maxlength="6" placeholder="BT"
+                   value="<?= htmlspecialchars($devTags[0] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label fw-600 small">Dev Tag 2</label>
+            <input type="text" name="hero_dev_tags[1]" class="form-control" maxlength="6" placeholder="DHA"
+                   value="<?= htmlspecialchars($devTags[1] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label fw-600 small">Dev Tag 3</label>
+            <input type="text" name="hero_dev_tags[2]" class="form-control" maxlength="6" placeholder="CSC"
+                   value="<?= htmlspecialchars($devTags[2] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label fw-600 small">"+N" Override</label>
+            <input type="text" name="hero_dev_count_override" class="form-control" maxlength="6" placeholder="auto"
+                   value="<?= htmlspecialchars($settings['hero_dev_count_override'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600 small">Devs Label</label>
+            <input type="text" name="hero_dev_label" class="form-control" maxlength="60"
+                   placeholder="Authorised Developers"
+                   value="<?= htmlspecialchars($settings['hero_dev_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+        </div>
+
+        <!-- ─────────────── Wide stats band ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-chart-line me-2" style="color:var(--gold)"></i>Stats Band</h5>
+        <p class="text-muted small mb-3">The wide navy strip with four animated counters lower on the homepage. Leave value blank to auto-fill from the database / default.</p>
+        <div class="row g-3 mb-4">
+          <?php for ($i = 0; $i < 4; $i++):
+            $s = $settings['home_strip_stats'][$i] ?? ['value'=>'', 'label'=>''];
+          ?>
+          <div class="col-6 col-md-3">
+            <div class="form-section-card mb-0" style="height:100%;">
+              <div class="card-body">
+                <label class="form-label fw-600 small">Stat <?= $i+1 ?> Value</label>
+                <input type="text" name="home_strip_stats[<?= $i ?>][value]" class="form-control form-control-sm mb-2" maxlength="20"
+                       placeholder="auto"
+                       value="<?= htmlspecialchars($s['value'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">Stat <?= $i+1 ?> Label</label>
+                <input type="text" name="home_strip_stats[<?= $i ?>][label]" class="form-control form-control-sm" maxlength="60"
+                       value="<?= htmlspecialchars($s['label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+
+        <!-- ─────────────── Intent cards ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-compass me-2" style="color:var(--gold)"></i>Intent Cards Section</h5>
+        <p class="text-muted small mb-3">The "What are you looking for?" block with three pick-your-path cards.</p>
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-600">Eyebrow Label</label>
+            <input type="text" name="intent_label" class="form-control" maxlength="60"
+                   value="<?= htmlspecialchars($settings['intent_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="intent_heading" class="form-control" maxlength="160"
+                   value="<?= htmlspecialchars($settings['intent_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">Sub-heading</label>
+            <input type="text" name="intent_sub" class="form-control" maxlength="200"
+                   value="<?= htmlspecialchars($settings['intent_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+        </div>
+        <div class="row g-3 mb-4">
+          <?php for ($i = 0; $i < 3; $i++):
+            $c = $settings['intent_cards'][$i] ?? ['icon'=>'','title'=>'','desc'=>'','cta_label'=>'','cta_url'=>'','highlight'=>'0'];
+          ?>
+          <div class="col-12 col-md-4">
+            <div class="form-section-card mb-0" style="height:100%;">
+              <div class="card-header"><i class="fa-solid fa-square-poll-vertical" style="color:var(--gold)"></i> Card <?= $i+1 ?></div>
+              <div class="card-body">
+                <label class="form-label fw-600 small">Icon (FontAwesome)</label>
+                <input type="text" name="intent_cards[<?= $i ?>][icon]" class="form-control form-control-sm mb-2" maxlength="60"
+                       placeholder="fa-house-chimney"
+                       value="<?= htmlspecialchars($c['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">Title</label>
+                <input type="text" name="intent_cards[<?= $i ?>][title]" class="form-control form-control-sm mb-2" maxlength="80"
+                       value="<?= htmlspecialchars($c['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">Description</label>
+                <textarea name="intent_cards[<?= $i ?>][desc]" class="form-control form-control-sm mb-2" rows="3" maxlength="300"><?= htmlspecialchars($c['desc'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                <label class="form-label fw-600 small">CTA Label</label>
+                <input type="text" name="intent_cards[<?= $i ?>][cta_label]" class="form-control form-control-sm mb-2" maxlength="60"
+                       value="<?= htmlspecialchars($c['cta_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">CTA URL</label>
+                <input type="text" name="intent_cards[<?= $i ?>][cta_url]" class="form-control form-control-sm mb-2"
+                       placeholder="/listings.php"
+                       value="<?= htmlspecialchars($c['cta_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox"
+                         name="intent_cards[<?= $i ?>][highlight]"
+                         id="intentHighlight<?= $i ?>" value="1"
+                         <?= (string)($c['highlight'] ?? '0') === '1' ? 'checked' : '' ?>>
+                  <label class="form-check-label small" for="intentHighlight<?= $i ?>">Highlight (gold tint)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+
+        <!-- ─────────────── Why-choose section ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-star me-2" style="color:var(--gold)"></i>"Why Choose Us" Section</h5>
+        <p class="text-muted small mb-3">Six numbered feature cards. Leave the sub-heading empty to auto-generate "Your trusted real estate partner in Pakistan since &lt;year&gt;".</p>
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-600">Eyebrow Label</label>
+            <input type="text" name="why_label" class="form-control" maxlength="60"
+                   value="<?= htmlspecialchars($settings['why_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="why_heading" class="form-control" maxlength="160"
+                   value="<?= htmlspecialchars($settings['why_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">Sub-heading</label>
+            <input type="text" name="why_sub" class="form-control" maxlength="200"
+                   value="<?= htmlspecialchars($settings['why_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+        </div>
+        <div class="row g-3 mb-4">
+          <?php for ($i = 0; $i < 6; $i++):
+            $w = $settings['why_cards'][$i] ?? ['icon'=>'','title'=>'','desc'=>''];
+          ?>
+          <div class="col-12 col-md-6 col-lg-4">
+            <div class="form-section-card mb-0" style="height:100%;">
+              <div class="card-header"><i class="fa-solid fa-hashtag" style="color:var(--gold)"></i> Reason <?= $i+1 ?></div>
+              <div class="card-body">
+                <label class="form-label fw-600 small">Icon</label>
+                <input type="text" name="why_cards[<?= $i ?>][icon]" class="form-control form-control-sm mb-2" maxlength="80"
+                       placeholder="fa-certificate &nbsp;or&nbsp; fa-brands fa-whatsapp"
+                       value="<?= htmlspecialchars($w['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">Title</label>
+                <input type="text" name="why_cards[<?= $i ?>][title]" class="form-control form-control-sm mb-2" maxlength="80"
+                       value="<?= htmlspecialchars($w['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                <label class="form-label fw-600 small">Description</label>
+                <textarea name="why_cards[<?= $i ?>][desc]" class="form-control form-control-sm" rows="3" maxlength="320"><?= htmlspecialchars($w['desc'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+
+        <!-- ─────────────── Bottom CTA ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-bullhorn me-2" style="color:var(--gold)"></i>Bottom Call-to-Action</h5>
+        <p class="text-muted small mb-3">The navy panel above the footer with the gold "Years Trusted" badge.</p>
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">Eyebrow Label</label>
+            <input type="text" name="cta_label" class="form-control" maxlength="60"
+                   placeholder="Let's Talk"
+                   value="<?= htmlspecialchars($settings['cta_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-8">
             <label class="form-label fw-600">Heading</label>
             <input type="text" name="cta_heading" class="form-control"
                    value="<?= htmlspecialchars($settings['cta_heading'], ENT_QUOTES, 'UTF-8') ?>">
@@ -1537,11 +1965,61 @@ include __DIR__ . '/includes/admin-sidebar.php';
             <label class="form-label fw-600">Sub-heading</label>
             <textarea name="cta_sub" class="form-control" rows="3"><?= htmlspecialchars($settings['cta_sub'], ENT_QUOTES, 'UTF-8') ?></textarea>
           </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Primary Button Label</label>
+            <input type="text" name="cta_primary_label" class="form-control" maxlength="80"
+                   placeholder="Chat on WhatsApp"
+                   value="<?= htmlspecialchars($settings['cta_primary_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Primary Button URL</label>
+            <input type="text" name="cta_primary_url" class="form-control"
+                   placeholder="https://wa.me/..."
+                   value="<?= htmlspecialchars($settings['cta_primary_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Internal path or full URL. Leave empty for the default WhatsApp link.</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Secondary Button Label</label>
+            <input type="text" name="cta_secondary_label" class="form-control" maxlength="80"
+                   placeholder="Contact Form"
+                   value="<?= htmlspecialchars($settings['cta_secondary_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Secondary Button URL</label>
+            <input type="text" name="cta_secondary_url" class="form-control"
+                   placeholder="/contact.php"
+                   value="<?= htmlspecialchars($settings['cta_secondary_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Internal path or full URL. Leave empty for the default contact page.</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Hours line</label>
+            <input type="text" name="cta_hours" class="form-control" maxlength="160"
+                   placeholder="Mon–Sat 9am–7pm · Sun 11am–4pm"
+                   value="<?= htmlspecialchars($settings['cta_hours'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Short blurb shown under the buttons. Leave empty to hide.</div>
+          </div>
+
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-600">Badge Value</label>
+            <input type="text" name="cta_badge_value" class="form-control" maxlength="20"
+                   placeholder="auto"
+                   value="<?= htmlspecialchars($settings['cta_badge_value'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Big number in the gold circle. Leave empty to auto-fill from "Years Active".</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-600">Badge Label</label>
+            <input type="text" name="cta_badge_label" class="form-control" maxlength="40"
+                   placeholder="Years Trusted"
+                   value="<?= htmlspecialchars($settings['cta_badge_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
         </div>
 
         <div class="d-flex justify-content-end">
           <button type="submit" class="btn btn-gold px-4">
-            <i class="fa-solid fa-floppy-disk me-1"></i> Save Banners
+            <i class="fa-solid fa-floppy-disk me-1"></i> Save Homepage
           </button>
         </div>
       </form>

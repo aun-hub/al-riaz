@@ -32,7 +32,12 @@ $isFeatured = !empty($prop['is_featured']);
 $posStatus  = $prop['possession_status'] ?? '';
 $agentName  = htmlspecialchars($prop['agent_name'] ?? '');
 $waMsg  = rawurlencode("Hello! I'm interested in: $title" . ($podFlag ? '' : " — PKR $price") . ". Please share more details.");
-$waLink = 'https://wa.me/' . ($waPhone ?? SITE_WHATSAPP) . '?text=' . $waMsg;
+// If a listing is assigned to an agent, route the WhatsApp button to that
+// agent's number. Otherwise fall back to the agency's main WhatsApp.
+$agentWaRaw = trim((string)($prop['agent_phone'] ?? ''));
+$agentWaDigits = $agentWaRaw !== '' ? preg_replace('/\D+/', '', $agentWaRaw) : '';
+$cardWa = $agentWaDigits !== '' ? $agentWaDigits : ($waPhone ?? SITE_WHATSAPP);
+$waLink = 'https://wa.me/' . $cardWa . '?text=' . $waMsg;
 $showAgent = $showAgent ?? false;
 $b = defined('BASE_PATH') ? BASE_PATH : '';
 ?>
