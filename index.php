@@ -58,6 +58,27 @@ try {
     error_log('[Home] Dealers query: ' . $e->getMessage());
 }
 
+// Latest active notice — drives the homepage auto-popup at the bottom of this file.
+$latestNotice = null;
+try {
+    $nowTs = date('Y-m-d H:i:s');
+    $stmt = $db->prepare(
+        "SELECT n.id, n.title, n.body, n.severity, n.source_url, n.attachment_url, n.starts_at, n.created_at,
+                p.name AS project_name, p.slug AS project_slug
+         FROM   project_notices n
+         LEFT JOIN projects p ON p.id = n.project_id
+         WHERE  n.is_published = 1
+           AND (n.starts_at IS NULL OR n.starts_at <= ?)
+           AND (n.ends_at   IS NULL OR n.ends_at   >= ?)
+         ORDER BY COALESCE(n.starts_at, n.created_at) DESC, n.id DESC
+         LIMIT 1"
+    );
+    $stmt->execute([$nowTs, $nowTs]);
+    $latestNotice = $stmt->fetch() ?: null;
+} catch (Exception $e) {
+    error_log('[Home] Latest notice query: ' . $e->getMessage());
+}
+
 // Stats
 $totalListings = 500;
 $totalProjects = 15;
@@ -868,5 +889,170 @@ $heroTile3 = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=
         </div>
     </div>
 </section>
+
+<?php if ($latestNotice):
+    $hnSev = [
+        'info'     => ['icon' => 'fa-circle-info',          'label' => 'Info',     'badge' => 'bg-info text-dark'],
+        'warning'  => ['icon' => 'fa-triangle-exclamation', 'label' => 'Warning',  'badge' => 'bg-warning text-dark'],
+        'critical' => ['icon' => 'fa-circle-exclamation',   'label' => 'Critical', 'badge' => 'bg-danger'],
+    ];
+    $hnStyle = $hnSev[$latestNotice['severity']] ?? $hnSev['info'];
+    $hnWhen  = !empty($latestNotice['starts_at']) ? strtotime($latestNotice['starts_at']) : strtotime($latestNotice['created_at']);
+    $hnBody  = trim((string)$latestNotice['body']);
+    $hnAtt   = (string)($latestNotice['attachment_url'] ?? '');
+    $hnExt   = $hnAtt !== '' ? strtolower(pathinfo($hnAtt, PATHINFO_EXTENSION)) : '';
+    $hnIsImg = in_array($hnExt, ['jpg','jpeg','png','webp','gif'], true);
+    $hnIsPdf = $hnExt === 'pdf';
+?>
+<style>
+#homeNoticeModal .modal-content { border:0; border-radius:14px; overflow:hidden; box-shadow:0 25px 60px -10px rgba(10,22,40,.45); }
+#homeNoticeModal .modal-header {
+  background: linear-gradient(135deg, var(--navy-800, #0f2044) 0%, var(--navy-700, #1a3162) 60%, var(--navy-600, #25457f) 100%);
+  color:#fff; border:0; border-bottom:3px solid var(--gold-500, #f5b301);
+  padding:1rem 1.5rem; align-items:center;
+}
+#homeNoticeModal .modal-title { font-weight:700; color:#fff; letter-spacing:-.01em; }
+#homeNoticeModal .btn-close { filter: invert(1) grayscale(1) brightness(2); opacity:.85; }
+#homeNoticeModal .btn-close:hover { opacity:1; }
+#homeNoticeModal .modal-body { padding:1.25rem 1.5rem 1.5rem; background:#fff; }
+#homeNoticeModal .home-notice-meta {
+  font-size:.82rem; color:var(--text-secondary, #6b7280);
+  padding:.4rem .75rem; background:#f7f9fc; border-radius:8px;
+  display:inline-block; margin-bottom:1rem;
+}
+#homeNoticeModal .home-notice-image-wrap {
+  display:flex; align-items:center; justify-content:center;
+  margin:1rem 0 .25rem; padding:1rem;
+  background: linear-gradient(135deg, #f4f7fb 0%, #eaf0f9 60%, #fff7e0 100%);
+  border:1px solid #e6ebf2; border-radius:12px;
+}
+#homeNoticeModal .home-notice-image {
+  display:block; margin:0 auto; max-width:100%; max-height:380px;
+  border-radius:10px; background:#fff;
+  border:1px solid rgba(10,22,40,.08);
+  box-shadow:0 6px 18px rgba(10,22,40,.14);
+}
+#homeNoticeModal .home-notice-actions {
+  display:flex; flex-wrap:wrap; gap:.5rem 1rem;
+  margin-top:1rem; padding-top:.85rem; border-top:1px solid #eef1f6;
+}
+#homeNoticeModal .home-notice-actions a {
+  font-size:.88rem; font-weight:600; text-decoration:none;
+  color:var(--navy-700, #1a3162);
+}
+#homeNoticeModal .home-notice-actions a:hover { color:var(--gold-500, #b45309); }
+#homeNoticeModal .home-notice-countdown {
+  font-size:.72rem; color:var(--text-secondary, #6b7280);
+  margin-left:auto; font-variant-numeric: tabular-nums;
+}
+.btn-pdf-attachment {
+  display:inline-flex; align-items:center; gap:.4rem;
+  background:#fff; color:var(--navy-700, #1a3162);
+  border:1px solid var(--gold-500, #f5b301);
+  padding:.45rem 1rem; border-radius:8px; font-weight:600; font-size:.88rem;
+  text-decoration:none;
+}
+.btn-pdf-attachment:hover { background:var(--gold-500, #f5b301); color:var(--navy-800, #0f2044); }
+</style>
+
+<div class="modal fade" id="homeNoticeModal" tabindex="-1" aria-labelledby="homeNoticeModalTitle" aria-hidden="true" data-notice-id="<?= (int)$latestNotice['id'] ?>">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title fs-5" id="homeNoticeModalTitle">
+          <i class="fa-solid fa-bullhorn me-2"></i>
+          <?= htmlspecialchars($latestNotice['title'], ENT_QUOTES, 'UTF-8') ?>
+        </h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="home-notice-meta">
+          <span class="badge <?= $hnStyle['badge'] ?> me-2" style="font-size:.7rem;"><i class="fa-solid <?= $hnStyle['icon'] ?> me-1"></i><?= $hnStyle['label'] ?></span>
+          <?php if (!empty($latestNotice['project_name'])): ?>
+            <i class="fa-solid fa-building me-1"></i><?= htmlspecialchars($latestNotice['project_name'], ENT_QUOTES, 'UTF-8') ?>&nbsp;·&nbsp;
+          <?php endif; ?>
+          <i class="fa-regular fa-clock me-1"></i><?= htmlspecialchars(date('M j, Y', $hnWhen), ENT_QUOTES, 'UTF-8') ?>
+        </div>
+
+        <div style="color:#333; line-height:1.7;">
+          <?php
+            if ($hnBody !== '') {
+                if (strip_tags($hnBody) === $hnBody) {
+                    foreach (array_filter(array_map('trim', explode("\n\n", $hnBody))) as $para) {
+                        echo '<p>' . nl2br(htmlspecialchars($para, ENT_QUOTES, 'UTF-8')) . '</p>';
+                    }
+                } else {
+                    echo $hnBody;
+                }
+            }
+            if ($hnIsImg) {
+                echo '<div class="home-notice-image-wrap"><img src="' . htmlspecialchars(mediaUrl($hnAtt), ENT_QUOTES, 'UTF-8') . '" alt="" loading="lazy" class="home-notice-image"></div>';
+            } elseif ($hnIsPdf) {
+                echo '<div class="text-center mt-3"><a href="' . htmlspecialchars(mediaUrl($hnAtt), ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer" class="btn-pdf-attachment"><i class="fa-solid fa-file-pdf"></i>Open PDF</a></div>';
+            }
+          ?>
+        </div>
+
+        <div class="home-notice-actions">
+          <a href="<?= BASE_PATH ?>/notices.php<?= !empty($latestNotice['project_slug']) ? '?project=' . urlencode($latestNotice['project_slug']) : '' ?>">
+            <i class="fa-solid fa-arrow-right me-1"></i>See all notices
+          </a>
+          <?php if (!empty($latestNotice['source_url'])): ?>
+            <a href="<?= htmlspecialchars($latestNotice['source_url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer">
+              <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>View on developer site
+            </a>
+          <?php endif; ?>
+          <span class="home-notice-countdown" id="homeNoticeCountdown" aria-live="polite"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+  var modalEl = document.getElementById('homeNoticeModal');
+  if (!modalEl) return;
+
+  var modal = new bootstrap.Modal(modalEl, { backdrop: true, keyboard: true });
+  var countdownEl = document.getElementById('homeNoticeCountdown');
+  var AUTO_CLOSE_MS = 12000;
+  var autoCloseTimer = null;
+  var tickTimer = null;
+
+  function clearTimers() {
+    if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null; }
+    if (tickTimer)      { clearInterval(tickTimer);    tickTimer = null; }
+  }
+
+  modalEl.addEventListener('shown.bs.modal', function () {
+    var remaining = Math.ceil(AUTO_CLOSE_MS / 1000);
+    if (countdownEl) countdownEl.textContent = 'Closes in ' + remaining + 's';
+
+    tickTimer = setInterval(function () {
+      remaining -= 1;
+      if (countdownEl) countdownEl.textContent = remaining > 0 ? 'Closes in ' + remaining + 's' : '';
+    }, 1000);
+
+    autoCloseTimer = setTimeout(function () { modal.hide(); }, AUTO_CLOSE_MS);
+  });
+
+  // If the user interacts (hover/focus/click inside), cancel auto-close so they can read.
+  ['mouseenter','focusin','click'].forEach(function (evt) {
+    modalEl.addEventListener(evt, function () {
+      if (autoCloseTimer || tickTimer) {
+        clearTimers();
+        if (countdownEl) countdownEl.textContent = '';
+      }
+    }, { once: true });
+  });
+
+  modalEl.addEventListener('hidden.bs.modal', clearTimers);
+
+  setTimeout(function () { modal.show(); }, 600);
+});
+</script>
+<?php endif; ?>
 
 <?php require_once 'includes/footer.php'; ?>
