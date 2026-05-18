@@ -1179,6 +1179,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline:none
   position:relative; z-index:1;
   padding:1rem;
 }
+a.stat-card-link {
+  display:block;
+  text-decoration:none;
+  color:inherit;
+  border-radius:12px;
+  transition: transform .2s ease, background-color .2s ease;
+}
+a.stat-card-link:hover {
+  transform: translateY(-2px);
+  background: rgba(255,255,255,0.04);
+}
+a.stat-card-link:hover .stat-label {
+  color: rgba(255,255,255,0.9);
+}
 .stat-number {
   font-family:'Plus Jakarta Sans',sans-serif;
   font-size: clamp(2.2rem, 5vw, 3rem);
@@ -2083,6 +2097,37 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline:none
   box-shadow: var(--shadow-navy);
 }
 
+/* Brand-coloured social buttons. Each modifier locks the background, border
+   and icon colour to the platform's real brand; the shared :hover above
+   handles the lift, while a per-modifier :hover refines the colour. */
+.footer-social-btn--facebook  { background:#1877F2; border-color:#1877F2; color:#fff; }
+.footer-social-btn--facebook:hover  { background:#0c63d4; border-color:#0c63d4; color:#fff; box-shadow:0 8px 18px -4px rgba(24,119,242,.55); }
+
+.footer-social-btn--instagram {
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);
+  border-color:#c13584; color:#fff;
+}
+.footer-social-btn--instagram:hover {
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);
+  border-color:#c13584; color:#fff; filter: brightness(1.05);
+  box-shadow:0 8px 18px -4px rgba(193,53,132,.55);
+}
+
+.footer-social-btn--youtube { background:#FF0000; border-color:#FF0000; color:#fff; }
+.footer-social-btn--youtube:hover { background:#cc0000; border-color:#cc0000; color:#fff; box-shadow:0 8px 18px -4px rgba(255,0,0,.55); }
+
+.footer-social-btn--whatsapp { background:#25D366; border-color:#25D366; color:#fff; }
+.footer-social-btn--whatsapp:hover { background:#1ebe5a; border-color:#1ebe5a; color:#fff; box-shadow:0 8px 18px -4px rgba(37,211,102,.55); }
+
+.footer-social-btn--linkedin { background:#0A66C2; border-color:#0A66C2; color:#fff; }
+.footer-social-btn--linkedin:hover { background:#084e95; border-color:#084e95; color:#fff; box-shadow:0 8px 18px -4px rgba(10,102,194,.55); }
+
+.footer-social-btn--twitter  { background:#000; border-color:#000; color:#fff; }
+.footer-social-btn--twitter:hover  { background:#222; border-color:#222; color:#fff; box-shadow:0 8px 18px -4px rgba(0,0,0,.55); }
+
+.footer-social-btn--tiktok   { background:#000; border-color:#000; color:#fff; }
+.footer-social-btn--tiktok:hover   { background:#222; border-color:#222; color:#fff; box-shadow:0 8px 18px -4px rgba(254,44,85,.55); }
+
 .footer-col { position:relative; z-index:1; }
 .footer-col-title {
   font-family:'Plus Jakarta Sans',sans-serif;
@@ -2461,6 +2506,38 @@ img.lazy.loaded, img:not(.lazy) { filter: none; }
   transition: color 0.2s;
 }
 .office-info-row a:hover { color: var(--gold-dark); }
+
+/* Per-office "Get Directions" CTA at the bottom of each office card. */
+.office-cta-row {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #e6ebf2);
+}
+.btn-office-directions {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .55rem 1.1rem;
+  font-size: .88rem;
+  font-weight: 600;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--navy-800, #0f2044);
+  background: var(--gold, #F5B301);
+  border: 1px solid var(--gold, #F5B301);
+  box-shadow: 0 4px 10px -4px rgba(245,179,1,.55);
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.btn-office-directions:hover,
+.btn-office-directions:focus-visible {
+  color: var(--navy-900, #0a1628);
+  background: #e4a800;
+  border-color: #e4a800;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px -6px rgba(245,179,1,.65);
+  text-decoration: none;
+}
+.btn-office-directions i:first-child { font-size: .95rem; }
 
 /* Map placeholder / wrap */
 .map-wrap {

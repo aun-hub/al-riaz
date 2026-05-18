@@ -1,5 +1,4 @@
 # Environment — never commit secrets
-.env
 
 # Uploaded files
 assets/uploads/
@@ -8,7 +7,6 @@ assets/uploads/
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
 *.swp
 *.swo
 
@@ -18,3 +16,5 @@ error_log
 
 # Migration tool — delete after use
 migrate.php
+config.bat
+node_modules

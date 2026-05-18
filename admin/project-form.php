@@ -254,8 +254,8 @@ include __DIR__ . '/includes/admin-sidebar.php';
         <div class="col-12 col-md-4">
           <label class="form-label fw-600">Project Status</label>
           <select name="status" class="form-select">
-            <?php foreach (['upcoming'=>'Upcoming','under_development'=>'Under Development','ready'=>'Ready','possession'=>'Possession'] as $v=>$l): ?>
-              <option value="<?= $v ?>" <?= $data['status']===$v?'selected':'' ?>><?= $l ?></option>
+            <?php foreach (getAllProjectStatuses() as $v => $l): ?>
+              <option value="<?= htmlspecialchars($v, ENT_QUOTES, 'UTF-8') ?>" <?= $data['status']===$v?'selected':'' ?>><?= htmlspecialchars($l, ENT_QUOTES, 'UTF-8') ?></option>
             <?php endforeach; ?>
           </select>
         </div>

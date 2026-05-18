@@ -105,6 +105,18 @@ try {
     $reviewAvg   = $reviewCount > 0 ? (float)$stat['avg_rating'] : 0.0;
 } catch (Exception $e) {}
 
+// Approved reviews for homepage testimonials — same source as /about.php.
+$homeReviews = [];
+try {
+    $homeReviews = $db->query(
+        "SELECT id, name, rating, title, body, created_at
+         FROM reviews
+         WHERE status = 'approved'
+         ORDER BY is_featured DESC, created_at DESC
+         LIMIT 12"
+    )->fetchAll();
+} catch (Exception $e) { /* reviews table may not exist yet — section hides gracefully */ }
+
 $pageTitle = 'Al-Riaz Associates — Islamabad & Rawalpindi Real Estate';
 $metaDesc  = 'Al-Riaz Associates — Authorised dealer for top real estate projects in Islamabad, Rawalpindi, Lahore & Karachi. Buy, sell, or rent with Pakistan\'s trusted agency.';
 
@@ -150,16 +162,17 @@ for ($i = 0; $i < 3; $i++) {
 // Wide stats band (4 cells, animated counters).
 $stripCfg     = $homeSettings['home_strip_stats'] ?? [];
 $stripDefaults = [
-    ['value' => (string)$totalListings, 'label' => 'Properties Listed'],
-    ['value' => (string)$happyClients,  'label' => 'Happy Clients'],
-    ['value' => (string)$totalProjects, 'label' => 'Projects Authorised'],
-    ['value' => (string)$yearsActive,   'label' => 'Years in Business'],
+    ['value' => (string)$totalListings, 'label' => 'Properties Listed',    'link' => BASE_PATH . '/listings.php'],
+    ['value' => (string)$happyClients,  'label' => 'Happy Clients',        'link' => ''],
+    ['value' => (string)$totalProjects, 'label' => 'Projects Authorised',  'link' => BASE_PATH . '/projects.php'],
+    ['value' => (string)$yearsActive,   'label' => 'Years in Business',    'link' => ''],
 ];
 $stripStats = [];
 for ($i = 0; $i < 4; $i++) {
     $stripStats[] = [
         'value' => $pickStat($stripCfg, $i, 'value', $stripDefaults[$i]['value']),
         'label' => $pickStat($stripCfg, $i, 'label', $stripDefaults[$i]['label']),
+        'link'  => $stripDefaults[$i]['link'],
     ];
 }
 
@@ -569,16 +582,24 @@ $heroTile3 = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=
 <!-- ════════════════════════════════════════════════════════════
      5. FEATURED PROJECTS
      ════════════════════════════════════════════════════════════ -->
+<?php
+$featuredLabel   = trim((string)($homeSettings['home_featured_label']     ?? '')) ?: 'New Developments';
+$featuredHeading = trim((string)($homeSettings['home_featured_heading']   ?? '')) ?: 'Featured Projects';
+$featuredSub     = trim((string)($homeSettings['home_featured_sub']       ?? '')) ?: "Authorised dealer for Pakistan's top real estate developments";
+$featuredCtaLbl  = trim((string)($homeSettings['home_featured_cta_label'] ?? '')) ?: 'View All';
+?>
 <section class="section" style="background:var(--gray-50);">
     <div class="container">
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
             <div class="reveal">
-                <div class="section-label">New Developments</div>
-                <h2 class="section-title mb-0">Featured Projects</h2>
-                <p class="section-subtitle mt-1">Authorised dealer for Pakistan's top real estate developments</p>
+                <div class="section-label"><?= htmlspecialchars($featuredLabel, ENT_QUOTES, 'UTF-8') ?></div>
+                <h2 class="section-title mb-0"><?= htmlspecialchars($featuredHeading, ENT_QUOTES, 'UTF-8') ?></h2>
+                <?php if ($featuredSub !== ''): ?>
+                <p class="section-subtitle mt-1"><?= htmlspecialchars($featuredSub, ENT_QUOTES, 'UTF-8') ?></p>
+                <?php endif; ?>
             </div>
             <a href="<?= $b ?>/projects.php" class="btn-outline-navy reveal">
-                View All <i class="fa-solid fa-arrow-right"></i>
+                <?= htmlspecialchars($featuredCtaLbl, ENT_QUOTES, 'UTF-8') ?> <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
 
@@ -662,9 +683,14 @@ $heroTile3 = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=
                 // If the value is a pure number the JS counter animates from 0; otherwise we
                 // just print it verbatim (e.g. admin entered "10K" or "Top 5").
                 $isNumeric = preg_match('/^\d+$/', $s['value']) === 1;
+                $link      = (string)($s['link'] ?? '');
+                $cardTag   = $link !== '' ? 'a' : 'div';
+                $cardAttrs = $link !== ''
+                    ? 'href="' . htmlspecialchars($link, ENT_QUOTES, 'UTF-8') . '" class="stat-card stat-card-link"'
+                    : 'class="stat-card"';
             ?>
             <div class="col-6 col-lg-3">
-                <div class="stat-card">
+                <<?= $cardTag ?> <?= $cardAttrs ?>>
                     <div class="stat-number">
                         <?php if ($isNumeric): ?>
                             <span data-count-to="<?= (int)$s['value'] ?>">0</span><span class="suffix">+</span>
@@ -673,7 +699,7 @@ $heroTile3 = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=
                         <?php endif; ?>
                     </div>
                     <div class="stat-label"><?= htmlspecialchars($s['label'], ENT_QUOTES, 'UTF-8') ?></div>
-                </div>
+                </<?= $cardTag ?>>
             </div>
             <?php endforeach; ?>
         </div>
@@ -683,16 +709,25 @@ $heroTile3 = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=
 <!-- ════════════════════════════════════════════════════════════
      7. FEATURED PROPERTIES
      ════════════════════════════════════════════════════════════ -->
+<?php
+$propsLabel        = trim((string)($homeSettings['home_props_label']            ?? '')) ?: 'Hot Listings';
+$propsHeading      = trim((string)($homeSettings['home_props_heading']          ?? '')) ?: 'Featured Properties';
+$propsSub          = trim((string)($homeSettings['home_props_sub']              ?? '')) ?: 'Handpicked listings across Islamabad, Rawalpindi & beyond';
+$propsTopCta       = trim((string)($homeSettings['home_props_cta_label']        ?? '')) ?: 'Browse All';
+$propsBottomCta    = trim((string)($homeSettings['home_props_bottom_cta_label'] ?? '')) ?: 'Browse All Properties';
+?>
 <section class="section">
     <div class="container">
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
             <div class="reveal">
-                <div class="section-label">Hot Listings</div>
-                <h2 class="section-title mb-0">Featured Properties</h2>
-                <p class="section-subtitle mt-1">Handpicked listings across Islamabad, Rawalpindi &amp; beyond</p>
+                <div class="section-label"><?= htmlspecialchars($propsLabel, ENT_QUOTES, 'UTF-8') ?></div>
+                <h2 class="section-title mb-0"><?= htmlspecialchars($propsHeading, ENT_QUOTES, 'UTF-8') ?></h2>
+                <?php if ($propsSub !== ''): ?>
+                <p class="section-subtitle mt-1"><?= htmlspecialchars($propsSub, ENT_QUOTES, 'UTF-8') ?></p>
+                <?php endif; ?>
             </div>
             <a href="<?= $b ?>/listings.php" class="btn-outline-navy reveal">
-                Browse All <i class="fa-solid fa-arrow-right"></i>
+                <?= htmlspecialchars($propsTopCta, ENT_QUOTES, 'UTF-8') ?> <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
 
@@ -709,7 +744,7 @@ $heroTile3 = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=
 
         <div class="text-center mt-5 reveal">
             <a href="<?= $b ?>/listings.php" class="btn-navy" style="padding:0.875rem 2.5rem; font-size:0.95rem;">
-                <i class="fa-solid fa-th"></i> Browse All Properties
+                <i class="fa-solid fa-th"></i> <?= htmlspecialchars($propsBottomCta, ENT_QUOTES, 'UTF-8') ?>
             </a>
         </div>
 
@@ -765,42 +800,34 @@ $heroTile3 = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=
 <!-- ════════════════════════════════════════════════════════════
      9. TESTIMONIALS
      ════════════════════════════════════════════════════════════ -->
-<section class="section">
+<?php if (!empty($homeReviews)): ?>
+<section class="section testimonial-marquee-section">
+    <div class="testimonial-bg-orb testimonial-bg-orb-a" aria-hidden="true"></div>
+    <div class="testimonial-bg-orb testimonial-bg-orb-b" aria-hidden="true"></div>
     <div class="container">
         <div class="section-header center reveal">
             <div class="section-label">Client Voices</div>
             <h2 class="section-title">Loved by buyers, renters &amp; investors</h2>
-            <p class="section-subtitle">Real feedback from real Al-Riaz clients across Pakistan.</p>
-        </div>
-
-        <div class="row g-4 reveal-stagger">
-            <?php
-            $testimonials = [
-                ['AK', 'Ayesha Khan',    'Buyer, Islamabad',   'Booked a plot in Bahria Phase 8 through Al-Riaz. The whole process — from NOC check to transfer — was transparent and stress-free.', 5],
-                ['OM', 'Omar Malik',     'Investor, Karachi',  'I\'ve invested in three of their projects. Their market reads are sharp, and the WhatsApp updates keep me in the loop without the noise.', 5],
-                ['SR', 'Sana Rafiq',     'Renter, Rawalpindi', 'Found a great 2-bed apartment in under a week. The agent actually understood what I wanted instead of showing random places.', 5],
-            ];
-            foreach ($testimonials as [$initials, $name, $role, $text, $stars]):
-            ?>
-            <div class="col-12 col-md-4">
-                <div class="testimonial-card">
-                    <div class="testimonial-stars">
-                        <?php for ($s = 0; $s < $stars; $s++): ?><i class="fa-solid fa-star"></i><?php endfor; ?>
-                    </div>
-                    <p class="testimonial-text">&ldquo;<?= $text ?>&rdquo;</p>
-                    <div class="testimonial-author">
-                        <div class="testimonial-avatar"><?= $initials ?></div>
-                        <div>
-                            <div class="testimonial-name"><?= $name ?></div>
-                            <div class="testimonial-role"><?= $role ?></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <?php endforeach; ?>
+            <p class="section-subtitle">
+                <?php if ($reviewCount > 0): ?>
+                    <strong><?= number_format($reviewAvg, 1) ?>/5</strong>
+                    from <?= (int)$reviewCount ?> verified review<?= $reviewCount === 1 ? '' : 's' ?> across Pakistan.
+                <?php else: ?>
+                    Real feedback from real Al-Riaz clients across Pakistan.
+                <?php endif; ?>
+            </p>
         </div>
     </div>
+
+    <?php $reviews = $homeReviews; include __DIR__ . '/includes/_reviews_marquee.php'; ?>
+
+    <div class="container text-center mt-4">
+        <a href="<?= BASE_PATH ?>/about.php#reviews" class="btn-navy">
+            <i class="fa-solid fa-comments me-2"></i>Read &amp; submit reviews
+        </a>
+    </div>
 </section>
+<?php endif; ?>
 
 <!-- ════════════════════════════════════════════════════════════
      10. FAQ

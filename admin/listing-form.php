@@ -26,17 +26,14 @@ try {
 $allFeatures   = array_column($featureRows, 'slug');
 $featureLabels = array_column($featureRows, 'label', 'slug');
 
-// Listing types per category. Plot / Agricultural Land appear under both
-// because a plot can be either residential or commercial — we no longer
-// expose "Plot" as its own top-level category.
-$listingTypes = [
-    'residential' => ['house'=>'House','flat'=>'Flat / Apartment','upper_portion'=>'Upper Portion',
-                      'lower_portion'=>'Lower Portion','room'=>'Room','farmhouse'=>'Farmhouse','penthouse'=>'Penthouse',
-                      'plot'=>'Plot','agricultural_land'=>'Agricultural Land'],
-    'commercial'  => ['shop'=>'Shop','office'=>'Office','warehouse'=>'Warehouse',
-                      'showroom'=>'Showroom','building'=>'Building','factory'=>'Factory',
-                      'plot'=>'Plot','agricultural_land'=>'Agricultural Land'],
-];
+// Listing types per category — core list (minus admin-disabled slugs) plus
+// any custom types added under Settings → Listings. Each type also carries
+// the `categories` it belongs to and the `purposes` (sale/rent) it supports,
+// so the picker below can filter by both at once.
+$listingTypes        = getListingTypesGrouped();     // category => slug => label (for PHP-rendered optgroups)
+$listingTypesFull    = getAllListingTypes();         // slug => {label, categories, purposes} (for JS filter)
+$possessionStatuses  = getAllPossessionStatuses();
+$possessionSlugs     = array_keys($possessionStatuses);
 
 // Load existing data for edit
 $data = [
@@ -154,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'area_unit'        => $_POST['area_unit']         ?? 'marla',
         'bedrooms'         => (int)($_POST['bedrooms']    ?? 0),
         'bathrooms'        => (int)($_POST['bathrooms']   ?? 0),
-        'possession_status'=> in_array($_POST['possession_status'] ?? '', ['ready','under_construction','not_applicable'], true)
+        'possession_status'=> in_array($_POST['possession_status'] ?? '', $possessionSlugs, true)
                               ? $_POST['possession_status']
                               : 'ready',
         'description'      => trim($_POST['description']  ?? ''),
@@ -644,8 +641,8 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <div class="col-12 col-md-4">
             <label class="form-label fw-600">Possession Status</label>
             <select name="possession_status" class="form-select">
-              <?php foreach (['ready'=>'Ready to Move','under_construction'=>'Under Construction','not_applicable'=>'Not Applicable'] as $val=>$lbl): ?>
-                <option value="<?= $val ?>" <?= $data['possession_status']===$val?'selected':'' ?>><?= $lbl ?></option>
+              <?php foreach ($possessionStatuses as $val => $lbl): ?>
+                <option value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>" <?= $data['possession_status']===$val?'selected':'' ?>><?= htmlspecialchars($lbl, ENT_QUOTES, 'UTF-8') ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -1008,25 +1005,30 @@ function populateReview() {
   fill();
 })();
 
-// ── Dynamic listing type based on category ─────────────────
-var listingTypes = <?= json_encode($listingTypes) ?>;
-function updateListingTypes(cat) {
-  var sel = document.getElementById('listingTypeSelect');
+// ── Dynamic listing type based on selected category AND purpose ─────
+var listingTypesFull = <?= json_encode($listingTypesFull, JSON_UNESCAPED_UNICODE) ?>;
+function updateListingTypes() {
+  var sel  = document.getElementById('listingTypeSelect');
   var curr = sel.value;
-  // Remove all optgroups/options except placeholder
+  var cat  = (document.querySelector('[name="category"]:checked') || {}).value || 'residential';
+  var pur  = (document.querySelector('[name="purpose"]:checked')  || {}).value || 'sale';
+
   while (sel.options.length > 1) sel.remove(1);
-  var types = listingTypes[cat] || {};
-  for (var val in types) {
-    var opt = new Option(types[val], val);
-    sel.add(opt);
+
+  for (var slug in listingTypesFull) {
+    var t = listingTypesFull[slug];
+    if (t.categories.indexOf(cat) === -1) continue;
+    if (t.purposes.indexOf(pur)    === -1) continue;
+    sel.add(new Option(t.label, slug));
   }
-  if (types[curr]) sel.value = curr;
+  // Restore prior selection only if it still passes the new filter.
+  if (sel.querySelector('[value="' + curr + '"]')) sel.value = curr;
 }
 
-document.querySelectorAll('[name="category"]').forEach(function(radio) {
-  radio.addEventListener('change', function() { updateListingTypes(this.value); });
+document.querySelectorAll('[name="category"], [name="purpose"]').forEach(function (radio) {
+  radio.addEventListener('change', updateListingTypes);
 });
-updateListingTypes(document.querySelector('[name="category"]:checked')?.value || 'residential');
+updateListingTypes();
 
 // ── Price on Demand toggle ─────────────────────────────────
 document.getElementById('priceOnDemand').addEventListener('change', function() {

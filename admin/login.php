@@ -17,13 +17,17 @@ $email   = '';
 
 // ── Handle POST ──────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Capture email up front so any error path below (CSRF mismatch, validation,
+    // wrong password) still re-renders the form with what the user typed —
+    // password is intentionally never echoed back.
+    $email = trim($_POST['email'] ?? '');
+
     // CSRF check
     $postToken = $_POST['csrf_token'] ?? '';
     $sessToken = $_SESSION['csrf_token'] ?? '';
     if (!$sessToken || !hash_equals($sessToken, $postToken)) {
         $error = 'Invalid form submission. Please try again.';
     } else {
-        $email    = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $remember = !empty($_POST['remember']);
 
@@ -156,23 +160,24 @@ $csrfToken = $_SESSION['csrf_token'];
         </div>
       <?php endif; ?>
 
-      <form method="POST" action="<?= BASE_PATH ?>/admin/login.php" novalidate>
+      <form method="POST" action="<?= BASE_PATH ?>/admin/login.php" novalidate id="loginForm">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
         <div class="mb-3">
           <label for="email" class="form-label fw-600" style="font-size:0.85rem;">Email Address</label>
-          <div class="input-group">
+          <div class="input-group has-validation">
             <span class="input-group-text"><i class="fa-solid fa-envelope text-muted"></i></span>
             <input type="email" class="form-control" id="email" name="email"
-                   placeholder="admin@alriazassociates.pk"
+                   placeholder="example@alriazassociates.pk"
                    value="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>"
                    required autocomplete="email" autofocus>
+            <div class="invalid-feedback" id="emailError"></div>
           </div>
         </div>
 
         <div class="mb-3">
           <label for="password" class="form-label fw-600" style="font-size:0.85rem;">Password</label>
-          <div class="input-group">
+          <div class="input-group has-validation">
             <span class="input-group-text"><i class="fa-solid fa-lock text-muted"></i></span>
             <input type="password" class="form-control" id="password" name="password"
                    placeholder="••••••••" required autocomplete="current-password">
@@ -180,6 +185,7 @@ $csrfToken = $_SESSION['csrf_token'];
                     title="Show/Hide password">
               <i class="fa-solid fa-eye" id="eyeIcon"></i>
             </button>
+            <div class="invalid-feedback" id="passwordError"></div>
           </div>
         </div>
 
@@ -219,6 +225,72 @@ $csrfToken = $_SESSION['csrf_token'];
       eyeIcon.classList.replace('fa-eye-slash', 'fa-eye');
     }
   });
+
+  // ── Frontend validation ──────────────────────────────────────────
+  // The form has `novalidate` so the browser's native popups don't fire;
+  // instead we drive Bootstrap's .is-invalid / .invalid-feedback classes
+  // and block submission until both fields pass. The server still does
+  // its own validation — this is purely a UX layer.
+  (function () {
+    var form        = document.getElementById('loginForm');
+    var emailInput  = document.getElementById('email');
+    var passInput   = document.getElementById('password');
+    var emailError  = document.getElementById('emailError');
+    var passError   = document.getElementById('passwordError');
+    // Practical email pattern — matches the same shape the HTML5 type=email
+    // accepts (something@something.tld). Strict RFC 5322 isn't worth the
+    // complexity here; backend has the final say.
+    var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    function setError(input, msgEl, msg) {
+      if (msg) {
+        input.classList.add('is-invalid');
+        msgEl.textContent = msg;
+      } else {
+        input.classList.remove('is-invalid');
+        msgEl.textContent = '';
+      }
+    }
+
+    function validateEmail() {
+      var v = emailInput.value.trim();
+      if (v === '')          return 'Email is required.';
+      if (!emailRe.test(v))  return 'Enter a valid email address (e.g. you@example.com).';
+      return '';
+    }
+    function validatePassword() {
+      return passInput.value === '' ? 'Password is required.' : '';
+    }
+
+    // Live feedback: clear the error as soon as the user starts fixing it,
+    // but don't fire on every keystroke for the inverse direction.
+    emailInput.addEventListener('input', function () {
+      if (emailInput.classList.contains('is-invalid')) {
+        setError(emailInput, emailError, validateEmail());
+      }
+    });
+    passInput.addEventListener('input', function () {
+      if (passInput.classList.contains('is-invalid')) {
+        setError(passInput, passError, validatePassword());
+      }
+    });
+
+    // Blur: validate once the user moves away from the field.
+    emailInput.addEventListener('blur', function () {
+      if (emailInput.value.trim() !== '') setError(emailInput, emailError, validateEmail());
+    });
+
+    form.addEventListener('submit', function (e) {
+      var emailMsg = validateEmail();
+      var passMsg  = validatePassword();
+      setError(emailInput, emailError, emailMsg);
+      setError(passInput,  passError,  passMsg);
+      if (emailMsg || passMsg) {
+        e.preventDefault();
+        (emailMsg ? emailInput : passInput).focus();
+      }
+    });
+  })();
 </script>
 </body>
 </html>

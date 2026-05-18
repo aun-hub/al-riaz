@@ -52,40 +52,46 @@ $offset    = ($pageNum - 1) * $limit;
 $db = Database::getInstance();
 
 /* ─── Lists ─────────────────────────────────────────────────────────────── */
-$resTypes = [
-    'house'         => 'House',
-    'flat'          => 'Flat / Apartment',
-    'upper_portion' => 'Upper Portion',
-    'lower_portion' => 'Lower Portion',
-    'farmhouse'     => 'Farmhouse',
-    'penthouse'     => 'Penthouse',
-    'plot'          => 'Plot',
-];
-$commTypes = [
-    'shop'            => 'Shop',
-    'office'          => 'Office',
-    'warehouse'       => 'Warehouse',
-    'showroom'        => 'Showroom',
-    'building'        => 'Building',
-    'factory'         => 'Factory',
-    'commercial_plot' => 'Commercial Plot',
-];
-$featureOptions = [
-    'parking'          => 'Parking',
-    'gas'              => 'Gas',
-    'electricity'      => 'Electricity',
-    'furnished'        => 'Furnished',
-    'corner'           => 'Corner',
-    'boundary_wall'    => 'Boundary Wall',
-    'servant_quarters' => 'Servant Quarters',
-    'garden'           => 'Garden',
-];
-if ($category === 'commercial') {
-    $typeOptions = $commTypes;
-} elseif ($category === 'residential') {
-    $typeOptions = $resTypes;
-} else {
-    $typeOptions = $resTypes + $commTypes;  // both
+// Property-type options for the sidebar — drawn from the admin-managed
+// taxonomy (Settings → Listings). Each type carries the categories it
+// belongs to and the purposes it supports; filter by the current page's
+// $category / $purpose so users only see types that can actually return
+// results here.
+$typeOptions = [];
+foreach (getAllListingTypes() as $slug => $row) {
+    if ($category !== '' && !in_array($category, $row['categories'], true)) continue;
+    if ($purpose  !== '' && !in_array($purpose,  $row['purposes'],   true)) continue;
+    $typeOptions[$slug] = $row['label'];
+}
+
+// Search-filter checkboxes — pulled from property_features so admins can
+// control the public option list from /admin/features.php. Only features
+// flagged show_on_site=1 are offered; the original hardcoded slugs stay as
+// a fallback if the table is unavailable.
+$featureOptions = [];
+try {
+    $optRows = $db->query(
+        "SELECT slug, label FROM property_features
+         WHERE show_on_site = 1
+         ORDER BY sort_order ASC, label ASC"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($optRows as $r) {
+        $featureOptions[$r['slug']] = $r['label'];
+    }
+} catch (Exception $e) {
+    error_log('[listings] feature options query: ' . $e->getMessage());
+}
+if (empty($featureOptions)) {
+    $featureOptions = [
+        'parking'          => 'Parking',
+        'gas'              => 'Gas',
+        'electricity'      => 'Electricity',
+        'furnished'        => 'Furnished',
+        'corner'           => 'Corner',
+        'boundary_wall'    => 'Boundary Wall',
+        'servant_quarters' => 'Servant Quarters',
+        'garden'           => 'Garden',
+    ];
 }
 
 /* ─── Cities ────────────────────────────────────────────────────────────── */

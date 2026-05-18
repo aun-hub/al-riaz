@@ -35,10 +35,13 @@ $settings = loadSettings($settingsFile);
 $defaults = [
     'agency_name'    => 'Al-Riaz Associates',
     'agency_tagline' => 'Your Trusted Real Estate Partner in Pakistan',
+    'brand_subtitle' => 'Real Estate',
     'phone'          => '+92 300 123 4567',
     'whatsapp'       => '923001234567',
     'email'          => 'info@alriazassociates.pk',
     'address'        => 'Islamabad, Pakistan',
+    'address_lat'    => '',
+    'address_lng'    => '',
     'business_hours' => "Mon–Sat: 9:00 AM – 7:00 PM\nSunday: 11:00 AM – 4:00 PM",
     'website'        => 'https://alriazassociates.pk',
     'facebook_url'   => '',
@@ -61,15 +64,6 @@ $defaults = [
     'about_story_image'       => '',
     'about_story_badge_value' => '5+ Years',
     'about_story_badge_label' => 'In Real Estate',
-
-    // About-page key-stats strip (4 cards). Empty value falls back to the
-    // DB-derived count or the legacy seed value.
-    'about_stats' => [
-        ['value' => '', 'label' => 'Properties Listed'],
-        ['value' => '', 'label' => 'Active Projects'],
-        ['value' => '200', 'label' => 'Happy Clients'],
-        ['value' => '5',   'label' => 'Years Active'],
-    ],
 
     // About-page Mission & Vision section header.
     'about_mv_label'    => 'Purpose',
@@ -111,6 +105,19 @@ $defaults = [
     'about_ceo_name'    => '',
     'about_ceo_title'   => 'Founder & CEO',
 
+    // Awards & Recognition strip (4 cards) on /about.php.
+    // `about_awards_enabled` is the public-site visibility toggle —
+    // unchecking it hides the entire strip without losing the saved cards.
+    'about_awards_enabled' => 1,
+    'about_awards_heading' => 'Awards & Recognition',
+    'about_awards_sub'     => 'Our commitment to excellence, recognized by the industry',
+    'about_awards' => [
+        ['icon' => 'fa-trophy',    'title' => 'Best Authorised Dealer 2024',    'desc' => 'Awarded by Bahria Town Pvt Ltd'],
+        ['icon' => 'fa-medal',     'title' => 'Top Sales Partner 2023',         'desc' => 'DHA Islamabad Regional Award'],
+        ['icon' => 'fa-star',      'title' => 'Client Satisfaction Award 2023', 'desc' => 'Capital Smart City Recognition'],
+        ['icon' => 'fa-handshake', 'title' => 'Trusted Agency 2022',            'desc' => 'Pakistan Real Estate Forum'],
+    ],
+
     // Core Values strip (4 cards).
     'about_values' => [
         ['icon' => 'fa-handshake',    'title' => 'Integrity',    'desc' => 'We never compromise on honesty in our dealings.'],
@@ -130,6 +137,22 @@ $defaults = [
     'about_cta_hours'           => 'Mon–Sat 9am–7pm · Sun 11am–4pm',
     'about_cta_badge_value'     => '',
     'about_cta_badge_label'     => 'Years Trusted',
+
+    // ── Custom Listing Types, Possession Statuses & Project Statuses (Settings → Listings) ──
+    'listing_types_custom'             => [],
+    'listing_types_disabled_core'      => [], // built-in slugs hidden from the picker
+    'possession_statuses_custom'       => [],
+    'possession_statuses_disabled_core'=> [],
+    'project_statuses_custom'          => [],
+    'project_statuses_disabled_core'   => [],
+
+    // ── Projects page header banner & bottom CTA (on /projects.php) ──
+    'projects_header_title'       => 'Real Estate Projects',
+    'projects_header_sub'         => 'Authorised developments across Pakistan',
+    'projects_cta_heading'        => 'Looking for a Specific Project?',
+    'projects_cta_sub'            => 'Contact our team — we work with 20+ authorised developers across Pakistan.',
+    'projects_cta_primary_label'  => 'Get in Touch',
+    'projects_cta_primary_url'    => '/contact.php',
 
     // ── Theme (live colour picker; injected as inline CSS in header.php) ──
     'theme_primary'   => '#F5B301',   // gold accent (overrides --gold)
@@ -194,6 +217,19 @@ $defaults = [
         ['icon'=>'fa-chart-line',    'title'=>'Invest in Projects', 'desc'=>'Authorised launches from Bahria, DHA, Capital Smart City, and more — file-level entry points.',                          'cta_label'=>'View projects',  'cta_url'=>'/projects.php',              'highlight'=>'0'],
     ],
 
+    // Featured Projects section header (on /index.php).
+    'home_featured_label'      => 'New Developments',
+    'home_featured_heading'    => 'Featured Projects',
+    'home_featured_sub'        => "Authorised dealer for Pakistan's top real estate developments",
+    'home_featured_cta_label'  => 'View All',
+
+    // Featured Properties section header (on /index.php).
+    'home_props_label'             => 'Hot Listings',
+    'home_props_heading'           => 'Featured Properties',
+    'home_props_sub'               => 'Handpicked listings across Islamabad, Rawalpindi & beyond',
+    'home_props_cta_label'         => 'Browse All',
+    'home_props_bottom_cta_label'  => 'Browse All Properties',
+
     // "Why Choose ..." section.
     'why_label'   => 'Why Us',
     'why_heading' => 'Why Choose Al-Riaz Associates?',
@@ -210,7 +246,7 @@ $defaults = [
 
 $settings = array_merge($defaults, $settings);
 
-$activeTab = $_GET['tab'] ?? 'agency';
+$activeTab = $_GET['tab'] ?? 'banners';
 
 // ── Handle POST ───────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -218,10 +254,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tab = $_POST['tab'] ?? 'agency';
 
     if ($tab === 'agency') {
-        $fields = ['agency_name','agency_tagline','phone','whatsapp','email','address','website','facebook_url','instagram_url','youtube_url'];
+        $fields = ['agency_name','agency_tagline','brand_subtitle','phone','whatsapp','email','address','website','facebook_url','instagram_url','youtube_url'];
         foreach ($fields as $f) {
             $settings[$f] = trim($_POST[$f] ?? $settings[$f]);
         }
+
+        // Main-office coordinates — accept only valid numbers in range.
+        $latIn = trim((string)($_POST['address_lat'] ?? ''));
+        $lngIn = trim((string)($_POST['address_lng'] ?? ''));
+        $settings['address_lat'] = ($latIn !== '' && is_numeric($latIn) && $latIn >=  -90 && $latIn <=  90)  ? $latIn : '';
+        $settings['address_lng'] = ($lngIn !== '' && is_numeric($lngIn) && $lngIn >= -180 && $lngIn <= 180) ? $lngIn : '';
 
         // WhatsApp number: if admin left it empty, auto-derive from the phone
         // (strip non-digits; normalise a leading "0" to Pakistan country code
@@ -249,8 +291,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->beginTransaction();
             $db->exec('DELETE FROM branches');
             $ins = $db->prepare(
-                'INSERT INTO branches (name, address, phone, hours, hours_schedule, is_hq, sort_order)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO branches (name, address, lat, lng, phone, hours, hours_schedule, is_hq, sort_order)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             $hqPick = isset($_POST['hq_pick']) ? (string)$_POST['hq_pick'] : 'main';
             $order  = 0;
@@ -264,10 +306,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $brSched = parsePostedSchedule($row['hours_schedule'] ?? null);
                     $brHoursText = formatBusinessHours($brSched);
                     if ($name === '' && $address === '' && $phone === '') continue;
+
+                    $rowLat = trim((string)($row['lat'] ?? ''));
+                    $rowLng = trim((string)($row['lng'] ?? ''));
+                    $rowLat = ($rowLat !== '' && is_numeric($rowLat) && $rowLat >=  -90 && $rowLat <=  90)  ? $rowLat : null;
+                    $rowLng = ($rowLng !== '' && is_numeric($rowLng) && $rowLng >= -180 && $rowLng <= 180) ? $rowLng : null;
+
                     $isHq = ($hqPick === 'branch-' . $branchIdx) ? 1 : 0;
                     $ins->execute([
                         $name,
                         $address,
+                        $rowLat,
+                        $rowLng,
                         $phone,
                         $brHoursText,
                         json_encode($brSched, JSON_UNESCAPED_UNICODE),
@@ -414,6 +464,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'hero_rating_score','hero_rating_caption',
             'hero_dev_label','hero_dev_count_override',
             'intent_label','intent_heading','intent_sub',
+            'home_featured_label','home_featured_heading','home_featured_sub','home_featured_cta_label',
+            'home_props_label','home_props_heading','home_props_sub','home_props_cta_label','home_props_bottom_cta_label',
             'why_label','why_heading','why_sub',
         ];
         foreach ($fields as $f) {
@@ -543,18 +595,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
         }
 
-        // ── Stats strip (4 items) ──────────────────────────────────
-        $statsIn = $_POST['about_stats'] ?? [];
-        $stats = [];
-        for ($i = 0; $i < 4; $i++) {
-            $row = is_array($statsIn[$i] ?? null) ? $statsIn[$i] : [];
-            $stats[] = [
-                'value' => trim((string)($row['value'] ?? '')),
-                'label' => trim((string)($row['label'] ?? '')),
-            ];
-        }
-        $settings['about_stats'] = $stats;
-
         // ── Mission & Vision header ────────────────────────────────
         foreach (['about_mv_label','about_mv_title','about_mv_subtitle'] as $f) {
             if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
@@ -620,6 +660,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $settings['about_values'] = $values;
 
+        // ── Awards & Recognition (heading + 4 cards) ───────────────
+        $settings['about_awards_enabled'] = isset($_POST['about_awards_enabled']) ? 1 : 0;
+        foreach (['about_awards_heading','about_awards_sub'] as $f) {
+            if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
+        }
+        $awardsIn = $_POST['about_awards'] ?? [];
+        $awards   = [];
+        for ($i = 0; $i < 4; $i++) {
+            $row = is_array($awardsIn[$i] ?? null) ? $awardsIn[$i] : [];
+            $awards[] = [
+                'icon'  => preg_replace('/[^a-z0-9_-]/i', '', trim((string)($row['icon'] ?? ''))) ?: 'fa-trophy',
+                'title' => trim((string)($row['title'] ?? '')),
+                'desc'  => trim((string)($row['desc']  ?? '')),
+            ];
+        }
+        $settings['about_awards'] = $awards;
+
         // Optional image upload — overwrites the previous about-story image.
         if (!empty($_FILES['about_story_image']['tmp_name']) && $_FILES['about_story_image']['error'] === UPLOAD_ERR_OK) {
             if ($_FILES['about_story_image']['size'] > MAX_FILE_SIZE) {
@@ -650,6 +707,125 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         auditLog('update','settings',0,'Updated About-page story section');
         setFlash('success', 'About-page settings saved.');
         header('Location: ' . BASE_PATH . '/admin/settings.php?tab=about'); exit;
+    }
+
+    if ($tab === 'projects') {
+        foreach ([
+            'projects_header_title','projects_header_sub',
+            'projects_cta_heading','projects_cta_sub',
+            'projects_cta_primary_label','projects_cta_primary_url',
+        ] as $f) {
+            if (array_key_exists($f, $_POST)) $settings[$f] = trim((string)$_POST[$f]);
+        }
+        saveSettings($settingsFile, $settings);
+        auditLog('update','settings',0,'Updated Projects-page content');
+        setFlash('success', 'Projects-page settings saved.');
+        header('Location: ' . BASE_PATH . '/admin/settings.php?tab=projects'); exit;
+    }
+
+    if ($tab === 'listings') {
+        $slugify = static function (string $s, string $fallbackSeed = ''): string {
+            $s = strtolower(trim($s));
+            $s = preg_replace('/[^a-z0-9]+/', '_', $s);
+            $s = trim((string)$s, '_');
+            if ($s === '' && $fallbackSeed !== '') $s = $fallbackSeed;
+            return $s !== '' ? $s : 'custom_' . substr(md5((string)microtime(true)), 0, 6);
+        };
+
+        // ── Built-in (core) enable/disable toggles ────────────────
+        // A built-in slug is "disabled" if its checkbox wasn't ticked. We
+        // store the disabled list (not the enabled list) so that future core
+        // additions default to enabled without each admin having to re-tick.
+        $allCoreListingSlugs    = array_keys(getCoreListingTypes());
+        $enabledCoreListing     = (array)($_POST['listing_types_core_enabled'] ?? []);
+        $disabledCoreListing    = array_values(array_diff($allCoreListingSlugs, array_map('strval', $enabledCoreListing)));
+        $settings['listing_types_disabled_core'] = $disabledCoreListing;
+
+        $allCorePossessionSlugs = array_keys(getCorePossessionStatuses());
+        $enabledCorePossession  = (array)($_POST['possession_statuses_core_enabled'] ?? []);
+        $disabledCorePossession = array_values(array_diff($allCorePossessionSlugs, array_map('strval', $enabledCorePossession)));
+        $settings['possession_statuses_disabled_core'] = $disabledCorePossession;
+
+        // Reserve core slugs so custom rows can't shadow them.
+        $coreListingSlugsMap    = array_fill_keys($allCoreListingSlugs, true);
+        $corePossessionSlugsMap = array_fill_keys($allCorePossessionSlugs, true);
+
+        // ── Custom Listing Types ──────────────────────────────────
+        $rowsIn = $_POST['listing_types_custom'] ?? [];
+        $list   = [];
+        $seen   = [];
+        if (is_array($rowsIn)) {
+            foreach ($rowsIn as $row) {
+                if (!is_array($row)) continue;
+                $label = trim((string)($row['label'] ?? ''));
+                $slug  = $slugify((string)($row['slug'] ?? ''), $slugify($label));
+                if ($label === '' || $slug === '') continue;
+                if (isset($coreListingSlugsMap[$slug]) || isset($seen[$slug])) continue;
+
+                $categories = is_array($row['categories'] ?? null) ? $row['categories'] : [];
+                $categories = array_values(array_intersect($categories, ['residential','commercial']));
+                if (empty($categories)) $categories = ['residential'];
+
+                $purposes = is_array($row['purposes'] ?? null) ? $row['purposes'] : [];
+                $purposes = array_values(array_intersect($purposes, ['sale','rent']));
+                if (empty($purposes)) $purposes = ['sale','rent'];
+
+                $seen[$slug] = true;
+                $list[] = [
+                    'slug'       => $slug,
+                    'label'      => $label,
+                    'categories' => $categories,
+                    'purposes'   => $purposes,
+                ];
+            }
+        }
+        $settings['listing_types_custom'] = $list;
+
+        // ── Custom Possession Statuses ────────────────────────────
+        $rowsIn = $_POST['possession_statuses_custom'] ?? [];
+        $pos    = [];
+        $seen   = [];
+        if (is_array($rowsIn)) {
+            foreach ($rowsIn as $row) {
+                if (!is_array($row)) continue;
+                $label = trim((string)($row['label'] ?? ''));
+                $slug  = $slugify((string)($row['slug'] ?? ''), $slugify($label));
+                if ($label === '' || $slug === '') continue;
+                if (isset($corePossessionSlugsMap[$slug]) || isset($seen[$slug])) continue;
+                $seen[$slug] = true;
+                $pos[] = ['slug' => $slug, 'label' => $label];
+            }
+        }
+        $settings['possession_statuses_custom'] = $pos;
+
+        // ── Project Statuses (built-in toggles + custom) ──────────
+        $allCoreProjectSlugs = array_keys(getCoreProjectStatuses());
+        $enabledCoreProject  = (array)($_POST['project_statuses_core_enabled'] ?? []);
+        $disabledCoreProject = array_values(array_diff($allCoreProjectSlugs, array_map('strval', $enabledCoreProject)));
+        $settings['project_statuses_disabled_core'] = $disabledCoreProject;
+
+        $coreProjectSlugsMap = array_fill_keys($allCoreProjectSlugs, true);
+
+        $rowsIn = $_POST['project_statuses_custom'] ?? [];
+        $proj   = [];
+        $seen   = [];
+        if (is_array($rowsIn)) {
+            foreach ($rowsIn as $row) {
+                if (!is_array($row)) continue;
+                $label = trim((string)($row['label'] ?? ''));
+                $slug  = $slugify((string)($row['slug'] ?? ''), $slugify($label));
+                if ($label === '' || $slug === '') continue;
+                if (isset($coreProjectSlugsMap[$slug]) || isset($seen[$slug])) continue;
+                $seen[$slug] = true;
+                $proj[] = ['slug' => $slug, 'label' => $label];
+            }
+        }
+        $settings['project_statuses_custom'] = $proj;
+
+        saveSettings($settingsFile, $settings);
+        auditLog('update','settings',0,'Updated listing taxonomy (types / possession)');
+        setFlash('success', 'Listing taxonomy saved.');
+        header('Location: ' . BASE_PATH . '/admin/settings.php?tab=listings'); exit;
     }
 }
 
@@ -745,15 +921,24 @@ include __DIR__ . '/includes/admin-sidebar.php';
     <!-- Tabs Nav -->
     <ul class="nav nav-tabs settings-nav mb-0 border-bottom-0" style="border-bottom:1px solid #dee2e6;">
       <?php
+      // Tabs are arranged in three natural groups so the bar reads left → right:
+      //   1) Public-facing pages (edited most often)
+      //   2) Brand & site-wide layout
+      //   3) System config (rarely touched after setup)
       $tabs = [
-        'agency'        => ['icon'=>'fa-building','label'=>'Agency Profile'],
-        'about'         => ['icon'=>'fa-circle-info','label'=>'About Page'],
-        'banners'       => ['icon'=>'fa-house','label'=>'Home Page'],
-        'theme'         => ['icon'=>'fa-palette','label'=>'Theme'],
-        'navigation'    => ['icon'=>'fa-bars','label'=>'Navigation'],
-        'smtp'          => ['icon'=>'fa-envelope','label'=>'SMTP Config'],
-        'notifications' => ['icon'=>'fa-bell','label'=>'Notifications'],
-        'preferences'   => ['icon'=>'fa-sliders','label'=>'Preferences'],
+        // — Pages —
+        'banners'       => ['icon'=>'fa-house',          'label'=>'Home Page'],
+        'about'         => ['icon'=>'fa-circle-info',    'label'=>'About Page'],
+        'projects'      => ['icon'=>'fa-diagram-project','label'=>'Projects Page'],
+        'listings'      => ['icon'=>'fa-list',           'label'=>'Listings'],
+        // — Brand & layout —
+        'agency'        => ['icon'=>'fa-building',       'label'=>'Agency Profile'],
+        'navigation'    => ['icon'=>'fa-bars',           'label'=>'Navigation'],
+        'theme'         => ['icon'=>'fa-palette',        'label'=>'Theme'],
+        // — System —
+        'smtp'          => ['icon'=>'fa-envelope',       'label'=>'SMTP Config'],
+        'notifications' => ['icon'=>'fa-bell',           'label'=>'Notifications'],
+        'preferences'   => ['icon'=>'fa-sliders',        'label'=>'Preferences'],
       ];
       foreach ($tabs as $tk => $td):
       ?>
@@ -784,6 +969,13 @@ include __DIR__ . '/includes/admin-sidebar.php';
             <label class="form-label fw-600">Tagline</label>
             <input type="text" name="agency_tagline" class="form-control"
                    value="<?= htmlspecialchars($settings['agency_tagline'], ENT_QUOTES,'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Brand Subtitle</label>
+            <input type="text" name="brand_subtitle" class="form-control" maxlength="60"
+                   placeholder="Real Estate"
+                   value="<?= htmlspecialchars($settings['brand_subtitle'] ?? '', ENT_QUOTES,'UTF-8') ?>">
+            <div class="form-text">Small label shown under the agency name in the header and footer (e.g. "Real Estate").</div>
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label fw-600">Logo</label>
@@ -817,8 +1009,32 @@ include __DIR__ . '/includes/admin-sidebar.php';
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label fw-600">Address</label>
-            <input type="text" name="address" class="form-control"
+            <input type="text" name="address" id="mainOfficeAddressInput" class="form-control"
                    value="<?= htmlspecialchars($settings['address'], ENT_QUOTES,'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-600">Latitude <span class="text-danger">*</span></label>
+            <input type="number" step="any" min="-90" max="90"
+                   name="address_lat" id="mainOfficeLat" class="form-control font-monospace"
+                   placeholder="33.7273760"
+                   value="<?= htmlspecialchars((string)($settings['address_lat'] ?? ''), ENT_QUOTES,'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-600">Longitude <span class="text-danger">*</span></label>
+            <input type="number" step="any" min="-180" max="180"
+                   name="address_lng" id="mainOfficeLng" class="form-control font-monospace"
+                   placeholder="73.0911790"
+                   value="<?= htmlspecialchars((string)($settings['address_lng'] ?? ''), ENT_QUOTES,'UTF-8') ?>">
+          </div>
+          <div class="col-12">
+            <div class="form-text d-flex flex-wrap align-items-center gap-2" style="margin-top:-0.25rem;">
+              <i class="fa-solid fa-location-dot text-muted"></i>
+              <span>Precise coordinates power the "Get Directions" button — without them, Google Maps geocodes the address text and may pin the wrong spot.</span>
+              <a href="#" id="findMainOfficeOnMap" class="ms-auto"
+                 style="font-size:.85rem; font-weight:600;">
+                <i class="fa-solid fa-map-location-dot me-1"></i>Find on Google Maps
+              </a>
+            </div>
           </div>
           <div class="col-12">
             <label class="form-label fw-600 mb-2">Business Hours</label>
@@ -852,7 +1068,12 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <?php
           $branches = [];
           try {
-              $stmtBr = $db->query('SELECT name, address, phone, hours, hours_schedule, is_hq FROM branches ORDER BY sort_order ASC, id ASC');
+              // Try new schema (lat/lng) first; fall back to legacy shape.
+              try {
+                  $stmtBr = $db->query('SELECT name, address, lat, lng, phone, hours, hours_schedule, is_hq FROM branches ORDER BY sort_order ASC, id ASC');
+              } catch (Throwable $columnMissing) {
+                  $stmtBr = $db->query('SELECT name, address, NULL AS lat, NULL AS lng, phone, hours, hours_schedule, is_hq FROM branches ORDER BY sort_order ASC, id ASC');
+              }
               $branches = $stmtBr->fetchAll() ?: [];
           } catch (Throwable $e) { /* branches table may not exist yet */ }
           $anyBranchHq = false;
@@ -878,6 +1099,8 @@ include __DIR__ . '/includes/admin-sidebar.php';
                 $bn = htmlspecialchars($br['name']    ?? '', ENT_QUOTES, 'UTF-8');
                 $ba = htmlspecialchars($br['address'] ?? '', ENT_QUOTES, 'UTF-8');
                 $bp = htmlspecialchars($br['phone']   ?? '', ENT_QUOTES, 'UTF-8');
+                $blat = htmlspecialchars((string)($br['lat'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $blng = htmlspecialchars((string)($br['lng'] ?? ''), ENT_QUOTES, 'UTF-8');
                 $bhSummary = htmlspecialchars(trim((string)($br['hours'] ?? '')) ?: 'Edit hours', ENT_QUOTES, 'UTF-8');
                 $bhq = !empty($br['is_hq']);
                 $brSched = normalizeSchedule($br['hours_schedule'] ?? null);
@@ -890,7 +1113,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
                   </div>
                   <div class="col-12 col-md-3">
                     <label class="form-label fw-600 fs-12">Address</label>
-                    <input type="text" name="branches[<?= $i ?>][address]" class="form-control form-control-sm" value="<?= $ba ?>">
+                    <input type="text" name="branches[<?= $i ?>][address]" class="form-control form-control-sm branch-address-input" value="<?= $ba ?>">
                   </div>
                   <div class="col-12 col-md-2">
                     <label class="form-label fw-600 fs-12">Phone</label>
@@ -918,6 +1141,27 @@ include __DIR__ . '/includes/admin-sidebar.php';
                     </button>
                   </div>
                 </div>
+                <div class="row g-2 align-items-end mt-1">
+                  <div class="col-12 col-md-3">
+                    <label class="form-label fw-600 fs-12">Latitude <span class="text-danger">*</span></label>
+                    <input type="number" step="any" min="-90" max="90"
+                           name="branches[<?= $i ?>][lat]"
+                           class="form-control form-control-sm font-monospace branch-lat-input"
+                           placeholder="33.7273760" value="<?= $blat ?>">
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label fw-600 fs-12">Longitude <span class="text-danger">*</span></label>
+                    <input type="number" step="any" min="-180" max="180"
+                           name="branches[<?= $i ?>][lng]"
+                           class="form-control form-control-sm font-monospace branch-lng-input"
+                           placeholder="73.0911790" value="<?= $blng ?>">
+                  </div>
+                  <div class="col-12 col-md-6 d-flex align-items-center">
+                    <a href="#" class="branch-find-on-map fs-12" style="font-weight:600;">
+                      <i class="fa-solid fa-map-location-dot me-1"></i>Find this office on Google Maps
+                    </a>
+                  </div>
+                </div>
                 <div class="collapse mt-3 pt-3 border-top" id="branchHours<?= $i ?>">
                   <?php renderScheduleEditor('branches[' . $i . '][hours_schedule]', $brSched); ?>
                 </div>
@@ -942,7 +1186,7 @@ include __DIR__ . '/includes/admin-sidebar.php';
             </div>
             <div class="col-12 col-md-3">
               <label class="form-label fw-600 fs-12">Address</label>
-              <input type="text" name="branches[__IDX__][address]" class="form-control form-control-sm">
+              <input type="text" name="branches[__IDX__][address]" class="form-control form-control-sm branch-address-input">
             </div>
             <div class="col-12 col-md-2">
               <label class="form-label fw-600 fs-12">Phone</label>
@@ -968,6 +1212,27 @@ include __DIR__ . '/includes/admin-sidebar.php';
               <button type="button" class="btn btn-sm btn-outline-danger w-100 removeBranchBtn" title="Remove branch">
                 <i class="fa-solid fa-trash"></i>
               </button>
+            </div>
+          </div>
+          <div class="row g-2 align-items-end mt-1">
+            <div class="col-12 col-md-3">
+              <label class="form-label fw-600 fs-12">Latitude <span class="text-danger">*</span></label>
+              <input type="number" step="any" min="-90" max="90"
+                     name="branches[__IDX__][lat]"
+                     class="form-control form-control-sm font-monospace branch-lat-input"
+                     placeholder="33.7273760">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label fw-600 fs-12">Longitude <span class="text-danger">*</span></label>
+              <input type="number" step="any" min="-180" max="180"
+                     name="branches[__IDX__][lng]"
+                     class="form-control form-control-sm font-monospace branch-lng-input"
+                     placeholder="73.0911790">
+            </div>
+            <div class="col-12 col-md-6 d-flex align-items-center">
+              <a href="#" class="branch-find-on-map fs-12" style="font-weight:600;">
+                <i class="fa-solid fa-map-location-dot me-1"></i>Find this office on Google Maps
+              </a>
             </div>
           </div>
           <div class="collapse mt-3 pt-3 border-top" id="branchHours__IDX__">
@@ -1000,6 +1265,48 @@ include __DIR__ . '/includes/admin-sidebar.php';
           if (!btn) return;
           var row = btn.closest('.branch-row');
           if (row) row.remove();
+        });
+
+        // "Find on Google Maps" helper — opens a new tab with the address
+        // (or current lat/lng if already filled) pre-searched. Admin can
+        // right-click the pin in Google Maps → "What's here?" to copy the
+        // exact coordinates, then paste them back into the Lat/Lng fields.
+        function openMapForRow(row, fallbackAddr) {
+            var addr = (row && row.querySelector('.branch-address-input')?.value) || fallbackAddr || '';
+            var lat  = (row && row.querySelector('.branch-lat-input')?.value) || '';
+            var lng  = (row && row.querySelector('.branch-lng-input')?.value) || '';
+            var url;
+            if (lat && lng) {
+                url = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(lat + ',' + lng);
+            } else if (addr.trim()) {
+                url = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr.trim());
+            } else {
+                alert('Enter an address (or lat/lng) first.');
+                return;
+            }
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+
+        // Delegated so newly-added branch rows work too.
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest('.branch-find-on-map');
+            if (link) {
+                e.preventDefault();
+                openMapForRow(link.closest('.branch-row'));
+                return;
+            }
+            if (e.target.closest('#findMainOfficeOnMap')) {
+                e.preventDefault();
+                var fake = {
+                    querySelector: function (sel) {
+                        if (sel === '.branch-address-input') return document.getElementById('mainOfficeAddressInput');
+                        if (sel === '.branch-lat-input')     return document.getElementById('mainOfficeLat');
+                        if (sel === '.branch-lng-input')     return document.getElementById('mainOfficeLng');
+                        return null;
+                    }
+                };
+                openMapForRow(fake);
+            }
         });
       })();
 
@@ -1109,32 +1416,6 @@ include __DIR__ . '/includes/admin-sidebar.php';
             </div>
           </div>
 
-        </div>
-
-        <!-- ─────────────── Key Stats Strip ─────────────── -->
-        <hr class="my-4">
-        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
-          <i class="fa-solid fa-chart-line me-2" style="color:var(--gold);"></i>Key Stats
-        </h5>
-        <p class="text-muted small mb-3">The 4 dark-blue stat cards under the story. Leave a value blank to auto-pull from the database (where supported) or fall back to the previous default.</p>
-        <div class="row g-3">
-          <?php for ($i = 0; $i < 4; $i++):
-            $stat = $settings['about_stats'][$i] ?? ['value'=>'', 'label'=>''];
-          ?>
-          <div class="col-12 col-md-3">
-            <div class="form-section-card mb-0" style="height:100%;">
-              <div class="card-body">
-                <label class="form-label fw-600 small">Stat <?= $i + 1 ?> Value</label>
-                <input type="text" name="about_stats[<?= $i ?>][value]" class="form-control form-control-sm mb-2" maxlength="20"
-                       placeholder="<?= $i === 0 ? 'auto' : ($i === 1 ? 'auto' : ($i === 2 ? '200' : '5')) ?>"
-                       value="<?= htmlspecialchars($stat['value'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-                <label class="form-label fw-600 small">Stat <?= $i + 1 ?> Label</label>
-                <input type="text" name="about_stats[<?= $i ?>][label]" class="form-control form-control-sm" maxlength="60"
-                       value="<?= htmlspecialchars($stat['label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-              </div>
-            </div>
-          </div>
-          <?php endfor; ?>
         </div>
 
         <!-- ─────────────── Mission & Vision ─────────────── -->
@@ -1324,6 +1605,73 @@ include __DIR__ . '/includes/admin-sidebar.php';
           <?php endfor; ?>
         </div>
 
+        <!-- ─────────────── Awards & Recognition ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-trophy me-2" style="color:var(--gold);"></i>Awards &amp; Recognition
+        </h5>
+        <p class="text-muted small mb-2">The premium gold-banded strip with 4 award cards.</p>
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" role="switch" id="aboutAwardsEnabled"
+                 name="about_awards_enabled" value="1"
+                 <?= !empty($settings['about_awards_enabled']) ? 'checked' : '' ?>>
+          <label class="form-check-label" for="aboutAwardsEnabled">
+            <i class="fa-solid fa-globe text-primary me-1"></i>
+            Show this section on the public About page
+          </label>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="about_awards_heading" class="form-control" maxlength="120"
+                   value="<?= htmlspecialchars($settings['about_awards_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-7">
+            <label class="form-label fw-600">Subtitle</label>
+            <input type="text" name="about_awards_sub" class="form-control" maxlength="240"
+                   value="<?= htmlspecialchars($settings['about_awards_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+        </div>
+        <div class="row g-3">
+          <?php for ($i = 0; $i < 4; $i++):
+            $aw = $settings['about_awards'][$i] ?? ['icon'=>'','title'=>'','desc'=>''];
+          ?>
+          <div class="col-12 col-md-6">
+            <div class="form-section-card mb-0" style="height:100%;">
+              <div class="card-header">
+                <i class="fa-solid <?= htmlspecialchars($aw['icon'] ?: 'fa-trophy', ENT_QUOTES, 'UTF-8') ?>" style="color:var(--gold)"></i>
+                Award <?= $i + 1 ?>
+              </div>
+              <div class="card-body">
+                <div class="row g-2">
+                  <div class="col-12 col-md-5">
+                    <label class="form-label fw-600 small">Icon</label>
+                    <?php $awIconId = 'aboutAwardIcon' . $i; $awIconCls = $aw['icon'] ?: 'fa-trophy'; ?>
+                    <input type="hidden" name="about_awards[<?= $i ?>][icon]" id="<?= $awIconId ?>"
+                           value="<?= htmlspecialchars($awIconCls, ENT_QUOTES, 'UTF-8') ?>">
+                    <button type="button" class="btn btn-outline-secondary btn-sm icon-picker-trigger w-100"
+                            data-icon-target="<?= $awIconId ?>" title="Click to choose an icon">
+                      <i class="fa-solid <?= htmlspecialchars($awIconCls, ENT_QUOTES, 'UTF-8') ?>"></i>
+                      <span class="icon-picker-label"><?= htmlspecialchars($awIconCls, ENT_QUOTES, 'UTF-8') ?></span>
+                      <i class="fa-solid fa-chevron-down ms-auto text-muted small"></i>
+                    </button>
+                  </div>
+                  <div class="col-12 col-md-7">
+                    <label class="form-label fw-600 small">Title</label>
+                    <input type="text" name="about_awards[<?= $i ?>][title]" class="form-control form-control-sm" maxlength="120"
+                           value="<?= htmlspecialchars($aw['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-600 small">Description</label>
+                    <textarea name="about_awards[<?= $i ?>][desc]" class="form-control form-control-sm" rows="2" maxlength="240"><?= htmlspecialchars($aw['desc'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+
         <!-- ─────────────── Bottom CTA Card ─────────────── -->
         <hr class="my-4">
         <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
@@ -1406,6 +1754,465 @@ include __DIR__ . '/includes/admin-sidebar.php';
           </button>
         </div>
       </form>
+
+      <?php elseif ($activeTab === 'projects'): ?>
+      <!-- Projects Page Tab -->
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES,'UTF-8') ?>">
+        <input type="hidden" name="tab" value="projects">
+
+        <h6 class="fw-700 mb-1"><i class="fa-solid fa-heading me-2" style="color:var(--gold);"></i>Page Header Banner</h6>
+        <p class="text-muted fs-13 mb-3">The dark hero strip at the top of <code>/projects.php</code>.</p>
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="projects_header_title" class="form-control" maxlength="160"
+                   placeholder="Real Estate Projects"
+                   value="<?= htmlspecialchars($settings['projects_header_title'] ?? '', ENT_QUOTES,'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Subtitle</label>
+            <input type="text" name="projects_header_sub" class="form-control" maxlength="300"
+                   placeholder="Authorised developments across Pakistan"
+                   value="<?= htmlspecialchars($settings['projects_header_sub'] ?? '', ENT_QUOTES,'UTF-8') ?>">
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h6 class="fw-700 mb-1"><i class="fa-solid fa-bullhorn me-2" style="color:var(--gold);"></i>Bottom CTA Banner</h6>
+        <p class="text-muted fs-13 mb-3">Shown above the footer on <code>/projects.php</code>.</p>
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="projects_cta_heading" class="form-control" maxlength="160"
+                   placeholder="Looking for a Specific Project?"
+                   value="<?= htmlspecialchars($settings['projects_cta_heading'] ?? '', ENT_QUOTES,'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Subtitle</label>
+            <input type="text" name="projects_cta_sub" class="form-control" maxlength="300"
+                   placeholder="Contact our team — we work with 20+ authorised developers..."
+                   value="<?= htmlspecialchars($settings['projects_cta_sub'] ?? '', ENT_QUOTES,'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Button Label</label>
+            <input type="text" name="projects_cta_primary_label" class="form-control" maxlength="60"
+                   placeholder="Get in Touch"
+                   value="<?= htmlspecialchars($settings['projects_cta_primary_label'] ?? '', ENT_QUOTES,'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-600">Button URL</label>
+            <input type="text" name="projects_cta_primary_url" class="form-control"
+                   placeholder="/contact.php or https://..."
+                   value="<?= htmlspecialchars($settings['projects_cta_primary_url'] ?? '', ENT_QUOTES,'UTF-8') ?>">
+            <div class="form-text">Site-relative path (e.g. <code>/contact.php</code>) or a full URL (<code>https://</code>, <code>mailto:</code>, <code>tel:</code>, <code>wa.me/...</code>).</div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end mt-4">
+          <button type="submit" class="btn btn-gold">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Save Projects Page
+          </button>
+        </div>
+      </form>
+
+      <?php elseif ($activeTab === 'listings'): ?>
+      <!-- Listings Tab — Built-in toggles + Custom listing types & possession statuses -->
+      <?php
+        $disabledCoreListing    = (array)($settings['listing_types_disabled_core'] ?? []);
+        $disabledCorePossession = (array)($settings['possession_statuses_disabled_core'] ?? []);
+        $coreListing            = getCoreListingTypes();
+        $corePossession         = getCorePossessionStatuses();
+      ?>
+      <style>
+        .taxonomy-card {
+          background:#fff; border:1px solid #e6ebf2; border-radius:10px;
+          padding:1rem 1.1rem;
+        }
+        .taxonomy-card .core-grid {
+          display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap:.5rem .75rem;
+        }
+        .custom-row {
+          background:#f9fafc; border:1px solid #e6ebf2; border-radius:10px;
+          padding:.85rem .9rem;
+        }
+        .custom-row .chk-group { display:flex; gap:1rem; flex-wrap:wrap; }
+        .custom-row .chk-group .form-check { min-width:110px; margin-bottom:0; }
+        .custom-row .chk-label { font-size:.72rem; letter-spacing:.05em; text-transform:uppercase; color:var(--text-secondary, #6b7280); font-weight:700; margin-bottom:.25rem; }
+      </style>
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES,'UTF-8') ?>">
+        <input type="hidden" name="tab" value="listings">
+
+        <!-- ─── Built-in Listing Types (enable/disable) ─── -->
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-tags me-2" style="color:var(--gold);"></i>Built-in Listing Types
+        </h5>
+        <p class="text-muted small mb-2">
+          Untick a built-in type to hide it from the picker on <code>/admin/listing-form.php</code>.
+          Existing listings already using that type continue to display the right label.
+        </p>
+        <div class="taxonomy-card mb-4">
+          <div class="core-grid">
+            <?php foreach ($coreListing as $slug => $row):
+              $isEnabled = !in_array($slug, $disabledCoreListing, true);
+            ?>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox"
+                     name="listing_types_core_enabled[]"
+                     value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
+                     id="ltc_<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
+                     <?= $isEnabled ? 'checked' : '' ?>>
+              <label class="form-check-label" for="ltc_<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>">
+                <?= htmlspecialchars($row['label'], ENT_QUOTES, 'UTF-8') ?>
+                <small class="text-muted d-block fs-12"><?= implode(' / ', array_map('ucfirst', $row['categories'])) ?></small>
+              </label>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <!-- ─── Custom Listing Types ─── -->
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-plus me-2" style="color:var(--gold);"></i>Custom Listing Types
+        </h5>
+        <p class="text-muted small mb-2">
+          Add your own types. Tick the categories (Residential / Commercial) and purposes (Sale / Rent) where this type should appear in the picker.
+        </p>
+        <?php $customTypes = (array)($settings['listing_types_custom'] ?? []); ?>
+        <div id="listingTypesWrapper" class="d-flex flex-column gap-2">
+          <?php for ($i = 0; $i < max(count($customTypes), 1); $i++):
+            $row    = $customTypes[$i] ?? ['slug'=>'','label'=>'','categories'=>['residential'],'purposes'=>['sale','rent']];
+            // Tolerate legacy single `category` rows from earlier saves.
+            if (!isset($row['categories']) || !is_array($row['categories'])) {
+                $row['categories'] = !empty($row['category']) ? [$row['category']] : ['residential'];
+            }
+            if (!isset($row['purposes']) || !is_array($row['purposes'])) {
+                $row['purposes'] = ['sale','rent'];
+            }
+          ?>
+          <div class="custom-row listing-type-row">
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-4">
+                <label class="chk-label">Label</label>
+                <input type="text" name="listing_types_custom[<?= $i ?>][label]" class="form-control form-control-sm"
+                       placeholder="e.g. Studio Apartment" maxlength="60"
+                       value="<?= htmlspecialchars((string)($row['label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="chk-label">Slug</label>
+                <input type="text" name="listing_types_custom[<?= $i ?>][slug]" class="form-control form-control-sm font-monospace"
+                       placeholder="auto" maxlength="40" pattern="[a-z0-9_]+"
+                       value="<?= htmlspecialchars((string)($row['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="chk-label">Categories</label>
+                    <div class="chk-group">
+                      <?php foreach (['residential'=>'Residential','commercial'=>'Commercial'] as $val => $lbl):
+                        $id = "lt_{$i}_cat_{$val}";
+                        $isOn = in_array($val, (array)$row['categories'], true);
+                      ?>
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="listing_types_custom[<?= $i ?>][categories][]"
+                               value="<?= $val ?>" id="<?= $id ?>" <?= $isOn ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="<?= $id ?>"><?= $lbl ?></label>
+                      </div>
+                      <?php endforeach; ?>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <label class="chk-label">Purposes</label>
+                    <div class="chk-group">
+                      <?php foreach (['sale'=>'Sale','rent'=>'Rent'] as $val => $lbl):
+                        $id = "lt_{$i}_pur_{$val}";
+                        $isOn = in_array($val, (array)$row['purposes'], true);
+                      ?>
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="listing_types_custom[<?= $i ?>][purposes][]"
+                               value="<?= $val ?>" id="<?= $id ?>" <?= $isOn ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="<?= $id ?>"><?= $lbl ?></label>
+                      </div>
+                      <?php endforeach; ?>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-1 text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn" title="Remove">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="addListingTypeBtn">
+          <i class="fa-solid fa-plus me-1"></i> Add Listing Type
+        </button>
+
+        <hr class="my-4">
+
+        <!-- ─── Built-in Possession Statuses (enable/disable) ─── -->
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-key me-2" style="color:var(--gold);"></i>Built-in Possession Statuses
+        </h5>
+        <p class="text-muted small mb-2">
+          Untick a built-in status to hide it from the picker. Existing listings still render correctly.
+        </p>
+        <div class="taxonomy-card mb-4">
+          <div class="core-grid">
+            <?php foreach ($corePossession as $slug => $label):
+              $isEnabled = !in_array($slug, $disabledCorePossession, true);
+            ?>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox"
+                     name="possession_statuses_core_enabled[]"
+                     value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
+                     id="pos_<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
+                     <?= $isEnabled ? 'checked' : '' ?>>
+              <label class="form-check-label" for="pos_<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>">
+                <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+              </label>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <!-- ─── Custom Possession Statuses ─── -->
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-plus me-2" style="color:var(--gold);"></i>Custom Possession Statuses
+        </h5>
+        <p class="text-muted small mb-2">
+          Add any extra statuses (e.g. <em>Newly Handed Over</em>, <em>Coming Soon</em>).
+        </p>
+        <?php $customPos = (array)($settings['possession_statuses_custom'] ?? []); ?>
+        <div id="possessionStatusesWrapper" class="d-flex flex-column gap-2">
+          <?php for ($i = 0; $i < max(count($customPos), 1); $i++):
+            $row = $customPos[$i] ?? ['slug'=>'','label'=>''];
+          ?>
+          <div class="custom-row possession-row">
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-5">
+                <label class="chk-label">Label</label>
+                <input type="text" name="possession_statuses_custom[<?= $i ?>][label]" class="form-control form-control-sm"
+                       placeholder="e.g. Coming Soon" maxlength="60"
+                       value="<?= htmlspecialchars((string)($row['label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="chk-label">Slug</label>
+                <input type="text" name="possession_statuses_custom[<?= $i ?>][slug]" class="form-control form-control-sm font-monospace"
+                       placeholder="auto" maxlength="40" pattern="[a-z0-9_]+"
+                       value="<?= htmlspecialchars((string)($row['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-1 text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn" title="Remove">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="addPossessionBtn">
+          <i class="fa-solid fa-plus me-1"></i> Add Possession Status
+        </button>
+
+        <hr class="my-4">
+
+        <!-- ─── Built-in Project Statuses (enable/disable) ─── -->
+        <?php $coreProject = getCoreProjectStatuses(); $disabledCoreProject = (array)($settings['project_statuses_disabled_core'] ?? []); ?>
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-folder-tree me-2" style="color:var(--gold);"></i>Built-in Project Statuses
+        </h5>
+        <p class="text-muted small mb-2">
+          Untick a built-in status to hide it from the picker on <code>/admin/project-form.php</code> and from the public Projects page filter pills.
+        </p>
+        <div class="taxonomy-card mb-4">
+          <div class="core-grid">
+            <?php foreach ($coreProject as $slug => $label):
+              $isEnabled = !in_array($slug, $disabledCoreProject, true);
+            ?>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox"
+                     name="project_statuses_core_enabled[]"
+                     value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
+                     id="proj_<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
+                     <?= $isEnabled ? 'checked' : '' ?>>
+              <label class="form-check-label" for="proj_<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>">
+                <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+              </label>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <!-- ─── Custom Project Statuses ─── -->
+        <h5 class="fw-700 mb-1" style="color:var(--sidebar-bg);">
+          <i class="fa-solid fa-plus me-2" style="color:var(--gold);"></i>Custom Project Statuses
+        </h5>
+        <p class="text-muted small mb-2">
+          Add custom lifecycle stages (e.g. <em>Pre-launch</em>, <em>Sold Out</em>) — appears in the Project Status dropdown when creating or editing a project.
+        </p>
+        <?php $customProj = (array)($settings['project_statuses_custom'] ?? []); ?>
+        <div id="projectStatusesWrapper" class="d-flex flex-column gap-2">
+          <?php for ($i = 0; $i < max(count($customProj), 1); $i++):
+            $row = $customProj[$i] ?? ['slug'=>'','label'=>''];
+          ?>
+          <div class="custom-row project-status-row">
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-5">
+                <label class="chk-label">Label</label>
+                <input type="text" name="project_statuses_custom[<?= $i ?>][label]" class="form-control form-control-sm"
+                       placeholder="e.g. Pre-launch" maxlength="60"
+                       value="<?= htmlspecialchars((string)($row['label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="chk-label">Slug</label>
+                <input type="text" name="project_statuses_custom[<?= $i ?>][slug]" class="form-control form-control-sm font-monospace"
+                       placeholder="auto" maxlength="40" pattern="[a-z0-9_]+"
+                       value="<?= htmlspecialchars((string)($row['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+              </div>
+              <div class="col-12 col-md-1 text-end">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn" title="Remove">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <?php endfor; ?>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="addProjectStatusBtn">
+          <i class="fa-solid fa-plus me-1"></i> Add Project Status
+        </button>
+
+        <div class="d-flex justify-content-end mt-4">
+          <button type="submit" class="btn btn-gold">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Save Listing Taxonomy
+          </button>
+        </div>
+      </form>
+
+      <script>
+      (function () {
+        function slugify(s) {
+          return String(s || '').toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+        }
+
+        // Auto-derive slug from label when slug is empty (initial + delegated for added rows).
+        document.addEventListener('blur', function (e) {
+          var t = e.target;
+          if (!t || !t.name || !t.name.endsWith('[label]')) return;
+          var row = t.closest('.custom-row, .row');
+          var slugInp = row && row.querySelector('input[name$="[slug]"]');
+          if (slugInp && !slugInp.value.trim()) slugInp.value = slugify(t.value);
+        }, true);
+
+        function addRow(wrapperId, templateBuilder) {
+          var wrap = document.getElementById(wrapperId);
+          if (!wrap) return;
+          var idx = wrap.children.length;
+          var holder = document.createElement('div');
+          holder.innerHTML = templateBuilder(idx).trim();
+          wrap.appendChild(holder.firstChild);
+        }
+
+        document.getElementById('addListingTypeBtn')?.addEventListener('click', function () {
+          addRow('listingTypesWrapper', function (i) {
+            return '' +
+              '<div class="custom-row listing-type-row">' +
+                '<div class="row g-2 align-items-end">' +
+                  '<div class="col-12 col-md-4">' +
+                    '<label class="chk-label">Label</label>' +
+                    '<input type="text" name="listing_types_custom[' + i + '][label]" class="form-control form-control-sm" placeholder="e.g. Studio Apartment" maxlength="60">' +
+                  '</div>' +
+                  '<div class="col-12 col-md-3">' +
+                    '<label class="chk-label">Slug</label>' +
+                    '<input type="text" name="listing_types_custom[' + i + '][slug]" class="form-control form-control-sm font-monospace" placeholder="auto" maxlength="40" pattern="[a-z0-9_]+">' +
+                  '</div>' +
+                  '<div class="col-12 col-md-4">' +
+                    '<div class="row g-2">' +
+                      '<div class="col-6">' +
+                        '<label class="chk-label">Categories</label>' +
+                        '<div class="chk-group">' +
+                          '<div class="form-check"><input class="form-check-input" type="checkbox" name="listing_types_custom[' + i + '][categories][]" value="residential" id="lt_' + i + '_cat_residential" checked><label class="form-check-label" for="lt_' + i + '_cat_residential">Residential</label></div>' +
+                          '<div class="form-check"><input class="form-check-input" type="checkbox" name="listing_types_custom[' + i + '][categories][]" value="commercial"  id="lt_' + i + '_cat_commercial"><label class="form-check-label" for="lt_' + i + '_cat_commercial">Commercial</label></div>' +
+                        '</div>' +
+                      '</div>' +
+                      '<div class="col-6">' +
+                        '<label class="chk-label">Purposes</label>' +
+                        '<div class="chk-group">' +
+                          '<div class="form-check"><input class="form-check-input" type="checkbox" name="listing_types_custom[' + i + '][purposes][]" value="sale" id="lt_' + i + '_pur_sale" checked><label class="form-check-label" for="lt_' + i + '_pur_sale">Sale</label></div>' +
+                          '<div class="form-check"><input class="form-check-input" type="checkbox" name="listing_types_custom[' + i + '][purposes][]" value="rent" id="lt_' + i + '_pur_rent" checked><label class="form-check-label" for="lt_' + i + '_pur_rent">Rent</label></div>' +
+                        '</div>' +
+                      '</div>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div class="col-12 col-md-1 text-end">' +
+                    '<button type="button" class="btn btn-sm btn-outline-danger remove-row-btn"><i class="fa-solid fa-trash"></i></button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>';
+          });
+        });
+
+        document.getElementById('addPossessionBtn')?.addEventListener('click', function () {
+          addRow('possessionStatusesWrapper', function (i) {
+            return '' +
+              '<div class="custom-row possession-row">' +
+                '<div class="row g-2 align-items-end">' +
+                  '<div class="col-12 col-md-5">' +
+                    '<label class="chk-label">Label</label>' +
+                    '<input type="text" name="possession_statuses_custom[' + i + '][label]" class="form-control form-control-sm" placeholder="e.g. Coming Soon" maxlength="60">' +
+                  '</div>' +
+                  '<div class="col-12 col-md-6">' +
+                    '<label class="chk-label">Slug</label>' +
+                    '<input type="text" name="possession_statuses_custom[' + i + '][slug]" class="form-control form-control-sm font-monospace" placeholder="auto" maxlength="40" pattern="[a-z0-9_]+">' +
+                  '</div>' +
+                  '<div class="col-12 col-md-1 text-end">' +
+                    '<button type="button" class="btn btn-sm btn-outline-danger remove-row-btn"><i class="fa-solid fa-trash"></i></button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>';
+          });
+        });
+
+        document.getElementById('addProjectStatusBtn')?.addEventListener('click', function () {
+          addRow('projectStatusesWrapper', function (i) {
+            return '' +
+              '<div class="custom-row project-status-row">' +
+                '<div class="row g-2 align-items-end">' +
+                  '<div class="col-12 col-md-5">' +
+                    '<label class="chk-label">Label</label>' +
+                    '<input type="text" name="project_statuses_custom[' + i + '][label]" class="form-control form-control-sm" placeholder="e.g. Pre-launch" maxlength="60">' +
+                  '</div>' +
+                  '<div class="col-12 col-md-6">' +
+                    '<label class="chk-label">Slug</label>' +
+                    '<input type="text" name="project_statuses_custom[' + i + '][slug]" class="form-control form-control-sm font-monospace" placeholder="auto" maxlength="40" pattern="[a-z0-9_]+">' +
+                  '</div>' +
+                  '<div class="col-12 col-md-1 text-end">' +
+                    '<button type="button" class="btn btn-sm btn-outline-danger remove-row-btn"><i class="fa-solid fa-trash"></i></button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>';
+          });
+        });
+
+        // Delegated remove handler.
+        document.addEventListener('click', function (e) {
+          var btn = e.target.closest('.remove-row-btn');
+          if (!btn) return;
+          var row = btn.closest('.custom-row');
+          if (row) row.remove();
+        });
+      })();
+      </script>
 
       <?php elseif ($activeTab === 'navigation'): ?>
       <!-- Navigation Tab -->
@@ -1899,6 +2706,75 @@ include __DIR__ . '/includes/admin-sidebar.php';
             </div>
           </div>
           <?php endfor; ?>
+        </div>
+
+        <!-- ─────────────── Featured Projects section header ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-building me-2" style="color:var(--gold)"></i>"Featured Projects" Section</h5>
+        <p class="text-muted small mb-3">Header copy for the Featured Projects strip on <code>/index.php</code> (the cards underneath are pulled live from the Projects admin).</p>
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-600">Eyebrow Label</label>
+            <input type="text" name="home_featured_label" class="form-control" maxlength="60"
+                   placeholder="New Developments"
+                   value="<?= htmlspecialchars($settings['home_featured_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="home_featured_heading" class="form-control" maxlength="160"
+                   placeholder="Featured Projects"
+                   value="<?= htmlspecialchars($settings['home_featured_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">"View All" Button Label</label>
+            <input type="text" name="home_featured_cta_label" class="form-control" maxlength="60"
+                   placeholder="View All"
+                   value="<?= htmlspecialchars($settings['home_featured_cta_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-600">Subtitle</label>
+            <input type="text" name="home_featured_sub" class="form-control" maxlength="300"
+                   placeholder="Authorised dealer for Pakistan's top real estate developments"
+                   value="<?= htmlspecialchars($settings['home_featured_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+        </div>
+
+        <!-- ─────────────── Featured Properties section header ─────────────── -->
+        <hr class="my-4">
+        <h5 class="fw-700 mb-1"><i class="fa-solid fa-fire me-2" style="color:var(--gold)"></i>"Featured Properties" Section</h5>
+        <p class="text-muted small mb-3">Header copy for the Featured Properties strip on <code>/index.php</code> (the cards underneath are pulled live from the Listings admin).</p>
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-600">Eyebrow Label</label>
+            <input type="text" name="home_props_label" class="form-control" maxlength="60"
+                   placeholder="Hot Listings"
+                   value="<?= htmlspecialchars($settings['home_props_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-600">Heading</label>
+            <input type="text" name="home_props_heading" class="form-control" maxlength="160"
+                   placeholder="Featured Properties"
+                   value="<?= htmlspecialchars($settings['home_props_heading'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">Top-Right Button Label</label>
+            <input type="text" name="home_props_cta_label" class="form-control" maxlength="60"
+                   placeholder="Browse All"
+                   value="<?= htmlspecialchars($settings['home_props_cta_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-8">
+            <label class="form-label fw-600">Subtitle</label>
+            <input type="text" name="home_props_sub" class="form-control" maxlength="300"
+                   placeholder="Handpicked listings across Islamabad, Rawalpindi & beyond"
+                   value="<?= htmlspecialchars($settings['home_props_sub'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-600">Bottom Button Label</label>
+            <input type="text" name="home_props_bottom_cta_label" class="form-control" maxlength="80"
+                   placeholder="Browse All Properties"
+                   value="<?= htmlspecialchars($settings['home_props_bottom_cta_label'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div class="form-text">Larger CTA below the property cards.</div>
+          </div>
         </div>
 
         <!-- ─────────────── Why-choose section ─────────────── -->

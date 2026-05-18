@@ -48,6 +48,32 @@ if (!$property) {
     exit;
 }
 
+/* ─── View Counter ──────────────────────────────────────────────────────────
+   Bump `views_count` once per session per property. Filters out:
+     • admin previews (logged-in admin sessions)
+     • obvious bots / crawlers (user-agent sniff)
+     • refreshes inside the same session (in-memory dedupe list)
+   Failures are non-fatal — the page still renders if the UPDATE errors out. */
+$ua = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
+$isAdminPreview = !empty($_SESSION['admin_id']);
+$isBot          = $ua === '' || preg_match('/bot|crawl|spider|slurp|scrape|fetch|preview|monitor|http|wget|curl|python|java|go-http/i', $ua);
+
+if (!$isAdminPreview && !$isBot) {
+    $viewed = (array)($_SESSION['viewed_listings'] ?? []);
+    $pid    = (int)$property['id'];
+    if (!in_array($pid, $viewed, true)) {
+        try {
+            $db->prepare('UPDATE properties SET views_count = views_count + 1 WHERE id = ?')
+               ->execute([$pid]);
+            $viewed[]                  = $pid;
+            $_SESSION['viewed_listings'] = array_slice($viewed, -200); // cap memory across long sessions
+            $property['views_count']   = (int)($property['views_count'] ?? 0) + 1;
+        } catch (Throwable $e) {
+            error_log('[listing.php] views_count increment: ' . $e->getMessage());
+        }
+    }
+}
+
 /* ─── Fetch Media ───────────────────────────────────────────────────────── */
 try {
     $stmtMedia = $db->prepare('
@@ -132,11 +158,19 @@ $breadcrumbItems = [
 ];
 
 /* ─── Feature icon map (DB-driven, with hardcoded fallbacks for legacy slugs) ─── */
-$featureIcons = [];
+// $featureIcons → slug => [icon, label] (used by the chip render loop)
+// $featureHiddenSlugs → slugs admins have toggled OFF in /admin/features.php;
+//   those chips are skipped on the public page even if the property's stored
+//   features list still includes the slug.
+$featureIcons        = [];
+$featureHiddenSlugs  = [];
 try {
-    $featureRows = $db->query("SELECT slug, label, icon FROM property_features")->fetchAll(PDO::FETCH_ASSOC);
+    $featureRows = $db->query("SELECT slug, label, icon, show_on_site FROM property_features")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($featureRows as $r) {
         $featureIcons[$r['slug']] = [$r['icon'] ?: 'fa-check-circle', $r['label']];
+        if (array_key_exists('show_on_site', $r) && (int)$r['show_on_site'] === 0) {
+            $featureHiddenSlugs[$r['slug']] = true;
+        }
     }
 } catch (Exception $e) {
     error_log('[listing] features query: ' . $e->getMessage());
@@ -519,26 +553,33 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <!-- d) FEATURES & AMENITIES ─────────────────────────────────────── -->
-        <?php if (!empty($features)): ?>
+        <?php
+        // Features are stored as either a flat list (["gas","parking"]) or
+        // an assoc map (["gas"=>true,"parking"=>"2 cars"]). Normalise + filter
+        // up front so the section heading is suppressed when nothing is left.
+        $renderableFeatures = [];
+        foreach ((array)$features as $key => $val) {
+            if (is_int($key)) {
+                $slug  = (string)$val;
+                $extra = null;
+            } else {
+                if ($val === false || $val === null || $val === '' || $val === 0) continue;
+                $slug  = $key;
+                $extra = ($val === true || $val === 1 || $val === '1') ? null : (string)$val;
+            }
+            $slug = trim($slug);
+            if ($slug === '') continue;
+            if (isset($featureHiddenSlugs[$slug])) continue;
+            $renderableFeatures[] = ['slug' => $slug, 'extra' => $extra];
+        }
+        ?>
+        <?php if (!empty($renderableFeatures)): ?>
         <section class="mb-4" aria-label="Features and amenities">
             <h2 class="content-heading">Features &amp; Amenities</h2>
             <div class="feature-chips">
-                <?php
-                // Features are stored as either a flat list (["gas","parking"]) or
-                // an assoc map (["gas"=>true,"parking"=>"2 cars"]). Normalise both.
-                foreach ($features as $key => $val):
-                    if (is_int($key)) {
-                        // Flat list: value itself is the feature slug.
-                        $slug = (string)$val;
-                        $extra = null;
-                    } else {
-                        if ($val === false || $val === null || $val === '' || $val === 0) continue;
-                        $slug  = $key;
-                        $extra = ($val === true || $val === 1 || $val === '1') ? null : (string)$val;
-                    }
-                    $slug = trim($slug);
-                    if ($slug === '') continue;
-
+                <?php foreach ($renderableFeatures as $rf):
+                    $slug    = $rf['slug'];
+                    $extra   = $rf['extra'];
                     $iconDef = $featureIcons[$slug] ?? ['fa-check-circle', ucwords(str_replace('_', ' ', $slug))];
                     $icon    = $iconDef[0];
                     $label   = $iconDef[1];

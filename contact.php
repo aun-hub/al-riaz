@@ -18,6 +18,8 @@ $agencyPhone   = $settings['phone']        ?: (defined('SITE_PHONE') ? SITE_PHON
 $agencyWa      = $settings['whatsapp']     ?: (defined('SITE_WHATSAPP') ? SITE_WHATSAPP : '');
 $agencyEmail   = $settings['email']        ?: (defined('SITE_EMAIL') ? SITE_EMAIL : '');
 $agencyAddress = $settings['address']      ?: 'Islamabad, Pakistan';
+$agencyLat     = $settings['address_lat']   ?? null;
+$agencyLng     = $settings['address_lng']   ?? null;
 $agencyHours   = formatBusinessHours(getBusinessHoursSchedule());
 $hqOffice      = getHqOffice();
 $facebookUrl   = $settings['facebook_url'] ?? '';
@@ -303,17 +305,17 @@ require_once 'includes/header.php';
                     <hr style="border-color:rgba(255,255,255,.15); margin:1.25rem 0;">
                     <div class="footer-social justify-content-start">
                         <?php if ($facebookUrl): ?>
-                        <a href="<?= htmlspecialchars($facebookUrl) ?>" target="_blank" rel="noopener" aria-label="Facebook">
+                        <a href="<?= htmlspecialchars($facebookUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn footer-social-btn--facebook" aria-label="Facebook">
                             <i class="fab fa-facebook-f"></i>
                         </a>
                         <?php endif; ?>
                         <?php if ($instagramUrl): ?>
-                        <a href="<?= htmlspecialchars($instagramUrl) ?>" target="_blank" rel="noopener" aria-label="Instagram">
+                        <a href="<?= htmlspecialchars($instagramUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn footer-social-btn--instagram" aria-label="Instagram">
                             <i class="fab fa-instagram"></i>
                         </a>
                         <?php endif; ?>
                         <?php if ($youtubeUrl): ?>
-                        <a href="<?= htmlspecialchars($youtubeUrl) ?>" target="_blank" rel="noopener" aria-label="YouTube">
+                        <a href="<?= htmlspecialchars($youtubeUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn footer-social-btn--youtube" aria-label="YouTube">
                             <i class="fab fa-youtube"></i>
                         </a>
                         <?php endif; ?>
@@ -338,10 +340,11 @@ require_once 'includes/header.php';
                     <div class="map-placeholder">
                         <i class="fas fa-map-location-dot"></i>
                         <strong style="color:var(--navy-700); font-size:.95rem;"><?= htmlspecialchars($agencyAddress) ?></strong>
-                        <a href="https://maps.google.com/?q=<?= rawurlencode($agencyAddress) ?>"
-                           target="_blank" rel="noopener"
-                           class="btn-gold mt-1" style="font-size:.82rem;">
-                            <i class="fas fa-diamond-turn-right me-1"></i> Open in Google Maps
+                        <a href="<?= htmlspecialchars(googleDirectionsUrl($agencyAddress, $agencyLat, $agencyLng), ENT_QUOTES, 'UTF-8') ?>"
+                           target="_blank" rel="noopener noreferrer"
+                           class="btn-gold mt-1" style="font-size:.82rem;"
+                           aria-label="Get directions to <?= htmlspecialchars($agencyAddress, ENT_QUOTES, 'UTF-8') ?>">
+                            <i class="fas fa-diamond-turn-right me-1"></i> Get Directions
                         </a>
                     </div>
                 </div>
@@ -367,6 +370,8 @@ require_once 'includes/header.php';
                 'icon'    => 'fas fa-building',
                 'name'    => $hqOffice['name'] ?: 'Main Office',
                 'address' => $hqOffice['address'],
+                'lat'     => $hqOffice['lat'] ?? null,
+                'lng'     => $hqOffice['lng'] ?? null,
                 'phone'   => $hqOffice['phone'],
                 'hours'   => $hqOffice['hours'],
             ];
@@ -377,6 +382,8 @@ require_once 'includes/header.php';
                     'icon'    => 'fas fa-building',
                     'name'    => 'Main Office',
                     'address' => $agencyAddress,
+                    'lat'     => $agencyLat,
+                    'lng'     => $agencyLng,
                     'phone'   => $agencyPhone,
                     'hours'   => $agencyHours,
                 ];
@@ -393,6 +400,8 @@ require_once 'includes/header.php';
                     'icon'    => 'fas fa-store',
                     'name'    => $bName ?: 'Branch Office',
                     'address' => $bAddress,
+                    'lat'     => $br['lat'] ?? null,
+                    'lng'     => $br['lng'] ?? null,
                     'phone'   => $bPhone,
                     'hours'   => $bHours,
                 ];
@@ -424,6 +433,26 @@ require_once 'includes/header.php';
                     <div class="office-info-row">
                         <i class="fas fa-clock"></i>
                         <span><?= nl2br(htmlspecialchars($off['hours'])) ?></span>
+                    </div>
+                    <?php endif; ?>
+                    <?php
+                        $officeAddr  = trim((string)$off['address']);
+                        $hasCoords   = is_numeric($off['lat'] ?? null) && is_numeric($off['lng'] ?? null);
+                        if ($officeAddr !== '' || $hasCoords):
+                            $dirUrl = googleDirectionsUrl($officeAddr, $off['lat'] ?? null, $off['lng'] ?? null);
+                    ?>
+                    <div class="office-cta-row">
+                        <a href="<?= htmlspecialchars($dirUrl, ENT_QUOTES, 'UTF-8') ?>"
+                           target="_blank" rel="noopener noreferrer"
+                           class="btn-office-directions"
+                           aria-label="Get directions to <?= htmlspecialchars($off['name'] . ($officeAddr ? ' — ' . $officeAddr : ''), ENT_QUOTES, 'UTF-8') ?>">
+                            <i class="fas fa-diamond-turn-right"></i>
+                            <span>Get Directions</span>
+                            <?php if (!$hasCoords): ?>
+                            <i class="fas fa-circle-info ms-1 fs-12 text-muted"
+                               title="Add latitude / longitude in Admin → Settings → Agency Profile for a precise pin."></i>
+                            <?php endif; ?>
+                        </a>
                     </div>
                     <?php endif; ?>
                 </div>

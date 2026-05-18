@@ -150,7 +150,7 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
         <div class="navbar-inner">
 
             <!-- Brand -->
-            <?php $brandSettings = getSettings(); $brandLogo = $brandSettings['logo_path'] ?? ''; $brandName = $brandSettings['agency_name'] ?: SITE_NAME; ?>
+            <?php $brandSettings = getSettings(); $brandLogo = $brandSettings['logo_path'] ?? ''; $brandName = $brandSettings['agency_name'] ?: SITE_NAME; $brandSub = trim((string)($brandSettings['brand_subtitle'] ?? '')) ?: 'Real Estate'; ?>
             <a class="brand-logo" href="<?= $b ?>/" aria-label="<?= htmlspecialchars($brandName) ?> — Home">
                 <?php if ($brandLogo): ?>
                     <img class="brand-icon" src="<?= htmlspecialchars($b . $brandLogo) ?>?v=<?= @filemtime(__DIR__ . '/..' . $brandLogo) ?: '' ?>"
@@ -161,7 +161,7 @@ $waUrl = 'https://wa.me/' . SITE_WHATSAPP . '?text=' . rawurlencode('Hi, I am in
                 <?php endif; ?>
                 <div>
                     <div class="brand-name"><?= htmlspecialchars($brandName) ?></div>
-                    <div class="brand-tagline">Real Estate</div>
+                    <div class="brand-tagline"><?= htmlspecialchars($brandSub, ENT_QUOTES, 'UTF-8') ?></div>
                 </div>
             </a>
 

@@ -18,7 +18,8 @@ $perPage      = 12;
 $offset       = ($page - 1) * $perPage;
 
 /* ─── Validate allowed status values ────────────────────────────────────── */
-$allowedStatuses = ['upcoming', 'under_development', 'ready', 'possession'];
+$projectStatuses = getAllProjectStatuses();          // slug => label (admin-managed)
+$allowedStatuses = array_keys($projectStatuses);
 if ($filterStatus && !in_array($filterStatus, $allowedStatuses, true)) {
     $filterStatus = '';
 }
@@ -94,11 +95,18 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <!-- ── Page Header ───────────────────────────────────────────────────────── -->
+<?php
+$projectsHeaderSettings = function_exists('getSettings') ? getSettings() : [];
+$projectsHeaderTitle    = trim((string)($projectsHeaderSettings['projects_header_title'] ?? '')) ?: 'Real Estate Projects';
+$projectsHeaderSub      = trim((string)($projectsHeaderSettings['projects_header_sub']   ?? '')) ?: 'Authorised developments across Pakistan';
+?>
 <div class="page-header">
     <div class="container">
         <?= generateBreadcrumb([['label'=>'Home','url'=>'/'],['label'=>'Projects']]) ?>
-        <h1 class="page-header-title">Real Estate Projects</h1>
-        <p class="page-header-sub">Authorised developments across Pakistan</p>
+        <h1 class="page-header-title"><?= htmlspecialchars($projectsHeaderTitle, ENT_QUOTES, 'UTF-8') ?></h1>
+        <?php if ($projectsHeaderSub !== ''): ?>
+        <p class="page-header-sub"><?= htmlspecialchars($projectsHeaderSub, ENT_QUOTES, 'UTF-8') ?></p>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -107,10 +115,9 @@ require_once __DIR__ . '/includes/header.php';
     <div class="container">
         <div class="purpose-pill-group">
             <a href="<?= $b ?>/projects.php" class="purpose-pill <?= $filterStatus==='' ? 'active' : '' ?>">All</a>
-            <a href="<?= $b ?>/projects.php?status=upcoming" class="purpose-pill <?= $filterStatus==='upcoming' ? 'active' : '' ?>">Upcoming</a>
-            <a href="<?= $b ?>/projects.php?status=under_development" class="purpose-pill <?= $filterStatus==='under_development' ? 'active' : '' ?>">Under Development</a>
-            <a href="<?= $b ?>/projects.php?status=ready" class="purpose-pill <?= $filterStatus==='ready' ? 'active' : '' ?>">Ready</a>
-            <a href="<?= $b ?>/projects.php?status=possession" class="purpose-pill <?= $filterStatus==='possession' ? 'active' : '' ?>">Possession</a>
+            <?php foreach ($projectStatuses as $slug => $label): ?>
+            <a href="<?= $b ?>/projects.php?status=<?= urlencode($slug) ?>" class="purpose-pill <?= $filterStatus===$slug ? 'active' : '' ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></a>
+            <?php endforeach; ?>
         </div>
     </div>
 </div>
@@ -284,15 +291,24 @@ require_once __DIR__ . '/includes/header.php';
 </main>
 
 <!-- ── CTA Banner ────────────────────────────────────────────────────────── -->
+<?php
+$projSettings   = function_exists('getSettings') ? getSettings() : [];
+$projCtaHeading = trim((string)($projSettings['projects_cta_heading'] ?? '')) ?: 'Looking for a Specific Project?';
+$projCtaSub     = trim((string)($projSettings['projects_cta_sub']     ?? '')) ?: 'Contact our team — we work with 20+ authorised developers across Pakistan.';
+$projCtaLabel   = trim((string)($projSettings['projects_cta_primary_label'] ?? '')) ?: 'Get in Touch';
+$projCtaUrlRaw  = trim((string)($projSettings['projects_cta_primary_url']   ?? '')) ?: '/contact.php';
+$projCtaIsExt   = (bool)preg_match('#^(https?:|mailto:|tel:|//)#i', $projCtaUrlRaw);
+$projCtaHref    = $projCtaIsExt ? $projCtaUrlRaw : ($b . (str_starts_with($projCtaUrlRaw, '/') ? '' : '/') . $projCtaUrlRaw);
+?>
 <section style="background:var(--navy-50); border-top:1px solid var(--navy-100); padding:3rem 0;">
     <div class="container text-center">
-        <h2 class="fw-bold mb-2" style="color:var(--navy-900);">Looking for a Specific Project?</h2>
+        <h2 class="fw-bold mb-2" style="color:var(--navy-900);"><?= htmlspecialchars($projCtaHeading, ENT_QUOTES, 'UTF-8') ?></h2>
         <p class="text-muted mb-4">
-            Contact our team — we work with 20+ authorised developers across Pakistan.
+            <?= htmlspecialchars($projCtaSub, ENT_QUOTES, 'UTF-8') ?>
         </p>
         <div class="d-flex flex-wrap justify-content-center gap-3">
-            <a href="<?= $b ?>/contact.php" class="btn-gold">
-                <i class="fa-solid fa-headset me-2"></i>Get in Touch
+            <a href="<?= htmlspecialchars($projCtaHref, ENT_QUOTES, 'UTF-8') ?>" class="btn-gold"<?= $projCtaIsExt ? ' target="_blank" rel="noopener noreferrer"' : '' ?>>
+                <i class="fa-solid fa-headset me-2"></i><?= htmlspecialchars($projCtaLabel, ENT_QUOTES, 'UTF-8') ?>
             </a>
         </div>
     </div>

@@ -219,22 +219,18 @@ $showTo     = min($offset + $limit, $totalProps);
 $totalFound = $totalProps + count($projects);
 $totalCount = $totalFound;
 
-$propertyTypes = [
-    'house'            => 'House',
-    'flat'             => 'Flat / Apartment',
-    'upper_portion'    => 'Upper Portion',
-    'lower_portion'    => 'Lower Portion',
-    'apartment'        => 'Apartment',
-    'farmhouse'        => 'Farmhouse',
-    'penthouse'        => 'Penthouse',
-    'plot'             => 'Plot',
-    'shop'             => 'Shop',
-    'office'           => 'Office',
-    'warehouse'        => 'Warehouse',
-    'showroom'         => 'Showroom',
-    'building'         => 'Building',
-    'factory'          => 'Factory',
-];
+// Property-type dropdown — drawn from the admin-managed taxonomy.
+// `$propertyTypes` is filtered by the currently-selected category/purpose
+// for the initial server-side render. `$listingTypesFull` is the full
+// taxonomy passed to JS so the dropdown can re-filter as the user toggles
+// Category or Purpose in the sidebar.
+$listingTypesFull = getAllListingTypes();
+$propertyTypes    = [];
+foreach ($listingTypesFull as $slug => $row) {
+    if ($category !== '' && $category !== 'plot' && !in_array($category, $row['categories'], true)) continue;
+    if ($purpose  !== '' && !in_array($purpose,  $row['purposes'],   true)) continue;
+    $propertyTypes[$slug] = $row['label'];
+}
 
 require_once 'includes/header.php';
 ?>
@@ -272,7 +268,7 @@ require_once 'includes/header.php';
                 <!-- Purpose -->
                 <div class="filter-group">
                     <label class="filter-label">Purpose</label>
-                    <select name="purpose" class="filter-select">
+                    <select name="purpose" id="searchPurposeSel" class="filter-select">
                         <option value="">Any Purpose</option>
                         <option value="sale" <?= $purpose === 'sale' ? 'selected' : '' ?>>For Sale</option>
                         <option value="rent" <?= $purpose === 'rent' ? 'selected' : '' ?>>For Rent</option>
@@ -295,7 +291,7 @@ require_once 'includes/header.php';
                 <!-- Category -->
                 <div class="filter-group">
                     <label class="filter-label">Category</label>
-                    <select name="category" class="filter-select">
+                    <select name="category" id="searchCategorySel" class="filter-select">
                         <option value="">Any Category</option>
                         <option value="residential" <?= $category === 'residential' ? 'selected' : '' ?>>Residential</option>
                         <option value="commercial"  <?= $category === 'commercial'  ? 'selected' : '' ?>>Commercial</option>
@@ -306,7 +302,7 @@ require_once 'includes/header.php';
                 <!-- Property Type -->
                 <div class="filter-group">
                     <label class="filter-label">Property Type</label>
-                    <select name="type" class="filter-select">
+                    <select name="type" id="searchTypeSel" class="filter-select" data-current="<?= htmlspecialchars($type, ENT_QUOTES, 'UTF-8') ?>">
                         <option value="">Any Type</option>
                         <?php foreach ($propertyTypes as $val => $label): ?>
                             <option value="<?= htmlspecialchars($val) ?>" <?= $type === $val ? 'selected' : '' ?>>
@@ -315,6 +311,36 @@ require_once 'includes/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
+
+                <script>
+                (function () {
+                    var listingTypes = <?= json_encode($listingTypesFull, JSON_UNESCAPED_UNICODE) ?>;
+                    var typeSel = document.getElementById('searchTypeSel');
+                    var catSel  = document.getElementById('searchCategorySel');
+                    var purSel  = document.getElementById('searchPurposeSel');
+                    if (!typeSel || !catSel || !purSel) return;
+
+                    function rebuild() {
+                        var cat  = catSel.value;
+                        var pur  = purSel.value;
+                        var curr = typeSel.value;
+
+                        // Wipe everything except the "Any Type" placeholder.
+                        while (typeSel.options.length > 1) typeSel.remove(1);
+
+                        for (var slug in listingTypes) {
+                            var row = listingTypes[slug];
+                            if (cat && cat !== 'plot' && row.categories.indexOf(cat) === -1) continue;
+                            if (pur && row.purposes.indexOf(pur) === -1) continue;
+                            typeSel.add(new Option(row.label, slug));
+                        }
+                        if (typeSel.querySelector('[value="' + curr + '"]')) typeSel.value = curr;
+                    }
+
+                    catSel.addEventListener('change', rebuild);
+                    purSel.addEventListener('change', rebuild);
+                })();
+                </script>
 
                 <!-- Price Range -->
                 <div class="filter-group">

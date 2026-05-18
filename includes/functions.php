@@ -219,11 +219,22 @@ if (!function_exists('getBranches')) {
         if ($cache !== null) return $cache;
         try {
             $db = Database::getInstance();
-            $stmt = $db->query(
-                'SELECT id, name, address, phone, hours, hours_schedule, is_hq, sort_order
-                 FROM branches
-                 ORDER BY sort_order ASC, id ASC'
-            );
+            // Try the schema with `lat`/`lng` first (post-migration 017); fall
+            // back to the older shape so existing installs keep working until
+            // the migration is applied.
+            try {
+                $stmt = $db->query(
+                    'SELECT id, name, address, lat, lng, phone, hours, hours_schedule, is_hq, sort_order
+                     FROM branches
+                     ORDER BY sort_order ASC, id ASC'
+                );
+            } catch (Throwable $columnMissing) {
+                $stmt = $db->query(
+                    'SELECT id, name, address, NULL AS lat, NULL AS lng, phone, hours, hours_schedule, is_hq, sort_order
+                     FROM branches
+                     ORDER BY sort_order ASC, id ASC'
+                );
+            }
             $cache = $stmt->fetchAll() ?: [];
         } catch (Throwable $e) {
             error_log('[getBranches] ' . $e->getMessage());
@@ -531,6 +542,8 @@ if (!function_exists('getHqOffice')) {
                     'id'      => (int)($b['id'] ?? 0),
                     'name'    => $b['name']    ?: 'Head Office',
                     'address' => $b['address'] ?? '',
+                    'lat'     => $b['lat']     ?? null,
+                    'lng'     => $b['lng']     ?? null,
                     'phone'   => $b['phone']   ?? '',
                     'hours'   => $b['hours']   ?? '',
                 ];
@@ -540,8 +553,10 @@ if (!function_exists('getHqOffice')) {
             'source'  => 'main',
             'id'      => 0,
             'name'    => 'Main Office',
-            'address' => $settings['address'] ?: 'Islamabad, Pakistan',
-            'phone'   => $settings['phone']   ?: '',
+            'address' => $settings['address']    ?: 'Islamabad, Pakistan',
+            'lat'     => $settings['address_lat'] ?? null,
+            'lng'     => $settings['address_lng'] ?? null,
+            'phone'   => $settings['phone']      ?: '',
             'hours'   => formatBusinessHours(getBusinessHoursSchedule()),
         ];
     }
@@ -636,29 +651,288 @@ function getAreaFormatted(int|float $value, string $unit): string
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Return the display label for a listing_type enum value.
+ * Built-in (immutable) listing types. Returned as a flat slug-keyed map where
+ * each entry carries `label`, the list of `categories` it belongs to
+ * (residential / commercial), and the `purposes` it supports (sale / rent).
+ * Admins can disable any of these from Settings → Listings; disabled core
+ * types are hidden from the picker but still display correctly on listings
+ * that already store the slug.
+ */
+function getCoreListingTypes(): array
+{
+    $all = ['sale', 'rent'];
+    return [
+        'house'             => ['label'=>'House',             'categories'=>['residential'],              'purposes'=>$all],
+        'flat'              => ['label'=>'Flat / Apartment',  'categories'=>['residential'],              'purposes'=>$all],
+        'upper_portion'     => ['label'=>'Upper Portion',     'categories'=>['residential'],              'purposes'=>$all],
+        'lower_portion'     => ['label'=>'Lower Portion',     'categories'=>['residential'],              'purposes'=>$all],
+        'room'              => ['label'=>'Room',              'categories'=>['residential'],              'purposes'=>$all],
+        'farmhouse'         => ['label'=>'Farmhouse',         'categories'=>['residential'],              'purposes'=>$all],
+        'penthouse'         => ['label'=>'Penthouse',         'categories'=>['residential'],              'purposes'=>$all],
+        'plot'              => ['label'=>'Plot',              'categories'=>['residential','commercial'], 'purposes'=>$all],
+        'agricultural_land' => ['label'=>'Agricultural Land', 'categories'=>['residential','commercial'], 'purposes'=>$all],
+        'shop'              => ['label'=>'Shop',              'categories'=>['commercial'],               'purposes'=>$all],
+        'office'            => ['label'=>'Office',            'categories'=>['commercial'],               'purposes'=>$all],
+        'warehouse'         => ['label'=>'Warehouse',         'categories'=>['commercial'],               'purposes'=>$all],
+        'showroom'          => ['label'=>'Showroom',          'categories'=>['commercial'],               'purposes'=>$all],
+        'building'          => ['label'=>'Building',          'categories'=>['commercial'],               'purposes'=>$all],
+        'factory'           => ['label'=>'Factory',           'categories'=>['commercial'],               'purposes'=>$all],
+    ];
+}
+
+/**
+ * Slugs of core listing types the admin has marked as disabled.
+ */
+function getDisabledCoreListingSlugs(): array
+{
+    return array_values(array_filter(array_map('strval', (array)(getSettings()['listing_types_disabled_core'] ?? []))));
+}
+
+/**
+ * Custom listing types added by admin. Returned as slug => {label, categories, purposes}.
+ * Tolerates legacy rows that stored a singular `category` instead of `categories[]`.
+ */
+function getCustomListingTypes(): array
+{
+    $rows = (array)(getSettings()['listing_types_custom'] ?? []);
+    $out = [];
+    foreach ($rows as $r) {
+        if (!is_array($r)) continue;
+        $slug  = preg_replace('/[^a-z0-9_]/', '', strtolower((string)($r['slug']  ?? '')));
+        $label = trim((string)($r['label'] ?? ''));
+        if ($slug === '' || $label === '') continue;
+
+        $categories = $r['categories'] ?? null;
+        if (!is_array($categories)) {
+            $categories = !empty($r['category']) ? [$r['category']] : ['residential','commercial'];
+        }
+        $categories = array_values(array_intersect($categories, ['residential','commercial']));
+        if (empty($categories)) $categories = ['residential'];
+
+        $purposes = $r['purposes'] ?? null;
+        if (!is_array($purposes)) $purposes = ['sale','rent'];
+        $purposes = array_values(array_intersect($purposes, ['sale','rent']));
+        if (empty($purposes)) $purposes = ['sale','rent'];
+
+        $out[$slug] = ['label'=>$label, 'categories'=>$categories, 'purposes'=>$purposes];
+    }
+    return $out;
+}
+
+/**
+ * Active listing types = (core minus disabled) plus custom. Core wins on slug
+ * collisions. Returned as slug => {label, categories, purposes}.
+ */
+function getAllListingTypes(): array
+{
+    $disabled = array_fill_keys(getDisabledCoreListingSlugs(), true);
+    $out = [];
+    foreach (getCoreListingTypes() as $slug => $row) {
+        if (isset($disabled[$slug])) continue;
+        $out[$slug] = $row;
+    }
+    foreach (getCustomListingTypes() as $slug => $row) {
+        if (isset($out[$slug])) continue;
+        $out[$slug] = $row;
+    }
+    return $out;
+}
+
+/**
+ * Convenience: active types grouped by category, as `category => [slug => label, ...]`.
+ * Used to render the optgroup-style picker on /admin/listing-form.php.
+ */
+function getListingTypesGrouped(): array
+{
+    $grouped = ['residential' => [], 'commercial' => []];
+    foreach (getAllListingTypes() as $slug => $row) {
+        foreach ($row['categories'] as $cat) {
+            if (isset($grouped[$cat])) $grouped[$cat][$slug] = $row['label'];
+        }
+    }
+    return $grouped;
+}
+
+/**
+ * Display label for a listing_type slug. Looks up active types first, then
+ * falls back to the full core map (so listings stored with a now-disabled
+ * core slug still display the proper label).
  */
 function getListingTypeLabel(string $type): string
 {
-    $map = [
-        'house'            => 'House',
-        'flat'             => 'Flat / Apartment',
-        'upper_portion'    => 'Upper Portion',
-        'lower_portion'    => 'Lower Portion',
-        'room'             => 'Room',
-        'farmhouse'        => 'Farmhouse',
-        'penthouse'        => 'Penthouse',
-        'plot'             => 'Plot',
-        'shop'             => 'Shop',
-        'office'           => 'Office',
-        'warehouse'        => 'Warehouse',
-        'showroom'         => 'Showroom',
-        'building'         => 'Building',
-        'factory'          => 'Factory',
-        'agricultural_land'=> 'Agricultural Land',
-    ];
+    $all = getAllListingTypes();
+    if (isset($all[$type])) return $all[$type]['label'];
+    $core = getCoreListingTypes();
+    if (isset($core[$type])) return $core[$type]['label'];
+    return ucfirst(str_replace('_', ' ', $type));
+}
 
-    return $map[$type] ?? ucfirst(str_replace('_', ' ', $type));
+/**
+ * Built-in possession statuses, slug => label.
+ */
+function getCorePossessionStatuses(): array
+{
+    return [
+        'ready'              => 'Ready to Move',
+        'under_construction' => 'Under Construction',
+        'not_applicable'     => 'Not Applicable',
+    ];
+}
+
+/**
+ * Slugs of core possession statuses the admin has marked as disabled.
+ */
+function getDisabledCorePossessionSlugs(): array
+{
+    return array_values(array_filter(array_map('strval', (array)(getSettings()['possession_statuses_disabled_core'] ?? []))));
+}
+
+/**
+ * Custom possession statuses (admin-managed). Each row: {slug, label}.
+ */
+function getCustomPossessionStatuses(): array
+{
+    $rows = (array)(getSettings()['possession_statuses_custom'] ?? []);
+    $out = [];
+    foreach ($rows as $r) {
+        if (!is_array($r)) continue;
+        $slug  = preg_replace('/[^a-z0-9_]/', '', strtolower((string)($r['slug']  ?? '')));
+        $label = trim((string)($r['label'] ?? ''));
+        if ($slug === '' || $label === '') continue;
+        $out[] = ['slug' => $slug, 'label' => $label];
+    }
+    return $out;
+}
+
+/**
+ * Active possession statuses = (core minus disabled) plus custom.
+ */
+function getAllPossessionStatuses(): array
+{
+    $disabled = array_fill_keys(getDisabledCorePossessionSlugs(), true);
+    $merged = [];
+    foreach (getCorePossessionStatuses() as $slug => $label) {
+        if (isset($disabled[$slug])) continue;
+        $merged[$slug] = $label;
+    }
+    foreach (getCustomPossessionStatuses() as $row) {
+        if (isset($merged[$row['slug']])) continue;
+        $merged[$row['slug']] = $row['label'];
+    }
+    return $merged;
+}
+
+/**
+ * Display label for a possession_status value. Falls back to core map for
+ * slugs the admin has disabled but that still appear on existing listings.
+ */
+function getPossessionStatusLabel(string $val): string
+{
+    $all = getAllPossessionStatuses();
+    if (isset($all[$val])) return $all[$val];
+    $core = getCorePossessionStatuses();
+    if (isset($core[$val])) return $core[$val];
+    return ucfirst(str_replace('_', ' ', $val));
+}
+
+/**
+ * Build a Google Maps directions URL pointing at the given address (and
+ * optional coordinates). Opens Google Maps with the destination prefilled
+ * and the origin set to the user's current location — on mobile this
+ * launches the native Google Maps app with directions ready to start.
+ *
+ * Uses the official Maps URLs API:
+ *   https://developers.google.com/maps/documentation/urls/get-started
+ *
+ * Coordinates take precedence over the address for routing precision; the
+ * address is still appended as the visible place label when possible.
+ */
+function googleDirectionsUrl(string $address, $lat = null, $lng = null): string
+{
+    $address = trim($address);
+    $hasCoords = is_numeric($lat) && is_numeric($lng);
+
+    if ($hasCoords) {
+        $destination = rawurlencode($lat . ',' . $lng);
+    } elseif ($address !== '') {
+        $destination = rawurlencode($address);
+    } else {
+        // Fall back to a plain map view if we have neither.
+        return 'https://www.google.com/maps';
+    }
+
+    return 'https://www.google.com/maps/dir/?api=1&destination=' . $destination
+         . '&travelmode=driving';
+}
+
+/**
+ * Built-in project lifecycle statuses, slug => label.
+ * Admins can disable any of these from Settings → Listings.
+ */
+function getCoreProjectStatuses(): array
+{
+    return [
+        'upcoming'          => 'Upcoming',
+        'under_development' => 'Under Development',
+        'ready'             => 'Ready',
+        'possession'        => 'Possession',
+    ];
+}
+
+/**
+ * Slugs of core project statuses the admin has marked as disabled.
+ */
+function getDisabledCoreProjectStatusSlugs(): array
+{
+    return array_values(array_filter(array_map('strval', (array)(getSettings()['project_statuses_disabled_core'] ?? []))));
+}
+
+/**
+ * Custom project statuses (admin-managed). Each row: {slug, label}.
+ */
+function getCustomProjectStatuses(): array
+{
+    $rows = (array)(getSettings()['project_statuses_custom'] ?? []);
+    $out = [];
+    foreach ($rows as $r) {
+        if (!is_array($r)) continue;
+        $slug  = preg_replace('/[^a-z0-9_]/', '', strtolower((string)($r['slug']  ?? '')));
+        $label = trim((string)($r['label'] ?? ''));
+        if ($slug === '' || $label === '') continue;
+        $out[] = ['slug' => $slug, 'label' => $label];
+    }
+    return $out;
+}
+
+/**
+ * Active project statuses = (core minus disabled) plus custom.
+ */
+function getAllProjectStatuses(): array
+{
+    $disabled = array_fill_keys(getDisabledCoreProjectStatusSlugs(), true);
+    $merged = [];
+    foreach (getCoreProjectStatuses() as $slug => $label) {
+        if (isset($disabled[$slug])) continue;
+        $merged[$slug] = $label;
+    }
+    foreach (getCustomProjectStatuses() as $row) {
+        if (isset($merged[$row['slug']])) continue;
+        $merged[$row['slug']] = $row['label'];
+    }
+    return $merged;
+}
+
+/**
+ * Display label for a project status value. Falls back to core for disabled
+ * slugs that still appear on existing projects, then to a slug-prettified form.
+ */
+function getProjectStatusLabel(string $val): string
+{
+    $all = getAllProjectStatuses();
+    if (isset($all[$val])) return $all[$val];
+    $core = getCoreProjectStatuses();
+    if (isset($core[$val])) return $core[$val];
+    return ucfirst(str_replace('_', ' ', $val));
 }
 
 /**
@@ -717,7 +991,14 @@ function getStatusBadge(string $status): string
         'not_required'       => ['bg-secondary',  'Not Required'],
     ];
 
-    [$classes, $label] = $map[$status] ?? ['bg-secondary', ucfirst(str_replace('_', ' ', $status))];
+    if (isset($map[$status])) {
+        [$classes, $label] = $map[$status];
+    } else {
+        // Fallback: try admin-managed project status labels, then slug-prettify.
+        $custom = getAllProjectStatuses();
+        $label  = $custom[$status] ?? ucfirst(str_replace('_', ' ', $status));
+        $classes = 'bg-secondary';
+    }
 
     return '<span class="badge ' . htmlspecialchars($classes) . '">'
          . htmlspecialchars($label)

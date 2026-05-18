@@ -13,6 +13,30 @@ requireLogin();
 
 $db = Database::getInstance();
 
+// ── JSON: live views poll ────────────────────────────────────
+// Called by the listings table to refresh `views_count` in place without a
+// full page reload. Returns { "1": 42, "2": 13, ... } for the given ids.
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'views') {
+    header('Content-Type: application/json; charset=utf-8');
+    $idsRaw = (string)($_GET['ids'] ?? '');
+    $ids    = array_values(array_filter(array_map('intval', explode(',', $idsRaw))));
+    if (empty($ids)) { echo '{}'; exit; }
+    $ids = array_slice($ids, 0, 100); // hard cap so a crafted URL can't pull thousands
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    try {
+        $stmt = $db->prepare("SELECT id, views_count FROM properties WHERE id IN ($placeholders)");
+        $stmt->execute($ids);
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $out[(string)$row['id']] = (int)$row['views_count'];
+        }
+        echo json_encode($out);
+    } catch (Throwable $e) {
+        echo '{}';
+    }
+    exit;
+}
+
 // ── Bulk Action Handler ───────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
     verifyCsrf();
@@ -139,7 +163,7 @@ try {
     $listStmt = $db->prepare(
         "SELECT p.id, p.title, p.category, p.purpose, p.listing_type, p.city,
                 p.price, p.price_on_demand, p.area_value, p.area_unit,
-                p.is_published, p.is_featured, p.is_sold, p.created_at,
+                p.is_published, p.is_featured, p.is_sold, p.created_at, p.views_count,
                 u.name AS agent_name, u.avatar_url AS agent_avatar,
                 u.phone AS agent_phone, u.email AS agent_email,
                 (SELECT pm.url FROM property_media pm WHERE pm.property_id=p.id AND pm.kind='image' ORDER BY pm.sort_order ASC LIMIT 1) AS thumb
@@ -297,22 +321,23 @@ include __DIR__ . '/includes/admin-sidebar.php';
             <th>Price</th>
             <th>Area</th>
             <th>Status</th>
+            <th title="Total page views from real visitors (admins &amp; bots excluded)">Views</th>
             <th>Agent</th>
             <th>Date</th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="listingsTbody">
           <?php if (empty($listings)): ?>
           <tr>
-            <td colspan="11" class="text-center py-5 text-muted">
+            <td colspan="12" class="text-center py-5 text-muted">
               <i class="fa-solid fa-house-circle-xmark fa-2x mb-2 d-block"></i>
               No listings found. <a href="<?= BASE_PATH ?>/admin/listing-form.php" class="text-decoration-none">Create the first one</a>.
             </td>
           </tr>
           <?php else: ?>
           <?php foreach ($listings as $lst): ?>
-          <tr>
+          <tr data-listing-id="<?= (int)$lst['id'] ?>">
             <td>
               <input type="checkbox" name="selected_ids[]" value="<?= (int)$lst['id'] ?>"
                      class="form-check-input row-check">
@@ -351,6 +376,12 @@ include __DIR__ . '/includes/admin-sidebar.php';
               <?= htmlspecialchars(getAreaFormatted((float)($lst['area_value'] ?? 0), $lst['area_unit'] ?? 'marla'), ENT_QUOTES, 'UTF-8') ?>
             </td>
             <td><?= listingStatus((int)$lst['is_published'], (int)$lst['is_sold']) ?></td>
+            <td style="white-space:nowrap;">
+              <span class="badge bg-light text-dark border views-badge" data-views-for="<?= (int)$lst['id'] ?>"
+                    title="Updates automatically every 20 seconds">
+                <i class="fa-solid fa-eye me-1 text-muted"></i><span class="views-count"><?= number_format((int)($lst['views_count'] ?? 0)) ?></span>
+              </span>
+            </td>
             <td style="font-size:0.82rem; min-width:170px;">
               <?php if (!empty($lst['agent_name'])): ?>
                 <div class="d-flex align-items-center gap-2">
@@ -467,6 +498,64 @@ document.getElementById('deleteModal').addEventListener('show.bs.modal', functio
   document.getElementById('deleteListingId').value    = btn.getAttribute('data-id');
   document.getElementById('deleteListingTitle').textContent = btn.getAttribute('data-title');
 });
+
+// ── Live "Views" column polling ───────────────────────────────
+// Polls /admin/listings.php?ajax=views every 20s and updates each badge
+// in place. Skips when the page tab is hidden to save bandwidth.
+(function () {
+  var POLL_MS = 20000;
+  var endpoint = '<?= BASE_PATH ?>/admin/listings.php?ajax=views';
+  var tbody    = document.getElementById('listingsTbody');
+  if (!tbody) return;
+
+  function currentIds() {
+    var ids = [];
+    tbody.querySelectorAll('tr[data-listing-id]').forEach(function (tr) {
+      var id = tr.getAttribute('data-listing-id');
+      if (id) ids.push(id);
+    });
+    return ids;
+  }
+
+  function formatNumber(n) {
+    try { return new Intl.NumberFormat().format(n); } catch (e) { return String(n); }
+  }
+
+  function flash(el) {
+    el.style.transition = 'background-color .35s';
+    el.style.backgroundColor = '#fff3cd';
+    setTimeout(function () { el.style.backgroundColor = ''; }, 600);
+  }
+
+  async function poll() {
+    if (document.hidden) return; // skip while tab is in background
+    var ids = currentIds();
+    if (!ids.length) return;
+    try {
+      var res = await fetch(endpoint + '&ids=' + encodeURIComponent(ids.join(',')), {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) return;
+      var data = await res.json();
+      Object.keys(data).forEach(function (id) {
+        var badge = tbody.querySelector('[data-views-for="' + id + '"] .views-count');
+        if (!badge) return;
+        var newVal = parseInt(data[id], 10) || 0;
+        var oldVal = parseInt((badge.textContent || '0').replace(/[^\d]/g, ''), 10) || 0;
+        if (newVal !== oldVal) {
+          badge.textContent = formatNumber(newVal);
+          flash(badge.closest('.views-badge'));
+        }
+      });
+    } catch (e) { /* swallow — try again next tick */ }
+  }
+
+  setInterval(poll, POLL_MS);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) poll(); // refresh immediately when tab regains focus
+  });
+})();
 </script>
 
 <?php include __DIR__ . '/includes/admin-footer.php'; ?>

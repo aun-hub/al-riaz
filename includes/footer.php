@@ -11,6 +11,9 @@ $s = function(string $k, string $fallback = '') use ($settings): string {
     return !empty($settings[$k]) ? (string)$settings[$k] : $fallback;
 };
 $agencyName    = $s('agency_name', defined('SITE_NAME') ? SITE_NAME : 'Al-Riaz Associates');
+$brandSub      = $s('brand_subtitle', 'Real Estate');
+$agencyLat     = $settings['address_lat'] ?? null;
+$agencyLng     = $settings['address_lng'] ?? null;
 $agencyPhone   = $s('phone',       defined('SITE_PHONE') ? SITE_PHONE : '');
 $agencyWa      = $s('whatsapp',    defined('SITE_WHATSAPP') ? SITE_WHATSAPP : '');
 $agencyEmail   = $s('email',       defined('SITE_EMAIL') ? SITE_EMAIL : '');
@@ -44,7 +47,7 @@ $youtubeUrl    = $s('youtube_url');
                         <?php endif; ?>
                         <div>
                             <div class="footer-brand-name"><?= htmlspecialchars($agencyName) ?></div>
-                            <div class="footer-brand-sub">Real Estate</div>
+                            <div class="footer-brand-sub"><?= htmlspecialchars($brandSub, ENT_QUOTES, 'UTF-8') ?></div>
                         </div>
                     </div>
                     <p class="footer-desc">
@@ -52,23 +55,23 @@ $youtubeUrl    = $s('youtube_url');
                     </p>
                     <div class="footer-social" aria-label="Social media links">
                         <?php if ($facebookUrl): ?>
-                        <a href="<?= htmlspecialchars($facebookUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn" aria-label="Facebook">
+                        <a href="<?= htmlspecialchars($facebookUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn footer-social-btn--facebook" aria-label="Facebook">
                             <i class="fa-brands fa-facebook-f"></i>
                         </a>
                         <?php endif; ?>
                         <?php if ($instagramUrl): ?>
-                        <a href="<?= htmlspecialchars($instagramUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn" aria-label="Instagram">
+                        <a href="<?= htmlspecialchars($instagramUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn footer-social-btn--instagram" aria-label="Instagram">
                             <i class="fa-brands fa-instagram"></i>
                         </a>
                         <?php endif; ?>
                         <?php if ($youtubeUrl): ?>
-                        <a href="<?= htmlspecialchars($youtubeUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn" aria-label="YouTube">
+                        <a href="<?= htmlspecialchars($youtubeUrl) ?>" target="_blank" rel="noopener noreferrer" class="footer-social-btn footer-social-btn--youtube" aria-label="YouTube">
                             <i class="fa-brands fa-youtube"></i>
                         </a>
                         <?php endif; ?>
                         <?php if ($agencyWa): ?>
                         <a href="https://wa.me/<?= htmlspecialchars($agencyWa) ?>" target="_blank" rel="noopener noreferrer"
-                           class="footer-social-btn" aria-label="WhatsApp" style="background:#25D366; border-color:#25D366; color:#fff;">
+                           class="footer-social-btn footer-social-btn--whatsapp" aria-label="WhatsApp">
                             <i class="fa-brands fa-whatsapp"></i>
                         </a>
                         <?php endif; ?>
@@ -125,13 +128,16 @@ $youtubeUrl    = $s('youtube_url');
                     </div>
                     <?php endif; ?>
 
+                    <?php if (trim((string)$agencyAddress) !== '' || (is_numeric($agencyLat) && is_numeric($agencyLng))): ?>
                     <div style="margin-top:1.25rem;">
-                        <a href="https://maps.google.com/?q=<?= rawurlencode($agencyAddress) ?>"
+                        <a href="<?= htmlspecialchars(googleDirectionsUrl($agencyAddress, $agencyLat, $agencyLng), ENT_QUOTES, 'UTF-8') ?>"
                            target="_blank" rel="noopener noreferrer"
-                           class="btn-outline-white" style="font-size:0.8rem; padding:0.5rem 1rem;">
-                            <i class="fa-solid fa-map"></i> Get Directions
+                           class="btn-outline-white" style="font-size:0.8rem; padding:0.5rem 1rem;"
+                           aria-label="Get directions to <?= htmlspecialchars($agencyAddress, ENT_QUOTES, 'UTF-8') ?>">
+                            <i class="fa-solid fa-diamond-turn-right"></i> Get Directions
                         </a>
                     </div>
+                    <?php endif; ?>
                 </div>
 
             </div><!-- /.row -->

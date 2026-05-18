@@ -789,6 +789,14 @@ body, body.admin-body {
   box-shadow: 0 0 0 0.2rem rgba(245,179,1,0.2);
 }
 
+/* Faded placeholder — separate vendor prefixes for browser support; opacity
+   pinned to 1 because Firefox dims placeholders by default and we want full
+   control over the colour. */
+.login-card-body .form-control::placeholder { color: #adb5bd; opacity: 1; }
+.login-card-body .form-control::-webkit-input-placeholder { color: #adb5bd; opacity: 1; }
+.login-card-body .form-control::-moz-placeholder { color: #adb5bd; opacity: 1; }
+.login-card-body .form-control:-ms-input-placeholder { color: #adb5bd; opacity: 1; }
+
 .btn-login {
   background: var(--gold);
   border: none;

@@ -10,23 +10,8 @@ require_once 'includes/functions.php';
 
 $db = Database::getInstance();
 
-// Fetch live stats for trust strip
-$totalListings = 500;
-$totalProjects = 15;
-$happyClients  = 200;
-$yearsActive   = 5;
-
-try {
-    $r = $db->query('SELECT COUNT(*) FROM properties WHERE is_published = 1 AND is_sold = 0');
-    $c = (int) $r->fetchColumn();
-    if ($c > 0) $totalListings = $c;
-} catch (Exception $e) { /* use seed */ }
-
-try {
-    $r = $db->query('SELECT COUNT(*) FROM projects WHERE is_published = 1');
-    $c = (int) $r->fetchColumn();
-    if ($c > 0) $totalProjects = $c;
-} catch (Exception $e) { /* use seed */ }
+// Years-active seed — used by the page-header subtitle default.
+$yearsActive = 5;
 
 // Fetch agents from DB
 try {
@@ -151,42 +136,6 @@ require_once 'includes/header.php';
                     <?php endif; ?>
                 </div>
             </div>
-        </div>
-    </div>
-</section>
-
-<!-- ============================================================
-     KEY STATS
-     ============================================================ -->
-<?php
-    // Editable from Settings → About Page → Key Stats. If a value is left
-    // blank, fall back to the auto-derived/seed defaults below so the
-    // section stays populated.
-    $statFallbacks = [$totalListings, $totalProjects, $happyClients, $yearsActive];
-    $statLabelsDefault = ['Properties Listed', 'Active Projects', 'Happy Clients', 'Years Active'];
-    $aboutStats = $storySettings['about_stats'] ?? [];
-?>
-<section class="stats-section">
-    <div class="container">
-        <div class="row g-4 justify-content-center">
-            <?php for ($i = 0; $i < 4; $i++):
-                $row = $aboutStats[$i] ?? [];
-                $rawVal = trim((string)($row['value'] ?? ''));
-                $label  = trim((string)($row['label'] ?? '')) ?: $statLabelsDefault[$i];
-                $value  = $rawVal !== '' ? $rawVal : (string)$statFallbacks[$i];
-                // Pull the leading number out for the count-up animation; fall
-                // back to the full string if it isn't a clean number ("5+ Yrs").
-                preg_match('/^\d+/', $value, $m);
-                $countTo = $m[0] ?? $value;
-                $delay   = $i === 0 ? '' : ' style="--delay:0.' . $i . 's"';
-            ?>
-            <div class="col-6 col-md-3">
-                <div class="stat-card reveal"<?= $delay ?>>
-                    <div class="stat-number" data-count-to="<?= htmlspecialchars($countTo, ENT_QUOTES, 'UTF-8') ?>">0<span class="suffix">+</span></div>
-                    <div class="stat-label"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></div>
-                </div>
-            </div>
-            <?php endfor; ?>
         </div>
     </div>
 </section>
@@ -592,6 +541,8 @@ $aboutOffices[] = [
     'icon'    => 'fas fa-building',
     'name'    => $aboutHq['name'] ?: 'Main Office',
     'address' => $aboutHq['address'],
+    'lat'     => $aboutHq['lat'] ?? null,
+    'lng'     => $aboutHq['lng'] ?? null,
     'phone'   => $aboutHq['phone'],
     'hours'   => $aboutHq['hours'],
 ];
@@ -601,6 +552,8 @@ if ($aboutHq['source'] === 'branch') {
         'icon'    => 'fas fa-building',
         'name'    => 'Main Office',
         'address' => $aboutMainAddr,
+        'lat'     => $aboutSettings['address_lat'] ?? null,
+        'lng'     => $aboutSettings['address_lng'] ?? null,
         'phone'   => $aboutMainPhone,
         'hours'   => $aboutMainHrs,
     ];
@@ -617,6 +570,8 @@ foreach ($aboutBranches as $br) {
         'icon'    => 'fas fa-store',
         'name'    => $bName ?: 'Branch Office',
         'address' => $bAddress,
+        'lat'     => $br['lat'] ?? null,
+        'lng'     => $br['lng'] ?? null,
         'phone'   => $bPhone,
         'hours'   => $bHours,
     ];
@@ -630,7 +585,13 @@ foreach ($aboutBranches as $br) {
             <?php foreach ($aboutOffices as $off):
                 $addrLines   = preg_split('/\r\n|\r|\n/', (string)$off['address']);
                 $firstToken  = trim(preg_split('/[,\n]/', (string)$off['address'])[0] ?? '');
-                $mapQuery    = rawurlencode((string)$off['address'] ?: $firstToken);
+                $officeAddr  = trim((string)$off['address']) !== '' ? (string)$off['address'] : $firstToken;
+                $officeLat   = $off['lat'] ?? null;
+                $officeLng   = $off['lng'] ?? null;
+                $hasCoords   = is_numeric($officeLat) && is_numeric($officeLng);
+                $directions  = ($officeAddr !== '' || $hasCoords)
+                    ? googleDirectionsUrl($officeAddr, $officeLat, $officeLng)
+                    : '';
             ?>
             <div class="col-12 col-md-6">
                 <div class="office-card h-100">
@@ -673,13 +634,15 @@ foreach ($aboutBranches as $br) {
                         <div><?= nl2br(htmlspecialchars($off['hours'])) ?></div>
                     </div>
                     <?php endif; ?>
-                    <?php if ($mapQuery !== ''): ?>
+                    <?php if ($directions !== ''): ?>
                     <div class="map-wrap mt-3">
                         <div class="map-placeholder">
                             <i class="fas fa-map-location-dot"></i>
                             <span><?= htmlspecialchars($firstToken ?: $off['address']) ?></span>
-                            <a href="https://maps.google.com/?q=<?= $mapQuery ?>"
-                               target="_blank" rel="noopener" class="btn-outline-navy" style="font-size:.82rem; margin-top:.5rem;">
+                            <a href="<?= htmlspecialchars($directions, ENT_QUOTES, 'UTF-8') ?>"
+                               target="_blank" rel="noopener noreferrer" class="btn-outline-navy"
+                               style="font-size:.82rem; margin-top:.5rem;"
+                               aria-label="Get directions to <?= htmlspecialchars($officeAddr, ENT_QUOTES, 'UTF-8') ?>">
                                 <i class="fas fa-diamond-turn-right me-1"></i>Get Directions
                             </a>
                         </div>
@@ -695,39 +658,115 @@ foreach ($aboutBranches as $br) {
 <!-- ============================================================
      AWARDS & RECOGNITION
      ============================================================ -->
-<section style="background:var(--navy-50); padding:5rem 0;">
-    <div class="container">
-        <h2 class="content-heading text-center mb-5">Awards &amp; Recognition</h2>
-        <p class="text-center text-muted mb-4">Our commitment to excellence, recognized by the industry</p>
+<?php
+$awardsSettings = function_exists('getSettings') ? getSettings() : [];
+// Admin toggle from Settings → About Page → Awards & Recognition. Default
+// to enabled (1) so existing installs keep showing the strip until an admin
+// explicitly turns it off.
+$awardsEnabled  = !array_key_exists('about_awards_enabled', $awardsSettings)
+                || !empty($awardsSettings['about_awards_enabled']);
+$awardsHeading  = trim((string)($awardsSettings['about_awards_heading'] ?? '')) ?: 'Awards & Recognition';
+$awardsSub      = trim((string)($awardsSettings['about_awards_sub']     ?? '')) ?: 'Our commitment to excellence, recognized by the industry';
+$awardsList     = is_array($awardsSettings['about_awards'] ?? null) ? $awardsSettings['about_awards'] : [];
+$awardsList     = array_values(array_filter($awardsList, fn($a) => !empty(trim((string)($a['title'] ?? '')))));
+?>
+<?php if ($awardsEnabled && !empty($awardsList)): ?>
+<section class="awards-section">
+    <div class="awards-bg-orb awards-bg-orb-a" aria-hidden="true"></div>
+    <div class="awards-bg-orb awards-bg-orb-b" aria-hidden="true"></div>
+    <div class="container position-relative">
+        <h2 class="content-heading text-center mb-2"><?= htmlspecialchars($awardsHeading, ENT_QUOTES, 'UTF-8') ?></h2>
+        <p class="text-center mb-5 awards-subtitle"><?= htmlspecialchars($awardsSub, ENT_QUOTES, 'UTF-8') ?></p>
         <div class="row g-3 justify-content-center">
-            <?php
-            $awards = [
-                ['fas fa-trophy',    'Best Authorised Dealer 2024',    'Awarded by Bahria Town Pvt Ltd'],
-                ['fas fa-medal',     'Top Sales Partner 2023',         'DHA Islamabad Regional Award'],
-                ['fas fa-star',      'Client Satisfaction Award 2023', 'Capital Smart City Recognition'],
-                ['fas fa-handshake', 'Trusted Agency 2022',            'Pakistan Real Estate Forum'],
-            ];
-            foreach ($awards as $award) :
+            <?php foreach ($awardsList as $award):
+                $icon  = trim((string)($award['icon'] ?? '')) ?: 'fa-trophy';
+                $title = trim((string)($award['title'] ?? ''));
+                $desc  = trim((string)($award['desc']  ?? ''));
             ?>
             <div class="col-6 col-md-3">
                 <div class="award-card">
-                    <div class="award-icon"><i class="<?= $award[0] ?>"></i></div>
-                    <div class="award-title"><?= $award[1] ?></div>
-                    <div class="award-desc"><?= $award[2] ?></div>
+                    <div class="award-icon"><i class="fa-solid <?= htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') ?>"></i></div>
+                    <div class="award-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="award-desc"><?= htmlspecialchars($desc, ENT_QUOTES, 'UTF-8') ?></div>
                 </div>
             </div>
             <?php endforeach; ?>
         </div>
     </div>
 </section>
+<style>
+.awards-section {
+    position: relative;
+    overflow: hidden;
+    padding: 5rem 0;
+    background:
+        radial-gradient(circle at 18% 20%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 55%),
+        linear-gradient(135deg, #fff7d6 0%, #f7d977 45%, #e8b53a 100%);
+}
+.awards-section::before {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0) 40%),
+        radial-gradient(ellipse at top right, rgba(255,255,255,.35), rgba(255,255,255,0) 55%);
+    pointer-events: none;
+}
+.awards-section .content-heading { color: var(--navy-900, #0a1628); }
+.awards-section .awards-subtitle { color: rgba(10,22,40,.72); font-weight:500; }
+.awards-bg-orb {
+    position: absolute; border-radius: 50%;
+    filter: blur(60px); opacity: .55; pointer-events: none;
+}
+.awards-bg-orb-a { top:-80px; left:-60px; width:280px; height:280px; background: radial-gradient(circle, #fff6c2 0%, transparent 70%); }
+.awards-bg-orb-b { bottom:-100px; right:-80px; width:340px; height:340px; background: radial-gradient(circle, #fbe18a 0%, transparent 70%); }
+.awards-section .award-card {
+    position: relative;
+    background:#fff;
+    border:1px solid rgba(245,179,1,.35);
+    border-radius:14px;
+    padding:1.75rem 1.25rem;
+    text-align:center;
+    box-shadow: 0 14px 32px -16px rgba(10,22,40,.25), 0 2px 4px rgba(10,22,40,.04);
+    transition: transform .2s ease, box-shadow .2s ease;
+    overflow:hidden;
+    height:100%;
+}
+.awards-section .award-card::before {
+    content:""; position:absolute; inset:0;
+    background: linear-gradient(180deg, rgba(245,179,1,.06), transparent 60%);
+    pointer-events:none;
+}
+.awards-section .award-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 24px 44px -16px rgba(10,22,40,.32), 0 4px 8px rgba(10,22,40,.06);
+    border-color: rgba(245,179,1,.6);
+}
+.awards-section .award-icon {
+    width:60px; height:60px; margin:0 auto 1rem;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%;
+    background: linear-gradient(135deg, #f7d977 0%, #e8b53a 100%);
+    color: var(--navy-900, #0a1628);
+    font-size:1.4rem;
+    box-shadow: 0 6px 14px rgba(232,181,58,.35);
+}
+.awards-section .award-title {
+    font-weight:700; color: var(--navy-900, #0a1628);
+    margin-bottom:.4rem; line-height:1.3;
+}
+.awards-section .award-desc { color: var(--text-secondary, #6b7280); font-size:.9rem; }
+</style>
+<?php endif; ?>
 
 <!-- ============================================================
      CLIENT REVIEWS
      ============================================================ -->
-<section id="reviews" style="background:#fff; padding:5rem 0;">
+<section id="reviews" class="testimonial-marquee-section" style="padding:5rem 0;">
+    <div class="testimonial-bg-orb testimonial-bg-orb-a" aria-hidden="true"></div>
+    <div class="testimonial-bg-orb testimonial-bg-orb-b" aria-hidden="true"></div>
     <div class="container">
         <h2 class="content-heading text-center mb-2">What Our Clients Say</h2>
-        <p class="text-center text-muted mb-4">
+        <p class="text-center text-muted mb-1">
             <?php if ($reviewCount > 0): ?>
                 <strong><?= number_format($reviewAvg, 1) ?>/5</strong>
                 from <?= (int)$reviewCount ?> verified review<?= $reviewCount === 1 ? '' : 's' ?>
@@ -737,35 +776,10 @@ foreach ($aboutBranches as $br) {
         </p>
 
         <style>
-          .review-card {
-            background: var(--navy-50, #f6f9fc);
-            border: 1px solid #e6ebf2;
-            border-radius: 12px;
-            padding: 1.5rem;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: .8rem;
-            transition: transform .15s ease, box-shadow .15s ease;
-          }
-          .review-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 24px rgba(10,22,40,.08);
-          }
-          .review-stars { color: #F5B301; font-size: 1rem; letter-spacing: 1px; }
-          .review-title { font-weight: 700; color: var(--navy-700, #0A1628); font-size: 1rem; }
-          .review-body  { color: #4a5568; font-size: .95rem; line-height: 1.55; flex: 1; white-space: pre-line; }
-          .review-meta  { display:flex; align-items:center; gap:.6rem; font-size:.85rem; color:#6c757d; }
-          .review-avatar {
-            width: 38px; height: 38px; border-radius: 50%;
-            background: var(--sidebar-bg, #0A1628); color: #F5B301;
-            display:flex; align-items:center; justify-content:center;
-            font-weight:700; flex-shrink:0;
-          }
-
           .review-form-card {
             background:#fff; border:1px solid #e6ebf2; border-radius:14px;
             padding:2rem; box-shadow:0 4px 20px rgba(10,22,40,.04);
+            position: relative; z-index: 1;
           }
           .review-form-card h3 { font-size:1.25rem; color:var(--navy-700,#0A1628); margin-bottom:1rem; }
           .star-rating { display:inline-flex; flex-direction:row-reverse; gap:.25rem; }
@@ -782,39 +796,13 @@ foreach ($aboutBranches as $br) {
           }
           .review-success.is-visible { display:block; }
         </style>
+    </div>
 
-        <?php if (!empty($clientReviews)): ?>
-        <div class="row g-3 mb-5">
-            <?php foreach ($clientReviews as $rv):
-                $initial = mb_strtoupper(mb_substr($rv['name'] ?? '?', 0, 1));
-                $stars   = max(1, min(5, (int)$rv['rating']));
-            ?>
-            <div class="col-12 col-md-6 col-lg-4">
-                <div class="review-card">
-                    <div class="review-stars" aria-label="<?= $stars ?> out of 5 stars">
-                        <?php for ($i=1;$i<=5;$i++): ?>
-                            <i class="fa-<?= $i <= $stars ? 'solid' : 'regular' ?> fa-star"></i>
-                        <?php endfor; ?>
-                    </div>
-                    <?php if (!empty($rv['title'])): ?>
-                    <div class="review-title"><?= htmlspecialchars($rv['title'], ENT_QUOTES, 'UTF-8') ?></div>
-                    <?php endif; ?>
-                    <div class="review-body"><?= htmlspecialchars($rv['body'], ENT_QUOTES, 'UTF-8') ?></div>
-                    <div class="review-meta">
-                        <div class="review-avatar"><?= htmlspecialchars($initial, ENT_QUOTES, 'UTF-8') ?></div>
-                        <div>
-                            <div style="font-weight:600; color:var(--navy-700,#0A1628);">
-                                <?= htmlspecialchars($rv['name'], ENT_QUOTES, 'UTF-8') ?>
-                            </div>
-                            <div><?= htmlspecialchars(date('M Y', strtotime($rv['created_at'])), ENT_QUOTES, 'UTF-8') ?></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
+    <?php if (!empty($clientReviews)): $reviews = $clientReviews; include __DIR__ . '/includes/_reviews_marquee.php'; ?>
+    <div class="container mb-5"></div>
+    <?php endif; ?>
 
+    <div class="container">
         <!-- Submission form -->
         <div class="row justify-content-center">
             <div class="col-12 col-lg-8">

@@ -13,6 +13,15 @@ $pageTitle = $pageTitle ?? 'Admin Panel';
 $flash = !empty($_SESSION['flash']) ? $_SESSION['flash'] : null;
 if ($flash) unset($_SESSION['flash']);
 
+// Admin pages must never be cached: they reflect mutable per-request state
+// (flash messages, latest DB reads, CSRF tokens) and a stale view here has
+// surfaced as "I edited a row but don't see the change" more than once.
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+}
+
 // Always refresh avatar URL from the DB on each admin page load so the top-
 // right circle stays in sync — e.g. when an admin updates this user's avatar
 // from /admin/user-form.php, the user sees it without having to log out.

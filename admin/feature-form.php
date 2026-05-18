@@ -15,11 +15,12 @@ $isEdit    = $id > 0;
 $pageTitle = $isEdit ? 'Edit Feature' : 'New Feature';
 
 $data = [
-    'slug'       => '',
-    'label'      => '',
-    'icon'       => 'fa-check-circle',
-    'sort_order' => 0,
-    'is_active'  => 1,
+    'slug'         => '',
+    'label'        => '',
+    'icon'         => 'fa-check-circle',
+    'sort_order'   => 0,
+    'is_active'    => 1,
+    'show_on_site' => 1,
 ];
 
 if ($isEdit) {
@@ -39,11 +40,12 @@ $formErrors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrf();
     $fields = [
-        'slug'       => preg_replace('/[^a-z0-9_]/', '', strtolower(trim($_POST['slug'] ?? ''))),
-        'label'      => trim($_POST['label'] ?? ''),
-        'icon'       => trim($_POST['icon'] ?? 'fa-check-circle') ?: 'fa-check-circle',
-        'sort_order' => (int)($_POST['sort_order'] ?? 0),
-        'is_active'  => isset($_POST['is_active']) ? 1 : 0,
+        'slug'         => preg_replace('/[^a-z0-9_]/', '', strtolower(trim($_POST['slug'] ?? ''))),
+        'label'        => trim($_POST['label'] ?? ''),
+        'icon'         => trim($_POST['icon'] ?? 'fa-check-circle') ?: 'fa-check-circle',
+        'sort_order'   => (int)($_POST['sort_order'] ?? 0),
+        'is_active'    => isset($_POST['is_active'])    ? 1 : 0,
+        'show_on_site' => isset($_POST['show_on_site']) ? 1 : 0,
     ];
 
     if ($fields['label'] === '') $formErrors[] = 'Label is required.';
@@ -166,11 +168,18 @@ include __DIR__ . '/includes/admin-sidebar.php';
   <div class="form-section-card">
     <div class="card-header"><i class="fa-solid fa-sliders" style="color:var(--gold)"></i> Status</div>
     <div class="card-body">
-      <div class="form-check form-switch">
+      <div class="form-check form-switch mb-2">
         <input class="form-check-input" type="checkbox" id="featActive" name="is_active" value="1"
                <?= $data['is_active'] ? 'checked' : '' ?>>
         <label class="form-check-label" for="featActive">
           <i class="fa-solid fa-eye text-success me-1"></i> Show as a checkbox option in the listing form
+        </label>
+      </div>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="featShowOnSite" name="show_on_site" value="1"
+               <?= $data['show_on_site'] ? 'checked' : '' ?>>
+        <label class="form-check-label" for="featShowOnSite">
+          <i class="fa-solid fa-globe text-primary me-1"></i> Show on the public website (listing detail page)
         </label>
       </div>
     </div>
